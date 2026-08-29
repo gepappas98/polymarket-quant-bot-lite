@@ -7,9 +7,9 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [ ] **WebSocket CLOB market channel** — lower-latency books than REST polling
 - [ ] **Window open-price delta** — fair value from Chainlink/Binance vs Polymarket implied (replace lightweight imbalance signal)
 - [ ] **Order lifecycle** — cancel stale limits, reconcile fills via user channel
-- [ ] **Auto-redeem** resolved winning positions
+- [x] **Auto-redeem** resolved winning positions — internal PnL bookkeeping now settles automatically via `bot/resolver.py` once Gamma reports a window's outcome (on-chain redemption for LIVE mode is still a separate, not-yet-done step)
 - [ ] **Structured logging** (JSON) + optional Prometheus metrics
-- [ ] **Unit tests** for strategy gates, arb math, and market slug discovery
+- [x] **Unit tests** for strategy gates, arb math, and market slug discovery — see `tests/` (`pytest`)
 
 ## Medium term (v0.4–v0.5)
 
