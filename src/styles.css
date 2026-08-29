@@ -89,5 +89,47 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+    background-image:
+      linear-gradient(to right, var(--grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+    background-size: 48px 48px;
+    background-attachment: fixed;
   }
 }
+
+@utility panel {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background-color: color-mix(in oklab, var(--surface) 88%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+@utility tape {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+@utility label-caps {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@utility live-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
