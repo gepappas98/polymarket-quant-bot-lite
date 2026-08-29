@@ -9,6 +9,7 @@ import {
   MarketsTable,
   PnlChart,
   StatTile,
+  SupportPanel,
   usd,
 } from "@/components/dashboard/Panels";
 
@@ -122,6 +123,10 @@ function Dashboard() {
           <LedgerFeed rows={data.ledger} />
           <ConfigPanel config={config} />
         </div>
+      </div>
+
+      <div className="mt-3">
+        <SupportPanel />
       </div>
 
       <footer className="tape mt-6 text-[10px] leading-relaxed text-muted-foreground">
