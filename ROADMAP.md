@@ -13,7 +13,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 
 ## Medium term (v0.4–v0.5)
 
-- [ ] **Multi-asset** defaults: ETH, SOL, XRP 5m/15m with per-asset exposure caps
+- [x] **Multi-asset** defaults: ETH, SOL, XRP 5m/15m with per-asset exposure caps — `ASSETS` defaults to `BTC,ETH,SOL,XRP`; optional `MAX_MARKET_EXPOSURE_BY_ASSET` overrides per asset (falls back to the global cap)
 - [ ] **Backtest harness** against historical CLOB snapshots (if available)
 - [x] **Max drawdown + low-profit pair locks** (Nexus-style portfolio protections) — `bot/portfolio_gates.py`; also fixed a pre-existing bug where the daily-loss kill switch read a counter that was never updated
 - [x] **Dashboard** — React/TanStack dashboard (`polymarket-quant-bot-lite-main`, Lovable/Vercel) + `bot/status_server.py` JSON bridge on the worker (Fly/Railway); not FastAPI as originally sketched, same effect
