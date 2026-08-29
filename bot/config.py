@@ -1,9 +1,24 @@
 import os
 from dataclasses import dataclass, field
-from typing import List
+from typing import Dict, List
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+def _parse_asset_map(raw: str) -> Dict[str, float]:
+    """Parse 'BTC:150,ETH:100,SOL:50,XRP:50' into {'BTC': 150.0, ...}. Blank → {}."""
+    out: Dict[str, float] = {}
+    for part in raw.split(","):
+        part = part.strip()
+        if not part or ":" not in part:
+            continue
+        asset, value = part.split(":", 1)
+        try:
+            out[asset.strip().upper()] = float(value.strip())
+        except ValueError:
+            continue
+    return out
 
 
 @dataclass
@@ -16,12 +31,17 @@ class Config:
     funder_address: str = os.getenv("POLYMARKET_FUNDER_ADDRESS", "")
 
     # Markets
-    assets: List[str] = field(default_factory=lambda: os.getenv("ASSETS", "BTC").split(","))
+    assets: List[str] = field(default_factory=lambda: os.getenv("ASSETS", "BTC,ETH,SOL,XRP").split(","))
     windows: List[int] = field(default_factory=lambda: [int(x) for x in os.getenv("WINDOWS", "5,15").split(",")])
 
     # Risk
     max_order_usd: float = float(os.getenv("MAX_ORDER_USD", "25"))
     max_market_exposure_usd: float = float(os.getenv("MAX_MARKET_EXPOSURE_USD", "150"))
+    # Optional per-asset overrides, e.g. "BTC:150,ETH:100,SOL:50,XRP:50".
+    # Any asset not listed falls back to max_market_exposure_usd above.
+    max_market_exposure_by_asset: Dict[str, float] = field(
+        default_factory=lambda: _parse_asset_map(os.getenv("MAX_MARKET_EXPOSURE_BY_ASSET", ""))
+    )
     arb_threshold: float = float(os.getenv("ARB_THRESHOLD", "0.985"))
     min_directional_edge: float = float(os.getenv("MIN_DIRECTIONAL_EDGE", "0.03"))
     prefer_maker: bool = os.getenv("PREFER_MAKER", "true").lower() == "true"
@@ -43,6 +63,10 @@ class Config:
     log_format: str = os.getenv("LOG_FORMAT", "text").lower()
     # Optional Prometheus-style /metrics on the status server (needs STATUS_PORT set)
     enable_metrics: bool = os.getenv("ENABLE_METRICS", "false").lower() == "true"
+
+    def exposure_cap_for(self, asset: str) -> float:
+        """Per-asset market exposure cap, falling back to the global default."""
+        return self.max_market_exposure_by_asset.get((asset or "").upper(), self.max_market_exposure_usd)
 
     def is_live(self) -> bool:
         """True only when double opt-in passes (checked properly in gates)."""

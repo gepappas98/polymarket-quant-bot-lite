@@ -54,6 +54,7 @@ def _config_dict() -> Dict[str, Any]:
         "windows": cfg.windows,
         "maxOrderUsd": cfg.max_order_usd,
         "maxMarketExposureUsd": cfg.max_market_exposure_usd,
+        "maxMarketExposureByAsset": cfg.max_market_exposure_by_asset or None,
         "arbThreshold": cfg.arb_threshold,
         "minDirectionalEdge": cfg.min_directional_edge,
         "dailyLossLimitUsd": cfg.daily_loss_limit_usd,
