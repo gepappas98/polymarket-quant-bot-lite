@@ -19,6 +19,7 @@ from rich.live import Live
 from rich.panel import Panel
 
 from .config import cfg
+from .logging_setup import configure_logging
 from .market_finder import find_all_active
 from .feeds import PriceFeed, MarketState
 from .strategy import Strategy
@@ -29,10 +30,7 @@ from .resolver import Resolver
 from .status_server import start_status_server, update_markets
 
 console = Console()
-logging.basicConfig(
-    level=getattr(logging, cfg.log_level.upper(), logging.INFO),
-    format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
-)
+configure_logging(cfg.log_level, cfg.log_format)
 log = logging.getLogger("main")
 
 running = True

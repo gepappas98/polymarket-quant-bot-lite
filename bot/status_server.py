@@ -9,9 +9,12 @@ automatically in a background thread when the env var is present.
 Point the dashboard at it by setting, on the dashboard's host (Vercel/Lovable):
   BOT_STATUS_URL=https://<your-worker-host>/status
 
-Note: pnlSeries / trackRecord stay at zero until outcome resolution is wired
-up (recording a window's win/loss via ledger.record_outcome) — that isn't
-implemented yet in this lite version; see ROADMAP.md.
+Set ENABLE_METRICS=true to also expose GET /metrics in Prometheus text
+exposition format (a handful of counters/gauges — no prometheus_client
+dependency needed).
+
+Note: pnlSeries / trackRecord stay at zero until an outcome is recorded via
+bot/resolver.py, which polls Gamma for settlement after each window closes.
 """
 
 from __future__ import annotations
@@ -165,6 +168,41 @@ def build_status() -> Dict[str, Any]:
     }
 
 
+def _prometheus_metrics() -> str:
+    """
+    Minimal hand-rolled Prometheus text exposition (no prometheus_client
+    dependency needed for a handful of gauges/counters).
+    """
+    summary = ledger.session_summary()
+    wr = ledger.win_rate(min_samples=cfg.min_track_record_samples)
+    live = is_live_trading_allowed()
+
+    lines = [
+        "# HELP polybot_uptime_seconds Seconds since the process started",
+        "# TYPE polybot_uptime_seconds gauge",
+        f"polybot_uptime_seconds {int(time.time() - _start_time)}",
+        "# HELP polybot_live_trading_allowed 1 if the live double opt-in gate currently passes",
+        "# TYPE polybot_live_trading_allowed gauge",
+        f"polybot_live_trading_allowed {1 if live.allowed else 0}",
+        "# HELP polybot_intents_total Trade intents evaluated this session",
+        "# TYPE polybot_intents_total counter",
+        f"polybot_intents_total {summary['intents']}",
+        "# HELP polybot_blocked_total Intents blocked by a safety gate this session",
+        "# TYPE polybot_blocked_total counter",
+        f"polybot_blocked_total {summary['blocked']}",
+        "# HELP polybot_fills_total Fills executed this session",
+        "# TYPE polybot_fills_total counter",
+        f"polybot_fills_total {summary['fills']}",
+        "# HELP polybot_total_usd_traded Total USD size filled this session",
+        "# TYPE polybot_total_usd_traded counter",
+        f"polybot_total_usd_traded {summary['total_usd']}",
+        "# HELP polybot_win_rate_pct Win rate from the outcome ledger (0 if below min sample size)",
+        "# TYPE polybot_win_rate_pct gauge",
+        f"polybot_win_rate_pct {wr['win_rate_pct'] if wr else 0}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 class _Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path in ("/", "/status", "/health", "/healthz"):
@@ -178,6 +216,18 @@ class _Handler(BaseHTTPRequestHandler):
                 self.wfile.write(body)
             except Exception as e:
                 log.exception(f"status_server error: {e}")
+                self.send_response(500)
+                self.end_headers()
+        elif self.path == "/metrics" and cfg.enable_metrics:
+            try:
+                body = _prometheus_metrics().encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain; version=0.0.4")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception as e:
+                log.exception(f"metrics error: {e}")
                 self.send_response(500)
                 self.end_headers()
         else:
