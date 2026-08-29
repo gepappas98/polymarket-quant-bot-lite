@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional
 from .config import cfg
 from .gates import cooldown, is_live_trading_allowed
 from .ledger import ledger
+from .portfolio_gates import max_drawdown_gate, pair_lock, session_pnl
 
 log = logging.getLogger(__name__)
 
@@ -66,7 +67,8 @@ def _config_dict() -> Dict[str, Any]:
 def _gates_list() -> List[Dict[str, Any]]:
     live = is_live_trading_allowed()
     wr = ledger.win_rate(min_samples=cfg.min_track_record_samples)
-    return [
+    drawdown = max_drawdown_gate()
+    rows = [
         {
             "name": "Live trading double opt-in",
             "allowed": live.allowed,
@@ -74,8 +76,8 @@ def _gates_list() -> List[Dict[str, Any]]:
         },
         {
             "name": "Daily loss kill-switch",
-            "allowed": True,
-            "reason": f"limit {cfg.daily_loss_limit_usd} USD",
+            "allowed": drawdown.allowed,
+            "reason": drawdown.reason or f"session PnL ${session_pnl():.2f} (limit {cfg.daily_loss_limit_usd} USD)",
         },
         {
             "name": "Order size limit",
@@ -102,6 +104,10 @@ def _gates_list() -> List[Dict[str, Any]]:
             "reason": f"{cfg.cooldown_minutes} min lock after each admitted intent",
         },
     ]
+    locks = pair_lock.status()
+    for slug, reason in locks.items():
+        rows.append({"name": f"Low-profit pair lock: {slug}", "allowed": False, "reason": reason})
+    return rows
 
 
 def _ledger_rows(limit: int = 50) -> List[Dict[str, Any]]:
