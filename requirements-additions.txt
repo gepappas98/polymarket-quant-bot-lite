@@ -1,0 +1,15 @@
+# --- Προσθήκες για Priority 1 features ---
+# (κανένα από αυτά δεν χρειάζεται compiled/heavy deps· market-making, copy-trading
+#  και Kelly χρησιμοποιούν μόνο ό,τι έχεις ήδη: requests, dataclasses, stdlib)
+
+# Το requests>=2.31.0 υπάρχει ήδη στο requirements.txt σου — το χρησιμοποιεί
+# και το νέο bot/strategies/copy_trading.py, δεν χρειάζεται κάτι νέο.
+
+# --- Priority 2 (αν προχωρήσεις) ---
+# psycopg[binary]>=3.1.0        # PostgreSQL storage αντί για JSONL ledger
+# sqlalchemy>=2.0.0             # αν θες ORM πάνω από το psycopg
+
+# --- Priority 3 (μακροπρόθεσμο) ---
+# xgboost>=2.0.0                # ML ensemble probability model
+# scikit-learn>=1.4.0           # feature pipeline γύρω από το xgboost
+# prometheus-client>=0.20.0     # αν αντικαταστήσεις το χειροκίνητο /metrics text με βιβλιοθήκη

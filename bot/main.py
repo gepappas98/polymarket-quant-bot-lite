@@ -28,6 +28,9 @@ from .gates import cooldown, is_live_trading_allowed
 from .ledger import ledger
 from .resolver import Resolver
 from .status_server import start_status_server, update_markets
+from .strategies.base import StrategyRegistry
+from .strategies.market_making import MarketMakingStrategy
+from .strategies.copy_trading import CopyTradingStrategy
 
 console = Console()
 configure_logging(cfg.log_level, cfg.log_format)
@@ -129,6 +132,15 @@ def main():
     executor = create_executor(strategy)
     resolver = Resolver(strategy)
 
+    # Pluggable strategy modules — arb/directional (existing) + market-making
+    # and copy-trading (new, both OFF by default via MM_ENABLED / COPY_TRADING_ENABLED).
+    # All three share the same `strategy` inventory/exposure caps, and their
+    # intents flow through the exact same gates in bot/executor.py.
+    registry = StrategyRegistry()
+    registry.register(strategy)
+    registry.register(MarketMakingStrategy(shared_strategy=strategy))
+    registry.register(CopyTradingStrategy())
+
     status_srv = start_status_server()
     if status_srv:
         console.print("[dim]Status endpoint enabled — set BOT_STATUS_URL on the dashboard to this host's /status[/dim]")
@@ -149,10 +161,10 @@ def main():
                 st.refresh()
                 states.append(st)
 
-            # Evaluate & execute
+            # Evaluate & execute (arb/directional + market-making + copy-trading)
             all_intents = []
             for st in states:
-                intents = strategy.evaluate(st)
+                intents = registry.evaluate_all(st)
                 all_intents.extend(intents)
 
             if all_intents:

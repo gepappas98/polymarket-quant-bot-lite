@@ -16,6 +16,7 @@ from .strategy import Intent, Strategy
 from .gates import gate_intent, is_live_trading_allowed
 from .ledger import ledger, LedgerEntry
 from .portfolio_gates import max_drawdown_gate, pair_lock
+from .daily_limit import check as daily_limit_check
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +43,13 @@ class PaperExecutor:
 
     def execute(self, intents: List[Intent]) -> List[Fill]:
         results: List[Fill] = []
+
+        daily = daily_limit_check()
+        if not daily.allowed:
+            for intent in intents:
+                log.warning(f"[DAILY KILL] {intent.market_slug}: {daily.reason}")
+                ledger.record_intent(intent, dry_run=True, blocked=True, block_reason=daily.reason or "")
+            return results
 
         drawdown = max_drawdown_gate()
         if not drawdown.allowed:
@@ -91,8 +99,23 @@ class PaperExecutor:
         NOTE: this used to check self.daily_pnl, which was initialized to 0.0
         and never updated anywhere — the switch could never fire. It now
         delegates to portfolio_gates.max_drawdown_gate(), which reads real
-        settled PnL from the ledger (populated by bot/resolver.py).
+        settled PnL from the ledger (populated by bot/resolver.py), PLUS
+        bot.daily_limit.check(), which persists across restarts within the
+        same UTC day (max_drawdown_gate alone resets on every process restart).
         """
+        daily = daily_limit_check()
+        if not daily.allowed:
+            log.error(f"KILL SWITCH (daily, persisted): {daily.reason}")
+            ledger.append(LedgerEntry(
+                ts=time.time(),
+                kind="kill",
+                market_slug="*",
+                reason=daily.reason,
+                dry_run=True,
+                status="killed",
+            ))
+            return True
+
         drawdown = max_drawdown_gate()
         if not drawdown.allowed:
             log.error(f"KILL SWITCH: {drawdown.reason}")
@@ -146,6 +169,13 @@ class LiveExecutor:
         from py_clob_client_v2 import OrderArgs, OrderType, Side as ClobSide, PartialCreateOrderOptions
 
         results: List[Fill] = []
+
+        daily = daily_limit_check()
+        if not daily.allowed:
+            for intent in intents:
+                log.warning(f"[DAILY KILL LIVE] {intent.market_slug}: {daily.reason}")
+                ledger.record_intent(intent, dry_run=False, blocked=True, block_reason=daily.reason or "")
+            return results
 
         drawdown = max_drawdown_gate()
         if not drawdown.allowed:
