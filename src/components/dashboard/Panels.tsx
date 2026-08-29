@@ -256,6 +256,33 @@ export function PnlChart({ series }: { series: BotStatus["pnlSeries"] }) {
   );
 }
 
+const BTC_TIP_ADDRESS = "bc1q0d0ccaxuw065ezdulr68azp2fjhc0avaqf0pyz";
+
+export function SupportPanel() {
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=${BTC_TIP_ADDRESS}`;
+  return (
+    <Panel title="Support the developer" hint="btc">
+      <div className="flex flex-col items-center gap-4 px-4 py-6 text-center">
+        <p className="text-sm font-medium">☕ Found Polymarket Quant Bot useful?</p>
+        <p className="max-w-md text-[12px] text-muted-foreground">
+          If this tool helped your trading or development workflow, consider tipping the
+          developer. Every sat counts. 🙏
+        </p>
+        <div className="rounded-lg bg-white p-3">
+          <img src={qrUrl} alt="BTC tip address QR code" width={220} height={220} />
+        </div>
+        <div className="label-caps text-muted-foreground">BTC address</div>
+        <code className="tape rounded border border-border bg-muted px-3 py-2 text-[12px] break-all">
+          {BTC_TIP_ADDRESS}
+        </code>
+      </div>
+      <div className="tape border-t border-border px-4 py-2 text-center text-[10px] text-muted-foreground">
+        POLYMARKET QUANT BOT — Built with 🔥 by the developer
+      </div>
+    </Panel>
+  );
+}
+
 export function ConfigPanel({ config }: { config: BotStatus["config"] }) {
   const rows: [string, string][] = [
     ["Assets", config.assets.join(" · ")],
