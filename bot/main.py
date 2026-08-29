@@ -25,6 +25,7 @@ from .strategy import Strategy
 from .executor import create_executor
 from .gates import cooldown, is_live_trading_allowed
 from .ledger import ledger
+from .resolver import Resolver
 from .status_server import start_status_server, update_markets
 
 console = Console()
@@ -128,6 +129,7 @@ def main():
     feed = PriceFeed()
     strategy = Strategy()
     executor = create_executor(strategy)
+    resolver = Resolver(strategy)
 
     status_srv = start_status_server()
     if status_srv:
@@ -162,7 +164,15 @@ def main():
             # Status
             table = build_status_table(states, strategy, executor)
             console.print(table)
-            update_markets(market_rows(states, strategy))
+            rows = market_rows(states, strategy)
+            update_markets(rows)
+
+            # Outcome resolution: once a window's countdown hits zero, track it
+            # until Gamma reports the settlement price, then record real PnL.
+            for row in rows:
+                if row["secondsToClose"] <= 0:
+                    resolver.mark_closed(row["slug"], row["asset"])
+            resolver.poll()
 
             # Kill switch (paper only tracks simple daily for now)
             if hasattr(executor, "check_kill_switch") and executor.check_kill_switch():
