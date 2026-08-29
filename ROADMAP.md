@@ -8,7 +8,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [ ] **Window open-price delta** — fair value from Chainlink/Binance vs Polymarket implied (replace lightweight imbalance signal)
 - [ ] **Order lifecycle** — cancel stale limits, reconcile fills via user channel
 - [x] **Auto-redeem** resolved winning positions — internal PnL bookkeeping now settles automatically via `bot/resolver.py` once Gamma reports a window's outcome (on-chain redemption for LIVE mode is still a separate, not-yet-done step)
-- [ ] **Structured logging** (JSON) + optional Prometheus metrics
+- [x] **Structured logging** (JSON) + optional Prometheus metrics — set `LOG_FORMAT=json`; `/metrics` on the status server with `ENABLE_METRICS=true`
 - [x] **Unit tests** for strategy gates, arb math, and market slug discovery — see `tests/` (`pytest`)
 
 ## Medium term (v0.4–v0.5)
@@ -16,7 +16,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [ ] **Multi-asset** defaults: ETH, SOL, XRP 5m/15m with per-asset exposure caps
 - [ ] **Backtest harness** against historical CLOB snapshots (if available)
 - [ ] **Max drawdown + low-profit pair locks** (Nexus-style portfolio protections)
-- [ ] **Dashboard** (optional): small FastAPI/React status UI deployable on Vercel + worker on Fly
+- [x] **Dashboard** — React/TanStack dashboard (`polymarket-quant-bot-lite-main`, Lovable/Vercel) + `bot/status_server.py` JSON bridge on the worker (Fly/Railway); not FastAPI as originally sketched, same effect
 - [ ] **MCP tools** — read-only status / safety model for AI clients (like Nexus MCP)
 
 ## Longer term
