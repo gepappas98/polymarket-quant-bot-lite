@@ -28,9 +28,7 @@ from .gates import cooldown, is_live_trading_allowed
 from .ledger import ledger
 from .resolver import Resolver
 from .status_server import start_status_server, update_markets
-from .strategies.base import StrategyRegistry
-from .strategies.market_making import MarketMakingStrategy
-from .strategies.copy_trading import CopyTradingStrategy
+from .strategies.loader import load_all
 
 console = Console()
 configure_logging(cfg.log_level, cfg.log_format)
@@ -132,14 +130,11 @@ def main():
     executor = create_executor(strategy)
     resolver = Resolver(strategy)
 
-    # Pluggable strategy modules — arb/directional (existing) + market-making
-    # and copy-trading (new, both OFF by default via MM_ENABLED / COPY_TRADING_ENABLED).
-    # All three share the same `strategy` inventory/exposure caps, and their
-    # intents flow through the exact same gates in bot/executor.py.
-    registry = StrategyRegistry()
-    registry.register(strategy)
-    registry.register(MarketMakingStrategy(shared_strategy=strategy))
-    registry.register(CopyTradingStrategy())
+    # Plugin-based strategy loading (Priority 2): every module in
+    # bot/strategies/ that exposes build(shared_strategy) gets auto-registered,
+    # gated by its own STRATEGY_ENABLED_ENV if it declares one. Add/remove a
+    # strategy by dropping/deleting a file in bot/strategies/ — no main.py edits.
+    registry = load_all(strategy)
 
     status_srv = start_status_server()
     if status_srv:

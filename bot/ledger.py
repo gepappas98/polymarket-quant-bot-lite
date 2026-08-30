@@ -163,4 +163,27 @@ class Ledger:
         }
 
 
-ledger = Ledger()
+def _build_ledger():
+    """
+    Factory: LEDGER_BACKEND=postgres (+ DATABASE_URL) selects bot.ledger_pg.PostgresLedger,
+    anything else (or unset) keeps the default JSONL-backed Ledger.
+
+    Import failures or a missing DATABASE_URL fall back to the JSONL Ledger
+    with a loud warning — a bad Postgres config should degrade trading
+    safety-wise (you keep a working ledger), not crash bot startup.
+    """
+    backend = os.getenv("LEDGER_BACKEND", "jsonl").lower()
+    if backend != "postgres":
+        return Ledger()
+    try:
+        from .ledger_pg import PostgresLedger
+        pg = PostgresLedger()
+        pg.load_recent()
+        log.info("[LEDGER] using PostgreSQL backend (LEDGER_BACKEND=postgres)")
+        return pg
+    except Exception as e:
+        log.error(f"[LEDGER] LEDGER_BACKEND=postgres failed ({e}) — falling back to JSONL ledger")
+        return Ledger()
+
+
+ledger = _build_ledger()
