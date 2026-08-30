@@ -134,3 +134,11 @@ class MarketMakingStrategy:
             log.info(f"[MM] {slug} fair_up={skewed_fair_up:.3f} skew={skew:.2f} -> {len(intents)} intent(s)")
 
         return intents
+
+
+# --- Dynamic-loader convention (bot/strategies/loader.py) ---
+STRATEGY_ENABLED_ENV = "MM_ENABLED"
+
+
+def build(shared_strategy):
+    return MarketMakingStrategy(shared_strategy=shared_strategy)

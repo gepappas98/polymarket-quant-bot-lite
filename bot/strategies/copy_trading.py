@@ -145,3 +145,11 @@ class CopyTradingStrategy:
             log.info(f"[COPY] {slug} {side.value} replicate ${size:.1f} from {len(trades)} target trade(s)")
 
         return intents
+
+
+# --- Dynamic-loader convention (bot/strategies/loader.py) ---
+STRATEGY_ENABLED_ENV = "COPY_TRADING_ENABLED"
+
+
+def build(shared_strategy):
+    return CopyTradingStrategy()
