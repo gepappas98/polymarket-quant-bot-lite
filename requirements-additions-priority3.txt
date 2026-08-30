@@ -1,0 +1,12 @@
+# --- Priority 3 additions ---
+# Μόνο ό,τι ενεργοποιείς χρειάζεται εγκατάσταση:
+
+xgboost>=2.0.0                  # bot/ml_model.py — ML ensemble
+scikit-learn>=1.4.0              # προαιρετικό, αν θες πιο σύνθετο feature engineering πάνω από το xgboost
+
+cryptography>=42.0.0             # bot/venues/kalshi_client.py — RSA-PSS request signing
+
+prometheus-client>=0.20.0        # bot/metrics.py — /metrics exporter
+
+# psycopg[binary]>=3.1.0 και psycopg_pool>=3.2.0 ήδη αναφέρθηκαν στο Priority 2
+# requirements-additions.txt (LEDGER_BACKEND=postgres) — δεν επαναλαμβάνονται εδώ.

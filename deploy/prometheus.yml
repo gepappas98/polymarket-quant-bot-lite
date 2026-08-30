@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: "polymarket-quant-bot"
+    static_configs:
+      # host.docker.internal: ο bot τρέχει ΕΚΤΟΣ docker, στο host.
+      # Αν τρέχεις τον bot ΚΑΙ αυτόν σε container στο ίδιο docker network,
+      # άλλαξέ το στο container name/service name αντί για host.docker.internal.
+      - targets: ["host.docker.internal:9108"]

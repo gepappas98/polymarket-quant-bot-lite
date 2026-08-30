@@ -26,7 +26,8 @@ from .ledger import ledger
 from .market_finder import fetch_resolution
 from .portfolio_gates import pair_lock
 from .strategy import Strategy
-from .daily_limit import record_pnl
+from .daily_limit import record_pnl, current_daily_pnl
+from . import metrics
 
 log = logging.getLogger(__name__)
 
@@ -107,6 +108,8 @@ class Resolver:
             )
             log.info(f"[RESOLVE] {slug} winner={winner} pnl=${pnl:+.2f}")
             record_pnl(pnl)  # persists across restarts — see bot/daily_limit.py
+            metrics.record_outcome(winner=winner, pnl_usd=pnl)
+            metrics.set_daily_pnl(current_daily_pnl())
             pair_lock.refresh(slug)
             del self.pending[slug]
             self.strategy.inventories.pop(slug, None)

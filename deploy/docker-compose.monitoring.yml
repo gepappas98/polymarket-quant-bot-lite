@@ -1,0 +1,39 @@
+version: "3.8"
+
+# Prometheus/Grafana monitoring stack (Priority 3).
+# Χρήση: docker compose -f deploy/docker-compose.monitoring.yml up -d
+# Ο bot ΔΕΝ τρέχει μέσα σε αυτό το compose file — τρέχει σαν πάντα
+# (python -m bot.main), εκθέτοντας /metrics στο PROMETHEUS_PORT (default 9108)
+# στο host. Το Prometheus container σκανάρει host.docker.internal:9108.
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: polymarket-bot-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux: χρειάζεται ρητά, macOS/Windows Docker Desktop το έχει ήδη
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: polymarket-bot-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin   # ΑΛΛΑΞΕ ΤΟ πριν production
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana-datasource.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - ./grafana-dashboard.json:/var/lib/grafana/dashboards/polymarket-bot.json:ro
+      - ./grafana-dashboard-provider.yml:/etc/grafana/provisioning/dashboards/provider.yml:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  grafana-data:

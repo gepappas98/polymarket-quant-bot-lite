@@ -17,6 +17,7 @@ from .gates import gate_intent, is_live_trading_allowed
 from .ledger import ledger, LedgerEntry
 from .portfolio_gates import max_drawdown_gate, pair_lock
 from .daily_limit import check as daily_limit_check
+from . import metrics
 
 log = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ class PaperExecutor:
             for intent in intents:
                 log.warning(f"[DAILY KILL] {intent.market_slug}: {daily.reason}")
                 ledger.record_intent(intent, dry_run=True, blocked=True, block_reason=daily.reason or "")
+                metrics.record_blocked("daily_kill")
             return results
 
         drawdown = max_drawdown_gate()
@@ -56,6 +58,7 @@ class PaperExecutor:
             for intent in intents:
                 log.warning(f"[DRAWDOWN BLOCK] {intent.market_slug}: {drawdown.reason}")
                 ledger.record_intent(intent, dry_run=True, blocked=True, block_reason=drawdown.reason or "")
+                metrics.record_blocked("drawdown")
             return results
 
         for intent in intents:
@@ -63,15 +66,18 @@ class PaperExecutor:
             if not pair.allowed:
                 log.warning(f"[PAIR LOCK] {intent.market_slug}: {pair.reason}")
                 ledger.record_intent(intent, dry_run=True, blocked=True, block_reason=pair.reason or "")
+                metrics.record_blocked("pair_lock")
                 continue
 
             gate = gate_intent(intent.market_slug, intent.size_usd, is_arb=intent.is_arb_leg)
             if not gate.allowed:
                 log.warning(f"[GATE BLOCK] {intent.market_slug} {intent.side.value}: {gate.reason}")
                 ledger.record_intent(intent, dry_run=True, blocked=True, block_reason=gate.reason or "")
+                metrics.record_blocked("gate")
                 continue
 
             ledger.record_intent(intent, dry_run=True)
+            metrics.record_intent(side=intent.side.value)
 
             shares = intent.size_usd / intent.price
             cost = intent.size_usd
@@ -88,6 +94,7 @@ class PaperExecutor:
             self.fills.append(fill)
             self.strategy.update_inventory(intent.market_slug, intent.side, shares, cost)
             ledger.record_fill(intent, shares, cost, fill.order_id, dry_run=True)
+            metrics.record_fill(side=intent.side.value, size_usd=cost, dry_run=True)
             log.info(
                 f"[PAPER FILL] {intent.side.value} {shares:.2f} shares @ {intent.price:.3f} "
                 f"(${cost:.2f}) | {intent.reason}"
@@ -114,6 +121,7 @@ class PaperExecutor:
                 dry_run=True,
                 status="killed",
             ))
+            metrics.set_kill_switch_active(True)
             return True
 
         drawdown = max_drawdown_gate()
@@ -127,7 +135,9 @@ class PaperExecutor:
                 dry_run=True,
                 status="killed",
             ))
+            metrics.set_kill_switch_active(True)
             return True
+        metrics.set_kill_switch_active(False)
         return False
 
 
@@ -175,6 +185,7 @@ class LiveExecutor:
             for intent in intents:
                 log.warning(f"[DAILY KILL LIVE] {intent.market_slug}: {daily.reason}")
                 ledger.record_intent(intent, dry_run=False, blocked=True, block_reason=daily.reason or "")
+                metrics.record_blocked("daily_kill")
             return results
 
         drawdown = max_drawdown_gate()
@@ -182,6 +193,7 @@ class LiveExecutor:
             for intent in intents:
                 log.warning(f"[DRAWDOWN BLOCK LIVE] {intent.market_slug}: {drawdown.reason}")
                 ledger.record_intent(intent, dry_run=False, blocked=True, block_reason=drawdown.reason or "")
+                metrics.record_blocked("drawdown")
             return results
 
         for intent in intents:
@@ -189,15 +201,18 @@ class LiveExecutor:
             if not pair.allowed:
                 log.warning(f"[PAIR LOCK LIVE] {intent.market_slug}: {pair.reason}")
                 ledger.record_intent(intent, dry_run=False, blocked=True, block_reason=pair.reason or "")
+                metrics.record_blocked("pair_lock")
                 continue
 
             gate = gate_intent(intent.market_slug, intent.size_usd, is_arb=intent.is_arb_leg)
             if not gate.allowed:
                 log.warning(f"[GATE BLOCK LIVE] {intent.market_slug}: {gate.reason}")
                 ledger.record_intent(intent, dry_run=False, blocked=True, block_reason=gate.reason or "")
+                metrics.record_blocked("gate")
                 continue
 
             ledger.record_intent(intent, dry_run=False)
+            metrics.record_intent(side=intent.side.value)
 
             try:
                 side = ClobSide.BUY if intent.action == "BUY" else ClobSide.SELL
@@ -229,6 +244,7 @@ class LiveExecutor:
                 results.append(fill)
                 self.strategy.update_inventory(intent.market_slug, intent.side, shares, cost)
                 ledger.record_fill(intent, shares, cost, order_id, dry_run=False)
+                metrics.record_fill(side=intent.side.value, size_usd=cost, dry_run=False)
                 log.info(f"[LIVE ORDER] {order_id} {intent.side.value} @ {intent.price}")
             except Exception as e:
                 log.error(f"Live order failed: {e}")

@@ -29,6 +29,7 @@ from .ledger import ledger
 from .resolver import Resolver
 from .status_server import start_status_server, update_markets
 from .strategies.loader import load_all
+from . import metrics
 
 console = Console()
 configure_logging(cfg.log_level, cfg.log_format)
@@ -137,6 +138,7 @@ def main():
     registry = load_all(strategy)
 
     status_srv = start_status_server()
+    metrics.start_metrics_server()
     if status_srv:
         console.print("[dim]Status endpoint enabled — set BOT_STATUS_URL on the dashboard to this host's /status[/dim]")
 
