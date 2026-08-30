@@ -14,7 +14,377 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      alert_config: {
+        Row: {
+          active: boolean
+          channel: string
+          created_at: string
+          destination: string | null
+          id: string
+          threshold: number
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          channel: string
+          created_at?: string
+          destination?: string | null
+          id?: string
+          threshold?: number
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          channel?: string
+          created_at?: string
+          destination?: string | null
+          id?: string
+          threshold?: number
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      alert_history: {
+        Row: {
+          config_id: string | null
+          created_at: string
+          id: string
+          message: string
+          resolved: boolean
+          triggered_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config_id?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          resolved?: boolean
+          triggered_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config_id?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          resolved?: boolean
+          triggered_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_history_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "alert_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      backtest_results: {
+        Row: {
+          created_at: string
+          end_date: string
+          equity_curve: Json
+          id: string
+          parameters: Json
+          pnl: number
+          start_date: string
+          strategy: string
+          trades: number
+          updated_at: string
+          user_id: string
+          win_rate: number
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          equity_curve?: Json
+          id?: string
+          parameters?: Json
+          pnl?: number
+          start_date: string
+          strategy: string
+          trades?: number
+          updated_at?: string
+          user_id: string
+          win_rate?: number
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          equity_curve?: Json
+          id?: string
+          parameters?: Json
+          pnl?: number
+          start_date?: string
+          strategy?: string
+          trades?: number
+          updated_at?: string
+          user_id?: string
+          win_rate?: number
+        }
+        Relationships: []
+      }
+      cooldown_state: {
+        Row: {
+          cooldown_seconds: number
+          created_at: string
+          id: string
+          last_trade_timestamp: string
+          market: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cooldown_seconds?: number
+          created_at?: string
+          id?: string
+          last_trade_timestamp?: string
+          market: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cooldown_seconds?: number
+          created_at?: string
+          id?: string
+          last_trade_timestamp?: string
+          market?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      copy_trades: {
+        Row: {
+          created_at: string
+          id: string
+          market: string
+          pnl: number
+          price: number | null
+          side: string
+          size: number
+          status: string
+          timestamp: string
+          updated_at: string
+          user_id: string
+          wallet: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          market: string
+          pnl?: number
+          price?: number | null
+          side: string
+          size: number
+          status?: string
+          timestamp?: string
+          updated_at?: string
+          user_id: string
+          wallet: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          market?: string
+          pnl?: number
+          price?: number | null
+          side?: string
+          size?: number
+          status?: string
+          timestamp?: string
+          updated_at?: string
+          user_id?: string
+          wallet?: string
+        }
+        Relationships: []
+      }
+      copy_watchlist: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          label: string
+          updated_at: string
+          user_id: string
+          wallet_address: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label?: string
+          updated_at?: string
+          user_id: string
+          wallet_address: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label?: string
+          updated_at?: string
+          user_id?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
+      historical_candles: {
+        Row: {
+          asset: string
+          bucket_time: string
+          close: number
+          created_at: string
+          high: number
+          id: string
+          interval: string
+          low: number
+          open: number
+          volume: number
+        }
+        Insert: {
+          asset: string
+          bucket_time: string
+          close: number
+          created_at?: string
+          high: number
+          id?: string
+          interval: string
+          low: number
+          open: number
+          volume?: number
+        }
+        Update: {
+          asset?: string
+          bucket_time?: string
+          close?: number
+          created_at?: string
+          high?: number
+          id?: string
+          interval?: string
+          low?: number
+          open?: number
+          volume?: number
+        }
+        Relationships: []
+      }
+      historical_winrate: {
+        Row: {
+          avg_pnl: number
+          created_at: string
+          id: string
+          losses: number
+          strategy: string
+          updated_at: string
+          user_id: string
+          wins: number
+        }
+        Insert: {
+          avg_pnl?: number
+          created_at?: string
+          id?: string
+          losses?: number
+          strategy: string
+          updated_at?: string
+          user_id: string
+          wins?: number
+        }
+        Update: {
+          avg_pnl?: number
+          created_at?: string
+          id?: string
+          losses?: number
+          strategy?: string
+          updated_at?: string
+          user_id?: string
+          wins?: number
+        }
+        Relationships: []
+      }
+      mm_trades: {
+        Row: {
+          created_at: string
+          id: string
+          market: string
+          pnl: number
+          price: number
+          side: string
+          size: number
+          strategy: string | null
+          timestamp: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          market: string
+          pnl?: number
+          price: number
+          side: string
+          size: number
+          strategy?: string | null
+          timestamp?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          market?: string
+          pnl?: number
+          price?: number
+          side?: string
+          size?: number
+          strategy?: string | null
+          timestamp?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      strategy_config: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          name: string
+          parameters: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name: string
+          parameters?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name?: string
+          parameters?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
