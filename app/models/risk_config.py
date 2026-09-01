@@ -5,9 +5,7 @@ Extended with variance-capped Kelly sizing, category ceilings, and time windows.
 """
 from datetime import datetime
 from sqlalchemy import Column, Float, Integer, String, DateTime, Boolean
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
+from app.core.database import Base
 
 
 class RiskConfig(Base):

@@ -173,3 +173,8 @@ class PreprocessingService:
 
         logger.debug(f"Normalized {len(features)} samples, {n_features} features")
         return normalized, {"means": means, "stds": stds}
+
+
+def clean_price_series(prices, window=20, threshold=3.5) -> List[float]:
+    cleaned, _ = PreprocessingService.clean_price_series(list(prices), window=window, threshold=threshold)
+    return cleaned
