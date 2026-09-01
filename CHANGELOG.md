@@ -5,6 +5,76 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] — 2026-09-01
+
+### Added
+
+**Advanced risk engine API (`app/`, FastAPI sidecar over `bot/`)**
+- `app/main.py` — FastAPI app (`uvicorn app.main:app`, `API_PORT`) with
+  `/health`, `/api/*` routes and a `/api/ws` WebSocket that broadcasts
+  `position_opened` and `circuit_breaker` events
+- SQLite persistence (`APP_DATABASE_URL`, default `data/app.db`) via
+  SQLAlchemy — `RiskConfig`, `Leader`, `Trade`, `StrategyConfig` models;
+  `init_db()` creates tables and adds missing columns in place (lightweight
+  migration)
+- `app/ledger/reader.py` — reads the worker ledger (`data/trades.jsonl`, or
+  the in-process ledger) as the primary history source: daily PnL, per-category
+  outcomes, merged fill/outcome trade history
+
+**New services**
+- `sizing_service.calculate_kelly_size()` — Variance-Capped Kelly: fractional
+  Kelly scaled by `k_value`, damped by the rolling variance of the last 20
+  category outcomes, capped by `max_position_pct` and `MAX_ORDER_USD`;
+  returns `suggested_amount` (USDC) and `f_value` (%)
+- `scoring_service` — composite leaderboard: Hampel filter (MAD, threshold
+  3.5) on Sharpe/ROI across traders, composite score from Sharpe, ROI,
+  win-rate, drawdown and stability; `refresh_leaderboard()` upserts `Leader`
+  rows from `LEADERBOARD_SOURCE_URL` or the own ledger + deterministic mock
+  traders
+- `strategy_service.should_ignore_market()` — category-aware filter
+  (politics-only, sports fade, crypto focus) with persisted flags
+- `preprocessing_service.clean_price_series()` — Hampel outlier handler,
+  called by `ml_service.retrain_model()` on every feature column before
+  XGBoost training
+- `risk_service` — `check_circuit_breaker()`, `check_time_window()` (supports
+  overnight windows), `simulate_trailing_stop()` (5 % adverse move default),
+  per-category exposure ceilings, all combined in `evaluate_safety_gates()`
+  together with the existing bot gates (daily kill switch, max drawdown,
+  live double opt-in)
+- `trading_service.place_order()` — strategy filter → safety gates → Kelly
+  sizing → the **existing** `bot.executor` (paper/live decided by `MODE`
+  exactly as before) → `Trade` row + WebSocket broadcast
+- `celery_tasks` — leaderboard refresh / ML retrain / health jobs run via
+  Celery when `CELERY_BROKER_URL` is set, otherwise FastAPI `BackgroundTasks`
+
+**Endpoints**
+- `GET /api/status`, `GET /api/risk`, `POST /api/risk/update`,
+  `GET /api/risk/gates`, `POST /api/risk/trailing-stop`,
+  `POST /api/sizing/calculate`, `GET /api/leaders`, `POST /api/leaders/refresh`,
+  `GET /api/trades/history`, `POST /api/trades/place`, `GET|POST /api/strategies`,
+  `POST /api/ml/retrain`
+
+**Worker integration (opt-in, default off)**
+- `bot/gates.py` gained `register_check()`; `gate_intent()` runs registered
+  extra checks after the built-in ones. With `RISK_ENGINE_ENABLED=true` the
+  worker installs the risk-engine hook (circuit breaker, time window, category
+  ceilings) — fail-closed if the engine errors. Default behaviour is unchanged.
+
+**Dashboard**
+- New pages: `/leaders` (composite leaderboard + refresh), `/sizing`
+  (k / max-position sliders with live `f` preview against the API and a local
+  estimate), `/strategies` (category toggles), `/settings` (risk config form:
+  daily loss limit, cooldown, time window, category ceilings, trailing stop)
+- Control Room: "Simulate trade" widget (sizing + circuit-breaker / time-window
+  status) and `GatesPanel` extended with time window, trailing stops and
+  per-category exposure — existing gate rows untouched
+- `src/lib/riskApi.ts` typed client (`VITE_API_URL`), shared `NavLinks`
+
+### Changed
+- `requirements.txt`: `fastapi`, `uvicorn`, `sqlalchemy`, `pydantic`, `httpx`
+  are now base dependencies; `celery` stays optional
+- Tests: 93 (new coverage for sizing, scoring, strategy, risk, ML and API)
+
 ## [0.3.0] — 2026-09-01
 
 ### Added
