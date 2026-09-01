@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getBotStatus } from "@/lib/bot.functions";
+
 import {
   ConfigPanel,
   GatesPanel,
@@ -84,7 +85,14 @@ function Dashboard() {
           <span className="tape rounded border border-border bg-muted px-2 py-1 text-[10px] uppercase text-muted-foreground">
             up {uptime(data.uptimeSeconds)}
           </span>
+          <Link
+            to="/desk"
+            className="tape rounded border border-primary/50 bg-primary/15 px-2 py-1 text-[10px] uppercase text-primary"
+          >
+            trading desk
+          </Link>
         </div>
+
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

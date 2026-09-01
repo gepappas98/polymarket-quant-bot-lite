@@ -10,11 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedDeskRouteImport } from './routes/_authenticated/desk'
+import { Route as ApiPublicHooksMonitorAlertsRouteImport } from './routes/api/public/hooks/monitor-alerts'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -22,31 +29,57 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedDeskRoute = AuthenticatedDeskRouteImport.update({
+  id: '/desk',
+  path: '/desk',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiPublicHooksMonitorAlertsRoute =
+  ApiPublicHooksMonitorAlertsRouteImport.update({
+    id: '/api/public/hooks/monitor-alerts',
+    path: '/api/public/hooks/monitor-alerts',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/desk': typeof AuthenticatedDeskRoute
+  '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/desk': typeof AuthenticatedDeskRoute
+  '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/desk': typeof AuthenticatedDeskRoute
+  '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth'
+  fullPaths: '/' | '/auth' | '/desk' | '/api/public/hooks/monitor-alerts'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth'
-  id: '__root__' | '/' | '/auth'
+  to: '/' | '/auth' | '/desk' | '/api/public/hooks/monitor-alerts'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/desk'
+    | '/api/public/hooks/monitor-alerts'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicHooksMonitorAlertsRoute: typeof ApiPublicHooksMonitorAlertsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +91,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -65,12 +105,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/desk': {
+      id: '/_authenticated/desk'
+      path: '/desk'
+      fullPath: '/desk'
+      preLoaderRoute: typeof AuthenticatedDeskRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/hooks/monitor-alerts': {
+      id: '/api/public/hooks/monitor-alerts'
+      path: '/api/public/hooks/monitor-alerts'
+      fullPath: '/api/public/hooks/monitor-alerts'
+      preLoaderRoute: typeof ApiPublicHooksMonitorAlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedDeskRoute: typeof AuthenticatedDeskRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedDeskRoute: AuthenticatedDeskRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicHooksMonitorAlertsRoute: ApiPublicHooksMonitorAlertsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
