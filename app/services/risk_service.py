@@ -101,12 +101,13 @@ def simulate_trailing_stop(trade_id, current_price, db):
 def category_exposure(db, user_id=1):
     config = get_or_create_risk_config(db, user_id)
     values = {category: 0.0 for category in ("politics", "sports", "crypto", "other")}
-    for trade in db.scalars(select(Trade).where(Trade.status == "open")).all():
+    open_trades = db.scalars(select(Trade).where(Trade.status == "open")).all()
+    known_orders = {t.order_id for t in open_trades if t.order_id}
+    for trade in open_trades:
         values[trade.category or category_for_slug(trade.market_slug)] += float(trade.size_usd or 0)
     for row in trade_history(status="open"):
-        category = row["category"]
-        if not any(t.order_id == row.get("order_id") for t in db.scalars(select(Trade).where(Trade.status == "open")).all()):
-            values[category] += float(row.get("size_usd") or 0)
+        if row.get("order_id") not in known_orders:
+            values[row["category"]] += float(row.get("size_usd") or 0)
     ceilings = {"politics": config.category_ceiling_politics, "sports": config.category_ceiling_sports, "crypto": None, "other": None}
     return {category: {"exposure": round(exposure, 2), "ceiling": ceilings[category], "remaining": None if ceilings[category] is None else round(ceilings[category] - exposure, 2)} for category, exposure in values.items()}
 
