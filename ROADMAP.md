@@ -2,22 +2,45 @@
 
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
-## Near term (v0.3)
+## Just shipped (v0.3.0) — see CHANGELOG.md for full detail
 
+- [x] **Plugin strategy architecture** — `bot/strategies/loader.py` auto-discovers strategies; no `main.py` edits to add/remove one
+- [x] **Market making** — `bot/strategies/market_making.py`, inventory-skewed two-sided quoting
+- [x] **Copy trading** — `bot/strategies/copy_trading.py`, tracked-wallet replication
+- [x] **Kelly Criterion sizing** — `bot/kelly.py`
+- [x] **Daily kill switch persisted across restarts** — `bot/daily_limit.py`
+- [x] **Backtest harness** against historical order-book snapshots — `bot/backtest.py` (see near-term note below on its risk-model simplification)
+- [x] **PostgreSQL ledger option** — `bot/ledger_pg.py`, `LEDGER_BACKEND=postgres`
+- [x] **ML ensemble (XGBoost)** for win-probability prediction — `bot/ml_model.py`, `bot/strategies/ml_directional.py`
+- [x] **Cross-venue signal (Polymarket ↔ Kalshi)** — `bot/strategies/cross_platform_arbitrage.py` — directional only, see near-term item below for the hedged version
+- [x] **Prometheus/Grafana monitoring stack** — `bot/metrics.py` + `deploy/`
+- [x] **Dashboard trading panels** (Supabase-backed, in-browser) — market making, copy trading, Kelly slider, cooldown timer, strategy manager, backtester, alerting — see `docs/FEATURES.md`
+- [x] **`.env.example` and `requirements.txt` synced** with all v0.3.0 plugins — every new env var is documented with inline comments in `.env.example`; optional deps (`xgboost`, `cryptography`, `prometheus-client`, `psycopg[binary]`) are listed commented-out in `requirements.txt` so the base install stays lightweight
+
+## Near term (v0.3.1)
+
+- [ ] **Kalshi order-execution client** — the current cross-venue module only trades the Polymarket leg; without a Kalshi execution client it's a directional signal, not the hedged arbitrage originally scoped
+- [ ] **Decide the relationship between `bot/strategies/*` and the dashboard's Supabase equivalents** (`useMarketMaker`, copy-trading panel, in-browser backtester) — today they're fully independent implementations of the same ideas; either connect them (dashboard reads the worker's real ledger) or explicitly document the dashboard versions as simulation/monitoring-only
+- [ ] **Exercise the PostgreSQL ledger against a real database** — implemented and unit-tested for its fallback path, but not yet run against live Postgres
+- [ ] **Injectable clock for gates** — `bot/gates.py`/`bot/portfolio_gates.py` cooldown and drawdown checks use wall-clock time, which is why `bot/backtest.py` has to fall back to a simplified, time-independent risk model; making the clock injectable would let backtests replay the real gates faithfully
 - [ ] **WebSocket CLOB market channel** — lower-latency books than REST polling
-- [ ] **Window open-price delta** — fair value from Chainlink/Binance vs Polymarket implied (replace lightweight imbalance signal)
+- [ ] **Window open-price delta** — `bot/feeds.py::PriceFeed` (ccxt/Binance) already exists as a hook point but isn't consumed by the strategy yet; wire it in to replace the lightweight imbalance-only signal
 - [ ] **Order lifecycle** — cancel stale limits, reconcile fills via user channel
-- [x] **Auto-redeem** resolved winning positions — internal PnL bookkeeping now settles automatically via `bot/resolver.py` once Gamma reports a window's outcome (on-chain redemption for LIVE mode is still a separate, not-yet-done step)
-- [x] **Structured logging** (JSON) + optional Prometheus metrics — set `LOG_FORMAT=json`; `/metrics` on the status server with `ENABLE_METRICS=true`
-- [x] **Unit tests** for strategy gates, arb math, and market slug discovery — see `tests/` (`pytest`)
 
-## Medium term (v0.4–v0.5)
+## Shipped earlier (v0.2.x, previously undocumented — folded in for completeness)
 
-- [x] **Multi-asset** defaults: ETH, SOL, XRP 5m/15m with per-asset exposure caps — `ASSETS` defaults to `BTC,ETH,SOL,XRP`; optional `MAX_MARKET_EXPOSURE_BY_ASSET` overrides per asset (falls back to the global cap)
-- [ ] **Backtest harness** against historical CLOB snapshots (if available)
-- [x] **Max drawdown + low-profit pair locks** (Nexus-style portfolio protections) — `bot/portfolio_gates.py`; also fixed a pre-existing bug where the daily-loss kill switch read a counter that was never updated
-- [x] **Dashboard** — React/TanStack dashboard (`polymarket-quant-bot-lite-main`, Lovable/Vercel) + `bot/status_server.py` JSON bridge on the worker (Fly/Railway); not FastAPI as originally sketched, same effect
+- [x] **Auto-redeem** resolved winning positions — internal PnL bookkeeping settles automatically via `bot/resolver.py` once Gamma reports a window's outcome (on-chain redemption for LIVE mode is still a separate, not-yet-done step)
+- [x] **Structured logging** (JSON) + legacy Prometheus-text metrics — `LOG_FORMAT=json`; `ENABLE_METRICS=true` on the status server
+- [x] **Unit tests** for strategy gates, arb math, and market slug discovery — `tests/` (`pytest`, 82 tests)
+- [x] **Multi-asset** defaults: ETH, SOL, XRP 5m/15m with per-asset exposure caps — code default `ASSETS=BTC,ETH,SOL,XRP`; `MAX_MARKET_EXPOSURE_BY_ASSET` overrides per asset
+- [x] **Max drawdown + low-profit pair locks** (Nexus-style portfolio protections) — `bot/portfolio_gates.py`
+- [x] **Dashboard bridge** — `bot/status_server.py` JSON status API for the frontend's `BOT_STATUS_URL`
+
+## Medium term (v0.4)
+
 - [ ] **MCP tools** — read-only status / safety model for AI clients (like Nexus MCP)
+- [ ] **Real historical snapshot capture** — a small worker/cron that writes `bot/backtest.py`-compatible JSONL snapshots from live order books, so backtesting and ML training stop depending on hand-built synthetic data
+- [ ] **Automated test coverage for the dashboard** (`src/`, `supabase/`) — currently none
 
 ## Longer term
 
@@ -31,6 +54,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - Guaranteed profit or “copy bosona”
 - Full browser trading UI as the primary product
 - Running the trading loop on Vercel serverless (use Fly / Railway / Render workers)
+- Treating the cross-venue Kalshi signal as risk-free arbitrage before a real execution client exists on both legs
 
 ## Deployment targets
 
