@@ -1,5 +1,8 @@
 import type { BotStatus, GateRow, LedgerRow, MarketRow } from "@/lib/bot-types";
+import type { CategoryExposure, GateStatus, TrailingStopSignal } from "@/lib/riskApi";
+import { Progress } from "@/components/ui/progress";
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function usd(n: number) {
   const sign = n < 0 ? "-" : "";
   return `${sign}$${Math.abs(n).toFixed(2)}`;
@@ -79,7 +82,13 @@ function SignalBadge({ signal }: { signal: MarketRow["signal"] }) {
   );
 }
 
-export function MarketsTable({ markets, arbThreshold }: { markets: MarketRow[]; arbThreshold: number }) {
+export function MarketsTable({
+  markets,
+  arbThreshold,
+}: {
+  markets: MarketRow[];
+  arbThreshold: number;
+}) {
   return (
     <Panel title="Live windows" hint={`arb threshold ${arbThreshold}`} className="overflow-hidden">
       <div className="overflow-x-auto">
@@ -100,11 +109,16 @@ export function MarketsTable({ markets, arbThreshold }: { markets: MarketRow[]; 
               const set = m.upAsk + m.downAsk;
               const arb = set <= arbThreshold;
               return (
-                <tr key={m.slug + m.windowMinutes} className="border-b border-border/60 last:border-0">
+                <tr
+                  key={m.slug + m.windowMinutes}
+                  className="border-b border-border/60 last:border-0"
+                >
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{m.asset}</span>
-                      <span className="tape text-[11px] text-muted-foreground">{m.windowMinutes}m</span>
+                      <span className="tape text-[11px] text-muted-foreground">
+                        {m.windowMinutes}m
+                      </span>
                       {m.cooldownUntil ? (
                         <span className="tape rounded border border-warn/40 bg-warn/10 px-1 py-0.5 text-[9px] uppercase text-warn">
                           cooldown
@@ -136,7 +150,19 @@ export function MarketsTable({ markets, arbThreshold }: { markets: MarketRow[]; 
   );
 }
 
-export function GatesPanel({ gates }: { gates: GateRow[] }) {
+export function GatesPanel({
+  gates,
+  extra,
+}: {
+  gates: GateRow[];
+  extra?:
+    | {
+        timeWindow?: GateStatus | undefined;
+        trailingStops?: TrailingStopSignal[];
+        categoryExposure?: Record<string, CategoryExposure>;
+      }
+    | undefined;
+}) {
   return (
     <Panel title="Safety gates" hint="fail closed">
       <ul className="divide-y divide-border/60">
@@ -158,7 +184,93 @@ export function GatesPanel({ gates }: { gates: GateRow[] }) {
           </li>
         ))}
       </ul>
+      {extra ? <GateExtras extra={extra} /> : null}
     </Panel>
+  );
+}
+
+function GateExtras({
+  extra,
+}: {
+  extra: {
+    timeWindow?: GateStatus | undefined;
+    trailingStops?: TrailingStopSignal[];
+    categoryExposure?: Record<string, CategoryExposure>;
+  };
+}) {
+  return (
+    <div className="border-t border-border">
+      {extra.timeWindow ? (
+        <div className="flex items-center gap-3 px-4 py-3">
+          <GateDot status={extra.timeWindow.status} />
+          <div className="text-sm font-medium">Time window</div>
+          <span
+            className={`tape ml-auto text-[10px] uppercase ${statusTone(extra.timeWindow.status)}`}
+          >
+            {statusLabel(extra.timeWindow.status)}
+          </span>
+        </div>
+      ) : null}
+      {extra.trailingStops?.length ? (
+        <div className="border-t border-border/60 px-4 py-3">
+          <div className="label-caps mb-2">Trailing stops</div>
+          <ul className="space-y-2">
+            {extra.trailingStops.map((stop) => (
+              <li
+                key={stop.trade_id}
+                className={`tape text-[11px] ${stop.should_close ? "text-down" : "text-muted-foreground"}`}
+              >
+                trade #{stop.trade_id} · −{Math.abs(stop.move_pct).toFixed(1)}% ·{" "}
+                {stop.should_close ? "close signal" : "monitor"}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {extra.categoryExposure ? (
+        <div className="border-t border-border/60 px-4 py-3">
+          <div className="label-caps mb-2">Category exposure</div>
+          <div className="space-y-3">
+            {Object.entries(extra.categoryExposure).map(([category, item]) => {
+              const progress = item.ceiling
+                ? Math.min(100, (item.exposure / item.ceiling) * 100)
+                : 0;
+              return (
+                <div key={category}>
+                  <div className="mb-1 flex items-center justify-between gap-3">
+                    <span className="text-xs capitalize">{category}</span>
+                    <span className="tape text-[10px] text-muted-foreground">
+                      {usd(item.exposure)} / {item.ceiling === null ? "—" : usd(item.ceiling)}
+                    </span>
+                  </div>
+                  <Progress value={progress} className="h-1.5" />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function statusTone(status: string) {
+  return status === "OK" ? "text-up" : status === "BLOCKED" ? "text-down" : "text-warn";
+}
+
+function statusLabel(status: string) {
+  if (status === "OK") return "pass";
+  if (status === "BLOCKED") return "block";
+  if (status === "DISABLED") return "disabled";
+  return status.toLowerCase();
+}
+
+function GateDot({ status }: { status: string }) {
+  return (
+    <span
+      className={`mt-1 size-2 shrink-0 rounded-full ${status === "OK" ? "bg-up" : status === "BLOCKED" ? "bg-down" : "bg-warn"}`}
+      aria-hidden
+    />
   );
 }
 
@@ -188,9 +300,7 @@ export function LedgerFeed({ rows }: { rows: LedgerRow[] }) {
                 </span>
                 <span className="tape truncate text-[11px]">{r.marketSlug}</span>
                 {r.side ? (
-                  <span
-                    className={`tape text-[10px] ${r.side === "UP" ? "text-up" : "text-down"}`}
-                  >
+                  <span className={`tape text-[10px] ${r.side === "UP" ? "text-up" : "text-down"}`}>
                     {r.side}
                   </span>
                 ) : null}
@@ -265,8 +375,8 @@ export function SupportPanel() {
       <div className="flex flex-col items-center gap-4 px-4 py-6 text-center">
         <p className="text-sm font-medium">☕ Found Polymarket Quant Bot useful?</p>
         <p className="max-w-md text-[12px] text-muted-foreground">
-          If this tool helped your trading or development workflow, consider tipping the
-          developer. Every sat counts. 🙏
+          If this tool helped your trading or development workflow, consider tipping the developer.
+          Every sat counts. 🙏
         </p>
         <div className="rounded-lg bg-white p-3">
           <img src={qrUrl} alt="BTC tip address QR code" width={220} height={220} />
@@ -293,7 +403,10 @@ export function ConfigPanel({ config }: { config: BotStatus["config"] }) {
     ["Min directional edge", config.minDirectionalEdge.toFixed(3)],
     ["Daily loss limit", usd(config.dailyLossLimitUsd)],
     ["Cooldown", `${config.cooldownMinutes} min`],
-    ["Track record gate", `${config.minTrackRecordWinPct}% / ${config.minTrackRecordSamples} samples`],
+    [
+      "Track record gate",
+      `${config.minTrackRecordWinPct}% / ${config.minTrackRecordSamples} samples`,
+    ],
     ["Maker preference", config.preferMaker ? "on" : "off"],
   ];
   return (

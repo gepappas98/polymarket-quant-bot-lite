@@ -2,6 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getBotStatus } from "@/lib/bot.functions";
+import { NavLinks } from "@/components/dashboard/NavLinks";
+import { SimulateTradeWidget } from "@/components/dashboard/SimulateTradeWidget";
+import { getRiskGates, riskQueryKeys } from "@/lib/riskApi";
 
 import {
   ConfigPanel,
@@ -46,6 +49,11 @@ function Dashboard() {
     queryFn: () => fetchStatus(),
     refetchInterval: 10_000,
   });
+  const riskGates = useQuery({
+    queryKey: riskQueryKeys.gates(),
+    queryFn: () => getRiskGates(),
+    refetchInterval: 10_000,
+  });
 
   if (isLoading || !data) {
     return (
@@ -69,6 +77,7 @@ function Dashboard() {
           </p>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <NavLinks />
           <span
             className={`tape flex items-center gap-2 rounded border px-2 py-1 text-[10px] uppercase ${
               config.mode === "live"
@@ -92,7 +101,6 @@ function Dashboard() {
             trading desk
           </Link>
         </div>
-
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -125,7 +133,25 @@ function Dashboard() {
         <div className="space-y-3 lg:col-span-2">
           <MarketsTable markets={data.markets} arbThreshold={config.arbThreshold} />
           <PnlChart series={data.pnlSeries} />
-          <GatesPanel gates={data.gates} />
+          <GatesPanel
+            gates={data.gates}
+            extra={
+              riskGates.data
+                ? {
+                    ...(riskGates.data.gates.find((gate) => gate.name === "time_window")
+                      ? {
+                          timeWindow: riskGates.data.gates.find(
+                            (gate) => gate.name === "time_window",
+                          ),
+                        }
+                      : {}),
+                    trailingStops: riskGates.data.trailing_stops,
+                    categoryExposure: riskGates.data.category_exposure,
+                  }
+                : undefined
+            }
+          />
+          <SimulateTradeWidget />
         </div>
         <div className="space-y-3">
           <LedgerFeed rows={data.ledger} />
@@ -139,8 +165,8 @@ function Dashboard() {
 
       <footer className="tape mt-6 text-[10px] leading-relaxed text-muted-foreground">
         Educational software. Not financial advice — paper trade first. Set{" "}
-        <code className="rounded bg-muted px-1 py-0.5">BOT_STATUS_URL</code> to point this dashboard at a
-        running worker; otherwise a demo feed is shown.
+        <code className="rounded bg-muted px-1 py-0.5">BOT_STATUS_URL</code> to point this dashboard
+        at a running worker; otherwise a demo feed is shown.
       </footer>
     </main>
   );
