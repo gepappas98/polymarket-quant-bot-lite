@@ -13,6 +13,7 @@ import logging
 import time
 import signal
 import sys
+import os
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
@@ -129,6 +130,13 @@ def main():
     feed = PriceFeed()
     strategy = Strategy()
     executor = create_executor(strategy)
+    if os.getenv("RISK_ENGINE_ENABLED", "false").lower() in ("1", "true", "yes"):
+        try:
+            from app.services.risk_service import install_bot_gate_hook
+            install_bot_gate_hook()
+            log.info("advanced risk engine gate hook installed")
+        except Exception as e:
+            log.warning("risk engine unavailable: %s", e)
     resolver = Resolver(strategy)
 
     # Plugin-based strategy loading (Priority 2): every module in
