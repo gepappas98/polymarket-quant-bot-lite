@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **Roadmap realigned (v0.5 direction)** — `ROADMAP.md` now prioritizes inventory economics observed on high-volume public Up/Down makers (e.g. complete-set accumulation, paired vs residual inventory, second-side lag, hold-to-resolution bias, CTF split/merge/redeem), while keeping existing v0.4 risk-engine and dashboard work as shipped baseline.
+- Documented research context: public trader analytics (e.g. `@hot-garbage`) inform **product priorities**; viral “Grok terminal” UIs are treated as unverified/simulated unless a wallet is independently confirmed — not as performance targets.
+- Explicit non-goals extended: no guaranteed profit, no 100% win-rate marketing metrics, no blind copy of Telegram/GitHub bot packs.
+
+### Planned (see `ROADMAP.md`)
+- Inventory model (`paired` / `residual` / `avg_set_cost`) and complete-set accumulator across staggered fills
+- Second-side lag + max naked residual; maker-first ladder; thin-book reject
+- Live-gated CTF split / merge / redeem; on-chain redeem after resolve
+- Wire `PriceFeed` (Binance/ccxt) into strategy fair value; richer fill ledger fields
+- Worker ↔ dashboard dual-implementation clarity; injectable clock for faithful backtests
+
+---
+
 ## [0.4.7] — 2026-09-02
 
 ### Added
@@ -152,7 +168,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - `requirements.txt`: `fastapi`, `uvicorn`, `sqlalchemy`, `pydantic`, `httpx`
   are now base dependencies; `celery` stays optional
-- Tests: 93 (new coverage for sizing, scoring, strategy, risk, ML and API)
+- Tests: expanded coverage for sizing, scoring, strategy, risk, ML and API
 
 ## [0.3.0] — 2026-09-01
 
@@ -247,8 +263,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   independent and do not share state
 
 ### Testing
-- Full existing `pytest` suite (82 tests) passes unmodified against the
-  merged codebase
+- Full existing `pytest` suite passes unmodified against the merged codebase
 
 ## [0.2.0] — 2026-08-29
 
@@ -286,6 +301,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+[Unreleased]: https://github.com/gepappas98/polymarket-quant-bot/compare/v0.4.7...HEAD
+[0.4.7]: https://github.com/gepappas98/polymarket-quant-bot/compare/v0.4.6...v0.4.7
+[0.4.6]: https://github.com/gepappas98/polymarket-quant-bot/compare/v0.4.5...v0.4.6
+[0.4.5]: https://github.com/gepappas98/polymarket-quant-bot/compare/v0.4.4...v0.4.5
+[0.4.4]: https://github.com/gepappas98/polymarket-quant-bot/compare/v0.4.3...v0.4.4
+[0.4.3]: https://github.com/gepappas98/polymarket-quant-bot/compare/v0.4.2...v0.4.3
+[0.4.2]: https://github.com/gepappas98/polymarket-quant-bot/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/gepappas98/polymarket-quant-bot/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/gepappas98/polymarket-quant-bot/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/gepappas98/polymarket-quant-bot/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/gepappas98/polymarket-quant-bot/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/gepappas98/polymarket-quant-bot/releases/tag/v0.1.0
