@@ -1,4 +1,4 @@
-import type { BotStatus, LedgerRow, MarketRow } from "./bot-types";
+import type { BotStatus, LedgerRow, MarketRow, SwarmSnapshot } from "./bot-types";
 
 /**
  * Deterministic-ish demo status generator. Used when no BOT_STATUS_URL worker
@@ -75,6 +75,53 @@ function buildLedger(rand: () => number, now: number): LedgerRow[] {
   return rows.sort((a, b) => b.ts - a.ts);
 }
 
+function buildDemoSwarm(rand: () => number): SwarmSnapshot {
+  const mk = (score: number, reason: string, veto = false) => ({ score, veto, reason });
+  const agents = {
+    TIDAL: mk(0.85 + rand() * 0.1, "books present"),
+    NORO: mk(0.55 + rand() * 0.35, "spot fair blend"),
+    ZEPHR: mk(0.5 + rand() * 0.4, "sum_asks depth"),
+    OKAPI: mk(0.6 + rand() * 0.25, "paired / residual"),
+    RUNE: mk(1.0, "ok", false),
+    VESKA: mk(0.9, "paper exec ready"),
+    MARIN: mk(0.85, "resolver ok"),
+    LUMEN: mk(0.45 + rand() * 0.15, "neutral sentiment"),
+  };
+  const weights: Record<string, number> = {
+    TIDAL: 0.1,
+    NORO: 0.25,
+    ZEPHR: 0.15,
+    OKAPI: 0.2,
+    RUNE: 0.0,
+    VESKA: 0.15,
+    MARIN: 0.1,
+    LUMEN: 0.05,
+  };
+  let num = 0;
+  let den = 0;
+  for (const [k, w] of Object.entries(weights)) {
+    if (w <= 0) continue;
+    num += w * agents[k as keyof typeof agents].score;
+    den += w;
+  }
+  const consensus = den ? num / den : 0;
+  const threshold = 0.7;
+  return {
+    enabled: true,
+    threshold,
+    last: {
+      ok: consensus >= threshold,
+      consensus,
+      threshold,
+      detail: consensus >= threshold ? "pass" : `consensus ${consensus.toFixed(3)} < ${threshold}`,
+      veto_by: [],
+      scores: agents,
+    },
+    agents,
+    weights,
+  };
+}
+
 export function buildDemoStatus(now = Date.now()): BotStatus {
   const rand = seeded(Math.floor(now / 15_000));
   const markets = buildMarkets(rand, now);
@@ -109,6 +156,8 @@ export function buildDemoStatus(now = Date.now()): BotStatus {
       minTrackRecordWinPct: 48,
       minTrackRecordSamples: 12,
       preferMaker: true,
+      swarmEnabled: true,
+      consensusThreshold: 0.7,
     },
     session: {
       intents: intents.length,
@@ -140,6 +189,7 @@ export function buildDemoStatus(now = Date.now()): BotStatus {
       { name: "Per-market cooldown", allowed: true, reason: "3 min lock after each admitted intent" },
     ],
     ledger,
+    swarm: buildDemoSwarm(rand),
   };
 }
 
@@ -151,7 +201,8 @@ export async function fetchWorkerStatus(): Promise<BotStatus> {
     const res = await fetch(url, { headers: { accept: "application/json" } });
     if (!res.ok) throw new Error(`worker responded ${res.status}`);
     const data = (await res.json()) as Partial<BotStatus>;
-    return { ...buildDemoStatus(), ...data, source: "worker" };
+    const demo = buildDemoStatus();
+    return { ...demo, ...data, source: "worker", swarm: data.swarm ?? demo.swarm };
   } catch {
     return buildDemoStatus();
   }
