@@ -106,7 +106,7 @@ These items come from public analysis of high-volume Up/Down makers (complete-se
 
 - [ ] **Maker-first quote ladder** — multi-level or single-level resting both sides; skew from residual (extends `market_making.py`)
 - [x] **Thin-book reject** — optional `MIN_BOOK_DEPTH_USD` gate in strategy (`_depth_ok`); default 0 = off
-- [ ] **Fill ledger enrichment** — `maker|taker`, `set_id`, `residual_after`, `set_cost_contribution`
+- [x] **Fill ledger enrichment** — `set_id`, `is_arb_leg`, `prefer_maker`, full `meta.swarm` (maker|taker explicit flag still approximate)
 - [x] **Wire `PriceFeed` into strategy fair value** — window open anchor, `window_delta_pct`, `fair_up_prob`; blended with book edge via `USE_SPOT_FAIR` / `SPOT_FAIR_WEIGHT`
 - [ ] **Order lifecycle** — cancel stale limits; reconcile fills via CLOB user channel / WS
 
@@ -129,6 +129,17 @@ These items come from public analysis of high-volume Up/Down makers (complete-se
 - [ ] **Optional public-wallet watcher** — read-only poll of a configured address (e.g. research target) into leaderboard/compare tools — no auto-copy without `COPY_TRADING_ENABLED`
 
 ---
+
+
+### P1 — Swarm consensus (GROKTOPUS-inspired, non-LLM)
+
+- [x] **`bot/swarm.py`** — `AgentScore`, `consensus()`, `score_market_state()`, `filter_intents()`
+- [x] **Named module roles** — TIDAL/NORO/ZEPHR/OKAPI/RUNE/VESKA/MARIN/LUMEN mapped to existing quant functions (not 8 LLM calls)
+- [x] **RUNE hard veto** + weighted consensus ≥ `CONSENSUS_THRESHOLD` (default 0.70)
+- [x] **Strategy hook** — `Strategy._swarm_filter` on all evaluate return paths; `SWARM_ENABLED=true` by default
+- [x] **Tests** — `tests/test_swarm.py`
+- [x] **Ledger field** `meta.swarm` + `meta.set_id` on intent/fill records; unique `{slug}:set:{n}`
+- [x] **Status `/status` swarm block** — 8 agent tiles scores, last consensus, weights; ledger rows expose setId/consensus
 
 ## Medium term (v0.6)
 
