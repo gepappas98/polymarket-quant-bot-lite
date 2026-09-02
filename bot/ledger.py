@@ -74,6 +74,13 @@ class Ledger:
         block_reason: str = "",
     ) -> None:
         side = getattr(intent.side, "value", intent.side)
+        meta = {}
+        swarm = getattr(intent, "swarm", None)
+        if swarm is not None:
+            meta["swarm"] = swarm
+        if getattr(intent, "is_arb_leg", False):
+            meta["is_arb_leg"] = True
+            meta["set_id"] = getattr(intent, "set_id", None) or f"{intent.market_slug}:set"
         self.append(LedgerEntry(
             ts=time.time(),
             kind="intent",
@@ -84,10 +91,20 @@ class Ledger:
             reason=block_reason or intent.reason,
             status="blocked" if blocked else "open",
             dry_run=dry_run,
+            meta=meta or None,
         ))
 
     def record_fill(self, intent, shares: float, cost: float, order_id: str, dry_run: bool) -> None:
         side = getattr(intent.side, "value", intent.side)
+        meta = {"shares": shares}
+        swarm = getattr(intent, "swarm", None)
+        if swarm is not None:
+            meta["swarm"] = swarm
+        if getattr(intent, "is_arb_leg", False):
+            meta["is_arb_leg"] = True
+            meta["set_id"] = getattr(intent, "set_id", None) or f"{intent.market_slug}:set"
+        # Prefer-maker path is approximate; explicit flag if present
+        meta["prefer_maker"] = bool(getattr(intent, "prefer_maker", False))
         self.append(LedgerEntry(
             ts=time.time(),
             kind="fill",
@@ -99,7 +116,7 @@ class Ledger:
             status="filled",
             dry_run=dry_run,
             order_id=order_id,
-            meta={"shares": shares},
+            meta=meta,
         ))
 
     def record_outcome(
@@ -163,27 +180,4 @@ class Ledger:
         }
 
 
-def _build_ledger():
-    """
-    Factory: LEDGER_BACKEND=postgres (+ DATABASE_URL) selects bot.ledger_pg.PostgresLedger,
-    anything else (or unset) keeps the default JSONL-backed Ledger.
-
-    Import failures or a missing DATABASE_URL fall back to the JSONL Ledger
-    with a loud warning — a bad Postgres config should degrade trading
-    safety-wise (you keep a working ledger), not crash bot startup.
-    """
-    backend = os.getenv("LEDGER_BACKEND", "jsonl").lower()
-    if backend != "postgres":
-        return Ledger()
-    try:
-        from .ledger_pg import PostgresLedger
-        pg = PostgresLedger()
-        pg.load_recent()
-        log.info("[LEDGER] using PostgreSQL backend (LEDGER_BACKEND=postgres)")
-        return pg
-    except Exception as e:
-        log.error(f"[LEDGER] LEDGER_BACKEND=postgres failed ({e}) — falling back to JSONL ledger")
-        return Ledger()
-
-
-ledger = _build_ledger()
+ledger = Ledger()

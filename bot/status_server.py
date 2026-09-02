@@ -28,6 +28,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional
 
 from .config import cfg
+from .swarm import AGENT_NAMES, DEFAULT_WEIGHTS
 from .gates import cooldown, is_live_trading_allowed
 from .ledger import ledger
 from .portfolio_gates import max_drawdown_gate, pair_lock, session_pnl
@@ -62,6 +63,8 @@ def _config_dict() -> Dict[str, Any]:
         "minTrackRecordWinPct": cfg.min_track_record_win_pct,
         "minTrackRecordSamples": cfg.min_track_record_samples,
         "preferMaker": cfg.prefer_maker,
+        "swarmEnabled": getattr(cfg, "swarm_enabled", True),
+        "consensusThreshold": getattr(cfg, "consensus_threshold", 0.70),
     }
 
 
@@ -114,6 +117,8 @@ def _gates_list() -> List[Dict[str, Any]]:
 def _ledger_rows(limit: int = 50) -> List[Dict[str, Any]]:
     rows = []
     for e in ledger._entries[-limit:]:
+        meta = e.meta or {}
+        swarm = meta.get("swarm") or {}
         rows.append({
             "ts": int(e.ts * 1000),
             "kind": e.kind,
@@ -125,6 +130,13 @@ def _ledger_rows(limit: int = 50) -> List[Dict[str, Any]]:
             "status": e.status,
             "dryRun": e.dry_run,
             "pnlUsd": e.pnl_usd,
+            "orderId": e.order_id,
+            "setId": meta.get("set_id"),
+            "isArbLeg": bool(meta.get("is_arb_leg")),
+            "preferMaker": bool(meta.get("prefer_maker")),
+            "consensus": swarm.get("consensus"),
+            "consensusOk": swarm.get("ok"),
+            "swarmDetail": swarm.get("detail"),
         })
     rows.sort(key=lambda r: r["ts"], reverse=True)
     return rows
@@ -171,6 +183,7 @@ def build_status() -> Dict[str, Any]:
         "pnlSeries": pnl_series,
         "markets": markets,
         "gates": _gates_list(),
+        "swarm": _swarm_from_ledger(),
         "ledger": _ledger_rows(),
     }
 
@@ -258,3 +271,30 @@ def start_status_server(port: Optional[int] = None) -> Optional[ThreadingHTTPSer
     thread.start()
     log.info(f"Status server listening on :{port} (GET /status)")
     return server
+
+
+def _swarm_from_ledger(limit: int = 30) -> dict:
+    """Latest swarm consensus snapshot from ledger meta (if any)."""
+    agents = {n: {"score": None, "veto": False, "reason": ""} for n in AGENT_NAMES}
+    last = None
+    for e in reversed(ledger._entries[-limit:]):
+        meta = e.meta or {}
+        swarm = meta.get("swarm")
+        if not swarm:
+            continue
+        last = swarm
+        for name, row in (swarm.get("scores") or {}).items():
+            agents[name] = {
+                "score": row.get("score"),
+                "veto": bool(row.get("veto")),
+                "reason": row.get("reason") or "",
+            }
+        break
+    return {
+        "enabled": bool(getattr(cfg, "swarm_enabled", True)),
+        "threshold": float(getattr(cfg, "consensus_threshold", 0.70)),
+        "last": last,
+        "agents": agents,
+        "weights": dict(DEFAULT_WEIGHTS),
+    }
+

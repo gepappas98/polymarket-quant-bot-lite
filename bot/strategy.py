@@ -100,7 +100,16 @@ class Strategy:
     def market_inv(self, slug: str) -> MarketInventory:
         return self.book.get(slug)
 
+    def next_set_id(self, slug: str) -> str:
+        """Monotonic complete-set id per market for ledger correlation."""
+        if not hasattr(self, "_set_seq"):
+            self._set_seq = {}
+        n = self._set_seq.get(slug, 0) + 1
+        self._set_seq[slug] = n
+        return f"{slug}:set:{n}"
+
     def _swarm_filter(self, state: MarketState, intents: List[Intent]) -> List[Intent]:
+
         """Apply module-swarm consensus; no-op if SWARM_ENABLED=false."""
         if not intents:
             return intents
