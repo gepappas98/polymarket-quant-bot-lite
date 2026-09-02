@@ -12,11 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Documented research context: public trader analytics (e.g. `@hot-garbage`) inform **product priorities**; viral “Grok terminal” UIs are treated as unverified/simulated unless a wallet is independently confirmed — not as performance targets.
 - Explicit non-goals extended: no guaranteed profit, no 100% win-rate marketing metrics, no blind copy of Telegram/GitHub bot packs.
 
+### Added
+- `bot/inventory.py` — per-market paired/residual inventory, average complete-set cost, edge-per-set, second-side lag helpers
+- Core strategy paths: `SECOND_SIDE`, staggered `SET_ACCUM`, instant `ARB` pair (priority order)
+- Config: `TARGET_SET_COST`, `SECOND_SIDE_LAG_SEC`, `MAX_NAKED_RESIDUAL_USD`, `RESIDUAL_SIZE_FACTOR`, `MIN_BOOK_DEPTH_USD`
+- Tests: `tests/test_inventory.py`
+
 ### Planned (see `ROADMAP.md`)
-- Inventory model (`paired` / `residual` / `avg_set_cost`) and complete-set accumulator across staggered fills
-- Second-side lag + max naked residual; maker-first ladder; thin-book reject
 - Live-gated CTF split / merge / redeem; on-chain redeem after resolve
-- Wire `PriceFeed` (Binance/ccxt) into strategy fair value; richer fill ledger fields
+- Maker-first multi-level quote ladder; richer fill ledger (`set_id`, maker/taker)
+- Wire `PriceFeed` (Binance/ccxt) into strategy fair value
 - Worker ↔ dashboard dual-implementation clarity; injectable clock for faithful backtests
 
 ---
