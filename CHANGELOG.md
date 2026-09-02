@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.6] — 2026-09-02
+
+### Added
+- Explicit regression coverage for the authentication boundary on every mutating `/api/*` route: risk updates, trailing-stop simulation, strategy updates, leaderboard refresh, ML retraining, trade placement and price updates.
+
+### Security
+- Confirmed that all mutating sidecar routes use the shared `require_api_token` dependency.
+- Confirmed that missing `API_TOKEN` remains fail-closed in live mode and returns the existing `503 API_TOKEN required in live mode` response.
+- Confirmed that valid `Authorization: Bearer ...` credentials continue to allow authenticated settings/strategy changes.
+
 ## [0.4.5] — 2026-09-02
 
 ### Added

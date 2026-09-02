@@ -2,6 +2,12 @@
 
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
+## Just shipped (v0.4.6) — mutating API authentication audit, see CHANGELOG.md
+
+- [x] **Protected mutating routes** — settings/risk, strategy updates, leaderboard refresh, ML retraining, trade placement, price updates and trailing-stop mutation all require the shared `require_api_token` dependency.
+- [x] **Authentication regression coverage** — unauthenticated requests are rejected consistently while Bearer-token authenticated strategy updates remain functional.
+- [x] **Live-mode fail-closed behavior** — when `API_TOKEN` is missing in live mode, mutating routes return the existing explicit configuration error instead of allowing changes.
+
 ## Just shipped (v0.4.5) — CLOB price-feed integration, see CHANGELOG.md
 
 - [x] **CLOB midpoint adapter** — reads public midpoint prices for persisted open-position token IDs from the Polymarket CLOB API.
@@ -52,7 +58,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [x] **Real leaderboard source** — the public aggregate source shipped in v0.4.3 and per-trader realized-PnL enrichment shipped in v0.4.4.
 - [x] **Trailing-stop execution** — the close path shipped in v0.4.2 and the optional CLOB midpoint poller now supplies live prices in v0.4.5.
 - [x] **Feed live prices into `Trade.current_price`** — the sidecar poller updates open positions through the existing price-update service.
-- [ ] **Auth on mutating `/api/*` routes** — settings/strategies endpoints are unauthenticated; bind them to the Supabase session used by `/settings` and `/strategies`
+- [x] **Auth on mutating `/api/*` routes** — the shared API-token boundary protects all mutating sidecar routes; frontend callers can send `VITE_API_TOKEN` through the existing client configuration.
 - [ ] **Postgres for the app DB** — `APP_DATABASE_URL` accepts any SQLAlchemy URL but only SQLite has been exercised
 
 ## Shipped in v0.3.0
