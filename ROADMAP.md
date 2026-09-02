@@ -91,17 +91,11 @@ These items come from public analysis of high-volume Up/Down makers (complete-se
 
 ### P0 — inventory & complete-set economics
 
-- [ ] **`bot/inventory.py` (or extend `strategy.py`)**
-  - Track per-market: `up_inv`, `down_inv`, `paired = min(up, down)`, `residual = up - down`
-  - Track **average complete-set cost** across staggered fills (not only instant `sum_asks`)
-  - Metrics: `sets_completed`, `avg_set_cost`, `edge_per_set`, `residual_usd`
-- [ ] **Complete-set accumulator strategy** (enhance core arb / dedicated plugin)
-  - Build both sides over multiple executions inside the same window (bosona / hot-garbage style)
-  - Target band e.g. mean set cost ≤ `0.95–0.98` (config: `TARGET_SET_COST`)
-  - Prefer maker limits; allow taker only when residual edge ≫ threshold
-- [ ] **Second-side lag logic**
-  - After a one-sided fill, actively work the opposite side while the pair remains cheap
-  - Timeout + max naked residual USD per market (`MAX_NAKED_RESIDUAL_USD`)
+- [x] **`bot/inventory.py`** — `MarketInventory` / `InventoryBook`: paired, residual, avg_set_cost, edge_per_set, net_exposure_usd, fill history
+- [x] **Complete-set accumulator** in core `strategy.py` — instant ARB pair + staggered `SET_ACCUM` when `sum_asks ≤ TARGET_SET_COST`
+- [x] **Second-side lag logic** — `needs_second_side(max_lag_sec, max_naked_usd)` → `SECOND_SIDE` intents
+- [x] **Config** — `TARGET_SET_COST`, `SECOND_SIDE_LAG_SEC`, `MAX_NAKED_RESIDUAL_USD`, `RESIDUAL_SIZE_FACTOR`, `MIN_BOOK_DEPTH_USD`
+- [x] **Unit tests** — `tests/test_inventory.py` (5 passed)
 - [ ] **Hold-to-resolution default**
   - Align with low early-sell behavior observed on profitable MM wallets
   - Early exit only via existing risk paths (trailing stop, kill switch, pair lock) — not discretionary churn
@@ -117,7 +111,7 @@ These items come from public analysis of high-volume Up/Down makers (complete-se
 ### P1 — execution quality
 
 - [ ] **Maker-first quote ladder** — multi-level or single-level resting both sides; skew from residual (extends `market_making.py`)
-- [ ] **Thin-book reject** — skip intents when depth/size below `MIN_BOOK_DEPTH_USD` (GROK-UI log idea, real risk control)
+- [x] **Thin-book reject** — optional `MIN_BOOK_DEPTH_USD` gate in strategy (`_depth_ok`); default 0 = off
 - [ ] **Fill ledger enrichment** — `maker|taker`, `set_id`, `residual_after`, `set_cost_contribution`
 - [ ] **Wire `PriceFeed` (Binance/ccxt) into strategy fair value** — window open-price delta / spot vs mid (still open from v0.3.1)
 - [ ] **Order lifecycle** — cancel stale limits; reconcile fills via CLOB user channel / WS
