@@ -9,10 +9,12 @@ from app.services.strategy_service import get_active_strategies, strategy_names
 from bot.config import cfg
 from bot.gates import is_live_trading_allowed
 from app.ledger.reader import daily_pnl
+from app.services.risk_service import reconcile_settlements
 
 
 @api_router.get("/status")
 def status(db=Depends(get_db)):
+    reconcile_settlements(db)
     active = get_active_strategies(db)
     circuit = check_circuit_breaker(1, db)
     window = check_time_window(1, db)

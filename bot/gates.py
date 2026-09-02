@@ -105,6 +105,7 @@ def is_live_trading_allowed() -> GateResult:
     return GateResult(allowed=True)
 
 
+
 def gate_intent(market_slug: str, size_usd: float, is_arb: bool = False) -> GateResult:
     """
     Run all process-local gates before any order is sent.
@@ -120,6 +121,11 @@ def gate_intent(market_slug: str, size_usd: float, is_arb: bool = False) -> Gate
     if size_usd <= 0 or size_usd > cfg.max_order_usd * 1.01:
         return GateResult(allowed=False, reason=f"size_usd {size_usd} outside limits")
 
+    for chk in extra_checks:
+        result = chk(market_slug, size_usd)
+        if not result.allowed:
+            return result
+
     # Cooldown (lighter for pure arb pairs)
     cd_minutes = 1.0 if is_arb else cooldown.minutes
     # Temporarily adjust for arb
@@ -133,8 +139,4 @@ def gate_intent(market_slug: str, size_usd: float, is_arb: bool = False) -> Gate
     finally:
         cooldown.minutes = original
 
-    for chk in extra_checks:
-        result = chk(market_slug, size_usd)
-        if not result.allowed:
-            return result
     return GateResult(allowed=True)

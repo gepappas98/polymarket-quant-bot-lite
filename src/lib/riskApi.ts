@@ -1,4 +1,5 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const API_TOKEN = import.meta.env.VITE_API_TOKEN;
 
 export class ApiError extends Error {
   readonly status: number;
@@ -13,6 +14,9 @@ export class ApiError extends Error {
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("accept", "application/json");
+  if (API_TOKEN && !headers.has("authorization") && !headers.has("x-api-key")) {
+    headers.set("authorization", `Bearer ${API_TOKEN}`);
+  }
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
 
   let response: Response;

@@ -26,6 +26,7 @@ from .feeds import PriceFeed, MarketState
 from .strategy import Strategy
 from .executor import create_executor
 from .gates import cooldown, is_live_trading_allowed
+from . import gates
 from .ledger import ledger
 from .resolver import Resolver
 from .status_server import start_status_server, update_markets
@@ -115,6 +116,20 @@ def market_rows(states: list, strategy: Strategy) -> list:
     return rows
 
 
+def install_risk_engine():
+    """Install the optional risk hook, failing closed when initialization fails."""
+    if os.getenv("RISK_ENGINE_ENABLED", "false").lower() not in ("1", "true", "yes"):
+        return
+    try:
+        from app.services.risk_service import install_bot_gate_hook
+        install_bot_gate_hook()
+        log.info("advanced risk engine gate hook installed")
+    except Exception as exc:
+        log.exception("risk engine failed to initialise")
+        reason = f"risk engine failed to initialise: {exc}"
+        gates.register_check(lambda _slug, _size: gates.GateResult(False, reason))
+
+
 def main():
     live_gate = is_live_trading_allowed()
     console.print(Panel.fit(
@@ -130,13 +145,7 @@ def main():
     feed = PriceFeed()
     strategy = Strategy()
     executor = create_executor(strategy)
-    if os.getenv("RISK_ENGINE_ENABLED", "false").lower() in ("1", "true", "yes"):
-        try:
-            from app.services.risk_service import install_bot_gate_hook
-            install_bot_gate_hook()
-            log.info("advanced risk engine gate hook installed")
-        except Exception as e:
-            log.warning("risk engine unavailable: %s", e)
+    install_risk_engine()
     resolver = Resolver(strategy)
 
     # Plugin-based strategy loading (Priority 2): every module in

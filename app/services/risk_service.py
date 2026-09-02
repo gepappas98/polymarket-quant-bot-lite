@@ -5,11 +5,14 @@ from typing import Dict, List, Optional
 from sqlalchemy import select
 
 from app.core import database
-from app.ledger.reader import trade_history, daily_pnl
+from app.ledger.reader import trade_history, daily_pnl, read_entries
 from app.models.risk_config import RiskConfig
 from app.models.trade import Trade
 from app.utils.categories import category_for_slug
 from bot import daily_limit, gates, portfolio_gates
+
+
+advanced_cooldown = gates.CooldownLock(minutes=3.0)
 
 
 @dataclass
@@ -99,6 +102,7 @@ def simulate_trailing_stop(trade_id, current_price, db):
 
 
 def category_exposure(db, user_id=1):
+    reconcile_settlements(db)
     config = get_or_create_risk_config(db, user_id)
     values = {category: 0.0 for category in ("politics", "sports", "crypto", "other")}
     open_trades = db.scalars(select(Trade).where(Trade.status == "open")).all()
@@ -112,11 +116,57 @@ def category_exposure(db, user_id=1):
     return {category: {"exposure": round(exposure, 2), "ceiling": ceilings[category], "remaining": None if ceilings[category] is None else round(ceilings[category] - exposure, 2)} for category, exposure in values.items()}
 
 
+def reconcile_settlements(db):
+    """Close open DB trades when their ledger outcome is available."""
+    open_trades = db.scalars(select(Trade).where(Trade.status == "open")).all()
+    if not open_trades:
+        return 0
+    outcomes = sorted(
+        [row for row in read_entries() if row.get("kind") == "outcome"],
+        key=lambda row: row.get("ts", 0),
+    )
+    changed = 0
+    for outcome in outcomes:
+        slug = outcome.get("market_slug")
+        order_id = outcome.get("order_id")
+        candidates = [
+            trade for trade in open_trades
+            if trade.status == "open"
+            and ((order_id and trade.order_id == order_id)
+                 or (not order_id and trade.market_slug == slug
+                     and outcome.get("ts", 0) >= trade.created_at.timestamp()))
+        ]
+        if not candidates:
+            continue
+        matching = [
+            trade for trade in candidates
+            if str(trade.side).upper() == str(outcome.get("side", "")).upper()
+        ]
+        target = matching[0] if matching else candidates[0]
+        closed_at = datetime.fromtimestamp(float(outcome.get("ts", 0)), tz=timezone.utc).replace(tzinfo=None)
+        for trade in candidates:
+            trade.status = "closed"
+            trade.pnl_usd = float(outcome.get("pnl_usd") or 0.0) if trade is target else 0.0
+            trade.closed_at = closed_at
+            changed += 1
+    if changed:
+        db.commit()
+    return changed
+
+
 def evaluate_safety_gates(user_id, db, market_slug=None, category=None, size_usd=None, current_prices=None):
     category = category or (category_for_slug(market_slug) if market_slug else None)
     report_gates = [check_circuit_breaker(user_id, db), check_time_window(user_id, db)]
     config = get_or_create_risk_config(db, user_id)
     exposure = category_exposure(db, user_id)
+    if size_usd is not None and market_slug:
+        advanced_cooldown.minutes = max(0.0, float(config.cooldown_seconds) / 60.0)
+        if advanced_cooldown.get_until(market_slug) is not None:
+            report_gates.append(GateStatus(
+                "advanced_cooldown", "BLOCKED", "advanced cooldown active", {}
+            ))
+        else:
+            report_gates.append(GateStatus("advanced_cooldown", "OK", "", {}))
     if category and size_usd is not None and config.enable_category_ceiling and exposure[category]["ceiling"] is not None:
         projected = exposure[category]["exposure"] + size_usd
         ceiling = exposure[category]["ceiling"]

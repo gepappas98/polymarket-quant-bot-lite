@@ -11,13 +11,6 @@ LEDGER_PATH = os.getenv("LEDGER_PATH", "data/trades.jsonl")
 
 
 def read_entries(path=None) -> List[dict]:
-    try:
-        from bot.ledger import ledger
-        if ledger._entries:
-            rows = [asdict(e) if is_dataclass(e) else dict(e) for e in ledger._entries]
-            return sorted(rows, key=lambda row: row.get("ts", 0))
-    except Exception:
-        pass
     target = Path(path or os.getenv("LEDGER_PATH", LEDGER_PATH))
     rows = []
     try:
@@ -30,8 +23,25 @@ def read_entries(path=None) -> List[dict]:
                 except (json.JSONDecodeError, TypeError):
                     continue
     except OSError:
-        return []
-    return sorted(rows, key=lambda row: row.get("ts", 0))
+        pass
+    try:
+        from bot.ledger import ledger
+        entries = getattr(ledger, "_entries", None)
+        if entries:
+            rows.extend(asdict(e) if is_dataclass(e) else dict(e) for e in entries)
+    except Exception:
+        pass
+    deduped = {}
+    for row in rows:
+        key = (
+            row.get("ts"),
+            row.get("kind"),
+            row.get("market_slug"),
+            row.get("side"),
+            row.get("order_id"),
+        )
+        deduped[key] = row
+    return sorted(deduped.values(), key=lambda row: row.get("ts", 0))
 
 
 def _filter(kind, category=None, since_ts=None, until_ts=None):
@@ -65,19 +75,58 @@ def recent_category_pnls(category, n=20):
 
 def trade_history(category=None, start_ts=None, end_ts=None, status=None, limit=200):
     rows = {}
-    for entry in read_entries():
+    entries = read_entries()
+
+    def in_scope(entry):
+        if category and category_for_slug(entry.get("market_slug", "")) != category:
+            return False
+        ts = entry.get("ts", 0)
+        return not (
+            (start_ts is not None and ts < start_ts)
+            or (end_ts is not None and ts > end_ts)
+        )
+
+    fills_by_slug = {}
+    for entry in entries:
+        if entry.get("kind") != "fill" or not in_scope(entry):
+            continue
+        slug = entry.get("market_slug", "")
+        key = (slug, entry.get("order_id") or entry.get("side"))
+        fills_by_slug.setdefault(slug, []).append(key)
+        rows.setdefault(key, {
+            "ts": entry.get("ts", 0), "market_slug": slug,
+            "category": category_for_slug(slug), "side": entry.get("side"),
+            "price": entry.get("price"), "size_usd": entry.get("size_usd"),
+            "pnl_usd": None, "status": "open",
+            "dry_run": entry.get("dry_run", True), "order_id": entry.get("order_id"),
+        })
+    for entry in entries:
         if entry.get("kind") not in ("fill", "outcome"):
             continue
-        if category and category_for_slug(entry.get("market_slug", "")) != category:
+        if not in_scope(entry):
             continue
         ts = entry.get("ts", 0)
-        if start_ts is not None and ts < start_ts or end_ts is not None and ts > end_ts:
-            continue
-        key = (entry.get("market_slug"), entry.get("order_id") or entry.get("side"))
-        if entry.get("kind") == "outcome" and not entry.get("order_id"):
-            candidates = [candidate for candidate in rows if candidate[0] == entry.get("market_slug")]
-            if len(candidates) == 1:
-                key = candidates[0]
+        slug = entry.get("market_slug", "")
+        if entry.get("kind") == "fill":
+            key = (slug, entry.get("order_id") or entry.get("side"))
+        elif entry.get("order_id"):
+            key = (slug, entry.get("order_id"))
+        else:
+            candidates = fills_by_slug.get(slug, [])
+            if candidates:
+                matching = [
+                    candidate for candidate in candidates
+                    if str(rows[candidate].get("side", "")).upper()
+                    == str(entry.get("side", "")).upper()
+                ]
+                target = matching[0] if matching else candidates[0]
+                for candidate in candidates:
+                    rows[candidate].update(
+                        pnl_usd=entry.get("pnl_usd") if candidate == target else 0.0,
+                        status="closed",
+                        ts=entry.get("ts", rows[candidate]["ts"]),
+                    )
+                continue
         row = rows.setdefault(key, {
             "ts": ts, "market_slug": entry.get("market_slug", ""),
             "category": category_for_slug(entry.get("market_slug", "")),

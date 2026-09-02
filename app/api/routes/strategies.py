@@ -3,6 +3,7 @@ from app.api.routes import api_router
 from app.core.database import get_db
 from app.schemas.v04_schemas import StrategyFlags, StrategyUpdateRequest
 from app.services.strategy_service import get_active_strategies, strategy_names, update_strategies
+from app.api.deps import require_api_token
 
 
 def _result(row):
@@ -27,7 +28,7 @@ def strategies(db=Depends(get_db)):
 
 
 @api_router.post("/strategies/update")
-def update(request: StrategyUpdateRequest, db=Depends(get_db)):
+def update(request: StrategyUpdateRequest, db=Depends(get_db), _token=Depends(require_api_token)):
     row = update_strategies(db, 1, **request.model_dump(exclude_unset=True))
     active = get_active_strategies_from_row(row)
     return {**active.__dict__, "flags": active.__dict__, "active": strategy_names(active), "categories": _categories(active)}
