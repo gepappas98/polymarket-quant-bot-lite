@@ -139,6 +139,33 @@ class PriceFeed:
             log.debug(f"PriceFeed.get_price({asset}) failed: {e}")
             return None
 
+    def anchor_window(self, market_key: str, asset: str) -> Optional[float]:
+        """
+        Capture (once) the spot price at first observation of this market window.
+        Returns the open/anchor price, or None if spot unavailable.
+        """
+        if not hasattr(self, "_window_open"):
+            self._window_open = {}
+        if market_key in self._window_open:
+            return self._window_open[market_key]
+        px = self.get_price(asset)
+        if px is not None:
+            self._window_open[market_key] = px
+            log.info(f"PriceFeed: anchored {market_key} open_spot={px:.4f}")
+        return px
+
+    def window_delta_pct(self, market_key: str, asset: str) -> Optional[float]:
+        """
+        (spot_now / spot_open - 1). Positive => asset up since window open.
+        """
+        open_px = self.anchor_window(market_key, asset)
+        if open_px is None or open_px <= 0:
+            return None
+        now_px = self.get_price(asset)
+        if now_px is None:
+            return None
+        return (now_px / open_px) - 1.0
+
 
 @dataclass
 class MarketState:
@@ -181,8 +208,33 @@ class MarketState:
 
     @property
     def external_price(self) -> Optional[float]:
-        """Latest external spot price for this market's asset, if a feed is attached.
-        Not used by bot/strategy.py today — available for the ROADMAP's open-price-delta work."""
+        """Latest external spot price for this market's asset, if a feed is attached."""
         if self.feed is None:
             return None
         return self.feed.get_price(self.market.get("asset", "BTC"))
+
+    @property
+    def market_key(self) -> str:
+        return str(self.market.get("slug") or self.market.get("condition_id") or "unknown")
+
+    @property
+    def window_delta_pct(self) -> Optional[float]:
+        """Spot move since window open (fraction). None if no feed/anchor."""
+        if self.feed is None:
+            return None
+        asset = self.market.get("asset", "BTC")
+        return self.feed.window_delta_pct(self.market_key, asset)
+
+    @property
+    def fair_up_prob(self) -> Optional[float]:
+        """
+        Heuristic P(UP) from window open-price delta.
+        Maps small moves into (0.05, 0.95); None if no spot signal.
+        """
+        d = self.window_delta_pct
+        if d is None:
+            return None
+        # ~50 bps move -> strong directional lean; clamp
+        # fair = 0.5 + k * delta, k chosen so +1% spot ~= +0.35 prob
+        fair = 0.5 + (d * 35.0)
+        return max(0.05, min(0.95, fair))

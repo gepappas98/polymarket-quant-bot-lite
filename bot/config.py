@@ -51,6 +51,25 @@ class Config:
     min_track_record_win_pct: float = float(os.getenv("MIN_TRACK_RECORD_WIN_PCT", "48"))
     min_track_record_samples: int = int(os.getenv("MIN_TRACK_RECORD_SAMPLES", "12"))
 
+    # --- v0.5 inventory / complete-set economics ---
+    # Target max average set cost (UP avg + DOWN avg); used when staggering legs
+    target_set_cost: float = float(os.getenv("TARGET_SET_COST", "0.98"))
+    # After a one-sided fill, work the opposite side once lag exceeds this (seconds)
+    second_side_lag_sec: float = float(os.getenv("SECOND_SIDE_LAG_SEC", "15"))
+    # Force second-side work if naked residual exposure exceeds this USD
+    max_naked_residual_usd: float = float(os.getenv("MAX_NAKED_RESIDUAL_USD", "40"))
+    # Max fraction of max_order_usd for a pure residual (directional) clip
+    residual_size_factor: float = float(os.getenv("RESIDUAL_SIZE_FACTOR", "0.6"))
+    # Skip books thinner than this notional on the touch (0 = disabled)
+    min_book_depth_usd: float = float(os.getenv("MIN_BOOK_DEPTH_USD", "0"))
+
+    # Spot fair value (Binance/ccxt window open delta)
+    use_spot_fair: bool = os.getenv("USE_SPOT_FAIR", "true").lower() == "true"
+    # Blend weight: 1.0 = pure spot fair, 0.0 = pure book imbalance
+    spot_fair_weight: float = float(os.getenv("SPOT_FAIR_WEIGHT", "0.7"))
+    # Prefer holding to resolution (no discretionary early SELL intents from core strategy)
+    hold_to_resolution: bool = os.getenv("HOLD_TO_RESOLUTION", "true").lower() == "true"
+
     # Network
     clob_host: str = "https://clob.polymarket.com"
     gamma_host: str = "https://gamma-api.polymarket.com"
