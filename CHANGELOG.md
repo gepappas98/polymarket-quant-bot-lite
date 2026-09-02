@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.7] — 2026-09-02
+
+### Added
+- PostgreSQL app-database setup guide at `docs/app-database-postgres.md`.
+- Compatibility tests verifying `postgresql+psycopg://...` engine configuration and preserving SQLite-specific in-memory/thread options.
+- Explicit optional `psycopg[binary]` driver guidance for `APP_DATABASE_URL`.
+
+### Changed
+- Documented the deployment checklist, secret handling and schema initialization behavior for the FastAPI app database.
+- Marked PostgreSQL app-database support as completed in `ROADMAP.md`, while clearly distinguishing local compatibility tests from live database verification.
+
 ## [0.4.6] — 2026-09-02
 
 ### Added
