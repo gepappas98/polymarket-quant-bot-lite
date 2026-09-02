@@ -1,0 +1,70 @@
+# Risk / Leaders API only — FastAPI sidecar (app.main:app)
+# Not the trading worker (see fly.toml for python -m bot.main).
+#
+# First time:
+#   fly apps create polymarket-quant-risk
+#   fly volumes create risk_data --region iad --size 1 -a polymarket-quant-risk
+#   fly secrets set -a polymarket-quant-risk \
+#     MODE=paper \
+#     API_TOKEN="$(openssl rand -hex 24)" \
+#     API_CORS_ORIGINS="https://polymarket-quant-bot-lite.lovable.app,http://localhost:5173"
+#   fly deploy -a polymarket-quant-risk -c fly.risk.toml
+#
+# Point Lovable / Vite at:
+#   VITE_API_URL=https://polymarket-quant-risk.fly.dev
+#   VITE_API_TOKEN=<same as API_TOKEN>
+
+app = "polymarket-quant-risk"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile.risk"
+
+[env]
+  MODE = "paper"
+  LOG_LEVEL = "INFO"
+  API_HOST = "0.0.0.0"
+  API_PORT = "8000"
+  # Comma-separated browser origins (Lovable + local dev). Override via secrets if needed.
+  API_CORS_ORIGINS = "https://polymarket-quant-bot-lite.lovable.app,http://localhost:5173,http://localhost:3000"
+  APP_DATABASE_URL = "sqlite:////data/app.db"
+  RISK_ENGINE_ENABLED = "true"
+  CLOB_PRICE_FEED_ENABLED = "false"
+  LEADERBOARD_CATEGORY = "OVERALL"
+  LEADERBOARD_TIME_PERIOD = "ALL"
+  LEADERBOARD_ORDER_BY = "PNL"
+  LEADERBOARD_LIMIT = "50"
+  LEADERBOARD_ENRICH_HISTORY = "true"
+
+[processes]
+  app = "uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+[mounts]
+  source = "risk_data"
+  destination = "/data"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
+
+[[services]]
+  internal_port = 8000
+  protocol = "tcp"
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "5s"
+    method = "GET"
+    path = "/health"
