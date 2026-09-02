@@ -2,6 +2,13 @@
 
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
+## Just shipped (v0.4.5) — CLOB price-feed integration, see CHANGELOG.md
+
+- [x] **CLOB midpoint adapter** — reads public midpoint prices for persisted open-position token IDs from the Polymarket CLOB API.
+- [x] **Trailing-stop routing** — each valid price is routed through the existing `process_price_update()` path, preserving persistence, safety gates, paper/live execution semantics and WebSocket close events.
+- [x] **Optional sidecar poller** — `CLOB_PRICE_FEED_ENABLED=false` by default; when enabled, the FastAPI sidecar polls at the configured interval using a fresh database session per cycle and shuts down cleanly.
+- [x] **Regression coverage** — midpoint normalization, invalid-price handling, open-trade routing and missing-price fail-soft behavior are tested.
+
 ## Just shipped (v0.4.4) — realized-PnL leaderboard enrichment, see CHANGELOG.md
 
 - [x] **Per-trader closed-position history** — the top aggregate public leaderboard rows are enriched from Polymarket's public `/closed-positions` API, supplying realized PnL, invested notional, and timestamps for meaningful per-trader statistics.
@@ -43,8 +50,8 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 
 - [ ] **Turn the risk-engine hook on by default** once it has run alongside the paper worker for a while (today `RISK_ENGINE_ENABLED=false`).
 - [x] **Real leaderboard source** — the public aggregate source shipped in v0.4.3 and per-trader realized-PnL enrichment shipped in v0.4.4.
-- [ ] **Trailing-stop execution** — the close path shipped in v0.4.2; connect the live CLOB feed adapter to `POST /api/trades/price` next.
-- [ ] **Feed live prices into `Trade.current_price`** — the persistence and close path are shipped; connect the production market-data stream next.
+- [x] **Trailing-stop execution** — the close path shipped in v0.4.2 and the optional CLOB midpoint poller now supplies live prices in v0.4.5.
+- [x] **Feed live prices into `Trade.current_price`** — the sidecar poller updates open positions through the existing price-update service.
 - [ ] **Auth on mutating `/api/*` routes** — settings/strategies endpoints are unauthenticated; bind them to the Supabase session used by `/settings` and `/strategies`
 - [ ] **Postgres for the app DB** — `APP_DATABASE_URL` accepts any SQLAlchemy URL but only SQLite has been exercised
 

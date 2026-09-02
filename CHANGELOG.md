@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.5] — 2026-09-02
+
+### Added
+- Public CLOB midpoint adapter for `GET https://clob.polymarket.com/midpoint?token_id=...`.
+- Optional FastAPI sidecar poller controlled by `CLOB_PRICE_FEED_ENABLED` and `CLOB_PRICE_FEED_INTERVAL_SECONDS`.
+- Open-position routing that supplies valid midpoint prices to the existing `process_price_update()` and trailing-stop execution path.
+- Regression coverage for midpoint normalization, invalid-price rejection, missing-price fail-soft behavior and open-trade updates.
+
+### Safety
+- The feed is disabled by default and only supplies market prices; it does not bypass risk gates or change paper/live execution semantics.
+- Each polling cycle uses a fresh database session, ignores invalid/unavailable prices, isolates failures per trade and cancels cleanly during API shutdown.
+
 ## [0.4.4] — 2026-09-02
 
 ### Added
