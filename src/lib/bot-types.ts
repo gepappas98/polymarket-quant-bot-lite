@@ -13,6 +13,8 @@ export interface BotConfig {
   minTrackRecordWinPct: number;
   minTrackRecordSamples: number;
   preferMaker: boolean;
+  swarmEnabled?: boolean;
+  consensusThreshold?: number;
 }
 
 export interface MarketRow {
@@ -47,6 +49,31 @@ export interface LedgerRow {
   status: "open" | "blocked" | "filled" | "closed";
   dryRun: boolean;
   pnlUsd: number | null;
+  setId?: string | null;
+  consensus?: number | null;
+  consensusOk?: boolean | null;
+}
+
+/** One module in the non-LLM swarm pipeline (from worker GET /status). */
+export interface SwarmAgentRow {
+  score: number | null;
+  veto: boolean;
+  reason: string;
+}
+
+export interface SwarmSnapshot {
+  enabled: boolean;
+  threshold: number;
+  last: {
+    ok?: boolean;
+    consensus?: number;
+    threshold?: number;
+    detail?: string;
+    veto_by?: string[];
+    scores?: Record<string, SwarmAgentRow>;
+  } | null;
+  agents: Record<string, SwarmAgentRow>;
+  weights: Record<string, number>;
 }
 
 export interface BotStatus {
@@ -68,4 +95,6 @@ export interface BotStatus {
   markets: MarketRow[];
   gates: GateRow[];
   ledger: LedgerRow[];
+  /** Present when worker runs v0.5+ swarm; demo feed synthesizes a snapshot. */
+  swarm?: SwarmSnapshot;
 }
