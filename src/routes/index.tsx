@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getBotStatus } from "@/lib/bot.functions";
 import { NavLinks } from "@/components/dashboard/NavLinks";
 import { SimulateTradeWidget } from "@/components/dashboard/SimulateTradeWidget";
+import { SwarmAgentsPanel } from "@/components/dashboard/SwarmAgentsPanel";
 import { getRiskGates, riskQueryKeys } from "@/lib/riskApi";
 
 import {
@@ -127,6 +128,10 @@ function Dashboard() {
           sub={`${trackRecord.sampleSize} outcomes · avg ${usd(trackRecord.avgPnl)}`}
           tone={trackRecord.winRatePct >= config.minTrackRecordWinPct ? "up" : "warn"}
         />
+      </div>
+
+      <div className="mt-3">
+        <SwarmAgentsPanel swarm={data.swarm} />
       </div>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
