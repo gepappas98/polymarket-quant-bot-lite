@@ -298,18 +298,38 @@ Frontend/Supabase code (`src/`, `supabase/`) has no automated test suite yet.
 ## Dashboard
 
 `src/` is a React/TanStack dashboard (Vite, Radix UI, Tailwind, Supabase,
-TanStack Query, Recharts). Run it locally with:
+TanStack Query, Recharts). It is hosted on Lovable and backed by Supabase
+(Lovable Cloud). Run it locally with:
 
 ```bash
 npm install   # or: bun install
 npm run dev
 ```
 
-It can point at a running Python worker's status API by setting
-`BOT_STATUS_URL` to `https://<your-worker-host>/status`. Its own trading
-panels (market making, copy trading, backtesting, alerting — see
-`docs/FEATURES.md` for the full spec mapping) run against Supabase and are
-independent of the worker.
+### Auth
+
+The trading desk is gated by authentication. Sign up or sign in at `/auth`
+(email + password or Google OAuth), then the app redirects to `/desk`. All
+Supabase tables are row-level-security scoped to the signed-in user, so your
+trades, watchlists, backtests, and alerts are private to your account.
+
+### `/desk` panels
+
+| Panel | What it does |
+|-------|--------------|
+| **Market Making** | Live Binance trade-feed quoting, simulated fills, inventory skew, realized / unrealized P&L, equity curve |
+| **Copy Trading** | Polymarket wallet watchlist, live position diff vs. mirrored size, one-click mirror trades |
+| **Kelly Sizing** | Fractional Kelly recommended size from edge, odds, bankroll, and historical win rate |
+| **Cooldown Timer** | Per-market countdown persisted in Supabase across sessions |
+| **Strategy Manager** | Enable/disable lazy-loaded strategy plugins and edit their JSON parameters |
+| **Backtest Config** | In-browser simulation on hourly candles; stores results in `backtest_results` |
+| **Alert Config** | Threshold rules and alert history; an hourly cron route evaluates kill-switch / loss conditions |
+
+The dashboard can also consume a running Python worker's status API by setting
+`BOT_STATUS_URL` to `https://<your-worker-host>/status` for read-only monitoring.
+See `docs/FEATURES.md` for the full spec-to-implementation mapping (server
+functions, schema, and cron setup).
+
 
 ---
 
