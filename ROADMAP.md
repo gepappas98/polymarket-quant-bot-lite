@@ -2,6 +2,12 @@
 
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
+## Just shipped (v0.4.1) — reproducibility and verification, see CHANGELOG.md
+
+- [x] **Clean-install runtime dependencies** — `python-dotenv` is declared because configuration loading depends on it.
+- [x] **Clean-checkout test execution** — `pytest.ini` sets `pythonpath = .`; the full test suite can run without a shell-specific `PYTHONPATH` export.
+- [x] **v0.4.0 integration verification** — the advanced-risk backend, API contracts, safety-gate integration, and dashboard surfaces remain in place without changing paper/live execution semantics.
+
 ## Just shipped (v0.4.0) — advanced risk engine, see CHANGELOG.md
 
 - [x] **FastAPI risk-engine sidecar** (`app/`) over the existing worker — `uvicorn app.main:app`; reads `data/trades.jsonl` as history, SQLite for `RiskConfig` / `Leader` / `Trade` / `StrategyConfig`

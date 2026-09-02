@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] — 2026-09-02
+
+### Changed
+- Added `python-dotenv` to the base requirements because `bot/config.py` loads `.env` configuration at startup.
+- Added `pythonpath = .` to `pytest.ini` so the documented `pytest` command imports the `app` and `bot` packages from a clean checkout without requiring `PYTHONPATH`.
+- Re-verified the v0.4.0 advanced-risk scope: variance-capped Kelly sizing, Hampel filtering, composite leaderboard, category-aware strategies, circuit-breaker/time-window/trailing-stop gates, API routes, and dashboard pages remain integrated without changing the paper/live execution boundary.
+
 ## [0.4.0] — 2026-09-01
 
 ### Added
