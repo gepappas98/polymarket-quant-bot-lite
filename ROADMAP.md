@@ -2,6 +2,13 @@
 
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
+## Just shipped (v0.4.4) — realized-PnL leaderboard enrichment, see CHANGELOG.md
+
+- [x] **Per-trader closed-position history** — the top aggregate public leaderboard rows are enriched from Polymarket's public `/closed-positions` API, supplying realized PnL, invested notional, and timestamps for meaningful per-trader statistics.
+- [x] **Fail-soft score enrichment** — a missing or failed trader-history response retains its aggregate leaderboard observation; no synthetic traders are introduced and a single failed wallet cannot fail the refresh.
+- [x] **Controlled API footprint** — enrichment is configurable and bounded (`LEADERBOARD_ENRICH_HISTORY`, top-trader and per-wallet history limits), with defaults below the documented public endpoint limit.
+- [x] **Regression coverage** — response normalization, parameter bounds, fail-soft fallback, chronological drawdown calculation, and the opt-out path are tested.
+
 ## Just shipped (v0.4.3) — public leaderboard adapter, see CHANGELOG.md
 
 - [x] **Official leaderboard source** — added a public Data API adapter for `GET /v1/leaderboard` with category, period, ordering, pagination, timeout, numeric-string parsing, and wallet-field compatibility.
@@ -32,11 +39,11 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [x] **Advanced risk gates** — circuit breaker, time window, trailing stop, per-category ceilings in `evaluate_safety_gates()`; opt-in worker hook via `RISK_ENGINE_ENABLED=true` (`bot/gates.register_check`)
 - [x] **Dashboard pages** `/leaders`, `/sizing`, `/strategies`, `/settings`; Control Room "Simulate trade" widget and extended `GatesPanel`
 
-## Near term (v0.4.1)
+## Near-term follow-ups (v0.4.x)
 
-- [ ] **Turn the risk-engine hook on by default** once it has run alongside the paper worker for a while (today `RISK_ENGINE_ENABLED=false`)
-- [ ] **Real leaderboard source** — shipped in v0.4.3; remaining work is enriching aggregate leaderboard rows with per-trader trade history for more statistically robust Sharpe and win-rate estimates.
-- [ ] **Trailing-stop execution** — shipped in v0.4.2; remaining work is connecting the live CLOB feed adapter to `POST /api/trades/price`.
+- [ ] **Turn the risk-engine hook on by default** once it has run alongside the paper worker for a while (today `RISK_ENGINE_ENABLED=false`).
+- [x] **Real leaderboard source** — the public aggregate source shipped in v0.4.3 and per-trader realized-PnL enrichment shipped in v0.4.4.
+- [ ] **Trailing-stop execution** — the close path shipped in v0.4.2; connect the live CLOB feed adapter to `POST /api/trades/price` next.
 - [ ] **Feed live prices into `Trade.current_price`** — the persistence and close path are shipped; connect the production market-data stream next.
 - [ ] **Auth on mutating `/api/*` routes** — settings/strategies endpoints are unauthenticated; bind them to the Supabase session used by `/settings` and `/strategies`
 - [ ] **Postgres for the app DB** — `APP_DATABASE_URL` accepts any SQLAlchemy URL but only SQLite has been exercised

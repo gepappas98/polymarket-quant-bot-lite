@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.4] — 2026-09-02
+
+### Added
+- Public `GET https://data-api.polymarket.com/closed-positions` adapter for normalized realized-PnL observations per leaderboard wallet.
+- Bounded, configurable leaderboard-history enrichment: `LEADERBOARD_ENRICH_HISTORY`, `LEADERBOARD_HISTORY_TRADER_LIMIT` (default `20`) and `LEADERBOARD_HISTORY_POSITION_LIMIT` (default `25`).
+- Regression coverage for closed-position normalization, public-API parameter clamping, fail-soft wallet-level fallback, chronological drawdown, and enrichment opt-out.
+- `docs/polymarket-closed-positions-api.md`, recording the supported public data contract used by the adapter.
+
+### Changed
+- Official leaderboard refresh now replaces aggregate PnL/volume snapshots with public closed-position observations for the configured number of leading wallets, yielding stronger Sharpe, win-rate, ROI and drawdown estimates.
+- A failed, empty or malformed per-wallet history request preserves the original aggregate row; the refresh remains free of synthetic traders and continues for all other wallets.
+- The legacy `LEADERBOARD_SOURCE_URL` mapping override still takes precedence and intentionally skips public enrichment to preserve its established contract.
+
 ## [0.4.3] — 2026-09-02
 
 ### Added
