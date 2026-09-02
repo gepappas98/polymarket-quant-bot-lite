@@ -9,6 +9,7 @@ import { CooldownTimer } from "@/components/desk/CooldownTimer";
 import { StrategyManager } from "@/components/desk/StrategyManager";
 import { BacktestConfig } from "@/components/desk/BacktestConfig";
 import { AlertConfigPanel } from "@/components/desk/AlertConfigPanel";
+import { NavLinks } from "@/components/dashboard/NavLinks";
 
 export const Route = createFileRoute("/_authenticated/desk")({
   head: () => ({
@@ -43,10 +44,14 @@ function Desk() {
           </p>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <NavLinks />
           <span className="tape rounded border border-border bg-muted px-2 py-1 text-[10px] text-muted-foreground">
             {user?.email ?? "signed in"}
           </span>
-          <Link to="/" className="tape rounded border border-border px-2 py-1 text-[10px] uppercase">
+          <Link
+            to="/"
+            className="tape rounded border border-border px-2 py-1 text-[10px] uppercase"
+          >
             monitor
           </Link>
           <Button

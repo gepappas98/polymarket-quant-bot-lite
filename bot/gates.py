@@ -15,7 +15,7 @@ import os
 import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Callable, Dict, List, Optional
 
 from .config import cfg
 
@@ -29,6 +29,15 @@ LIVE_CONFIRM_PHRASE = "I_UNDERSTAND_THE_RISK"
 class GateResult:
     allowed: bool
     reason: Optional[str] = None
+
+
+ExtraCheck = Callable[[str, float], GateResult]
+extra_checks: List[ExtraCheck] = []
+
+
+def register_check(fn: ExtraCheck) -> None:
+    if fn not in extra_checks:
+        extra_checks.append(fn)
 
 
 class CooldownLock:
@@ -96,6 +105,7 @@ def is_live_trading_allowed() -> GateResult:
     return GateResult(allowed=True)
 
 
+
 def gate_intent(market_slug: str, size_usd: float, is_arb: bool = False) -> GateResult:
     """
     Run all process-local gates before any order is sent.
@@ -110,6 +120,11 @@ def gate_intent(market_slug: str, size_usd: float, is_arb: bool = False) -> Gate
     # Size sanity
     if size_usd <= 0 or size_usd > cfg.max_order_usd * 1.01:
         return GateResult(allowed=False, reason=f"size_usd {size_usd} outside limits")
+
+    for chk in extra_checks:
+        result = chk(market_slug, size_usd)
+        if not result.allowed:
+            return result
 
     # Cooldown (lighter for pure arb pairs)
     cd_minutes = 1.0 if is_arb else cooldown.minutes

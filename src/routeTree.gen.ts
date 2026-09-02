@@ -12,7 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as LeadersRouteImport } from './routes/leaders'
+import { Route as SizingRouteImport } from './routes/sizing'
 import { Route as AuthenticatedDeskRouteImport } from './routes/_authenticated/desk'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedStrategiesRouteImport } from './routes/_authenticated/strategies'
 import { Route as ApiPublicHooksMonitorAlertsRouteImport } from './routes/api/public/hooks/monitor-alerts'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,9 +33,29 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LeadersRoute = LeadersRouteImport.update({
+  id: '/leaders',
+  path: '/leaders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SizingRoute = SizingRouteImport.update({
+  id: '/sizing',
+  path: '/sizing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedDeskRoute = AuthenticatedDeskRouteImport.update({
   id: '/desk',
   path: '/desk',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedStrategiesRoute = AuthenticatedStrategiesRouteImport.update({
+  id: '/strategies',
+  path: '/strategies',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const ApiPublicHooksMonitorAlertsRoute =
@@ -44,13 +68,21 @@ const ApiPublicHooksMonitorAlertsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/leaders': typeof LeadersRoute
+  '/sizing': typeof SizingRoute
   '/desk': typeof AuthenticatedDeskRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/strategies': typeof AuthenticatedStrategiesRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/leaders': typeof LeadersRoute
+  '/sizing': typeof SizingRoute
   '/desk': typeof AuthenticatedDeskRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/strategies': typeof AuthenticatedStrategiesRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRoutesById {
@@ -58,20 +90,44 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/leaders': typeof LeadersRoute
+  '/sizing': typeof SizingRoute
   '/_authenticated/desk': typeof AuthenticatedDeskRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/strategies': typeof AuthenticatedStrategiesRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/desk' | '/api/public/hooks/monitor-alerts'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/leaders'
+    | '/sizing'
+    | '/desk'
+    | '/settings'
+    | '/strategies'
+    | '/api/public/hooks/monitor-alerts'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/desk' | '/api/public/hooks/monitor-alerts'
+  to:
+    | '/'
+    | '/auth'
+    | '/leaders'
+    | '/sizing'
+    | '/desk'
+    | '/settings'
+    | '/strategies'
+    | '/api/public/hooks/monitor-alerts'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/leaders'
+    | '/sizing'
     | '/_authenticated/desk'
+    | '/_authenticated/settings'
+    | '/_authenticated/strategies'
     | '/api/public/hooks/monitor-alerts'
   fileRoutesById: FileRoutesById
 }
@@ -79,6 +135,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  LeadersRoute: typeof LeadersRoute
+  SizingRoute: typeof SizingRoute
   ApiPublicHooksMonitorAlertsRoute: typeof ApiPublicHooksMonitorAlertsRoute
 }
 
@@ -105,11 +163,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/leaders': {
+      id: '/leaders'
+      path: '/leaders'
+      fullPath: '/leaders'
+      preLoaderRoute: typeof LeadersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sizing': {
+      id: '/sizing'
+      path: '/sizing'
+      fullPath: '/sizing'
+      preLoaderRoute: typeof SizingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/desk': {
       id: '/_authenticated/desk'
       path: '/desk'
       fullPath: '/desk'
       preLoaderRoute: typeof AuthenticatedDeskRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/strategies': {
+      id: '/_authenticated/strategies'
+      path: '/strategies'
+      fullPath: '/strategies'
+      preLoaderRoute: typeof AuthenticatedStrategiesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/public/hooks/monitor-alerts': {
@@ -124,10 +210,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDeskRoute: typeof AuthenticatedDeskRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedStrategiesRoute: typeof AuthenticatedStrategiesRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDeskRoute: AuthenticatedDeskRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedStrategiesRoute: AuthenticatedStrategiesRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -137,6 +227,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  LeadersRoute: LeadersRoute,
+  SizingRoute: SizingRoute,
   ApiPublicHooksMonitorAlertsRoute: ApiPublicHooksMonitorAlertsRoute,
 }
 export const routeTree = rootRouteImport

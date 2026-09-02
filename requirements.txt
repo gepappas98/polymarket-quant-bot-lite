@@ -4,9 +4,12 @@ rich>=13.0.0
 ccxt>=4.0.0
 # Uncomment for live CLOB trading:
 # py_clob_client_v2>=0.1.0
-# Optional health sidecar:
-# fastapi>=0.110.0
-# uvicorn>=0.27.0
+fastapi>=0.110
+uvicorn[standard]>=0.29
+sqlalchemy>=2.0
+pydantic>=2.6
+httpx>=0.27
+# celery>=5.3  # optional: background jobs; falls back to FastAPI BackgroundTasks
 
 # Optional — strategy plugins (bot/strategies/), each off by default via .env:
 # xgboost>=2.0.0                    # ML_STRATEGY_ENABLED (bot/ml_model.py)

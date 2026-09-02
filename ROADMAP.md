@@ -2,7 +2,26 @@
 
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
-## Just shipped (v0.3.0) — see CHANGELOG.md for full detail
+## Just shipped (v0.4.0) — advanced risk engine, see CHANGELOG.md
+
+- [x] **FastAPI risk-engine sidecar** (`app/`) over the existing worker — `uvicorn app.main:app`; reads `data/trades.jsonl` as history, SQLite for `RiskConfig` / `Leader` / `Trade` / `StrategyConfig`
+- [x] **Variance-Capped Kelly sizing** — `app/services/sizing_service.py`, rolling variance of the last 20 category outcomes, `k_value` / `max_position_pct` caps
+- [x] **Composite leaderboard with Hampel filtering** — `app/services/scoring_service.py`, `GET /api/leaders`, `POST /api/leaders/refresh`
+- [x] **Category-aware strategy flags** (politics-only, sports fade, crypto focus) — `app/services/strategy_service.py`, `/strategies` page
+- [x] **Hampel preprocessing before XGBoost retraining** — `preprocessing_service.clean_price_series()` ← `ml_service.retrain_model()`
+- [x] **Advanced risk gates** — circuit breaker, time window, trailing stop, per-category ceilings in `evaluate_safety_gates()`; opt-in worker hook via `RISK_ENGINE_ENABLED=true` (`bot/gates.register_check`)
+- [x] **Dashboard pages** `/leaders`, `/sizing`, `/strategies`, `/settings`; Control Room "Simulate trade" widget and extended `GatesPanel`
+
+## Near term (v0.4.1)
+
+- [ ] **Turn the risk-engine hook on by default** once it has run alongside the paper worker for a while (today `RISK_ENGINE_ENABLED=false`)
+- [ ] **Real leaderboard source** — `LEADERBOARD_SOURCE_URL` currently expects `{address: [{pnl,size,ts}]}`; add an adapter for the Polymarket Data API so `/api/leaders` stops relying on mock traders
+- [ ] **Trailing-stop execution** — `simulate_trailing_stop()` only emits close signals; wire a SELL path in `trading_service` / the executor to act on them
+- [ ] **Feed live prices into `Trade.current_price`** so trailing stops on the dashboard update without manual input
+- [ ] **Auth on mutating `/api/*` routes** — settings/strategies endpoints are unauthenticated; bind them to the Supabase session used by `/settings` and `/strategies`
+- [ ] **Postgres for the app DB** — `APP_DATABASE_URL` accepts any SQLAlchemy URL but only SQLite has been exercised
+
+## Shipped in v0.3.0
 
 - [x] **Plugin strategy architecture** — `bot/strategies/loader.py` auto-discovers strategies; no `main.py` edits to add/remove one
 - [x] **Market making** — `bot/strategies/market_making.py`, inventory-skewed two-sided quoting
@@ -17,7 +36,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [x] **Dashboard trading panels** (Supabase-backed, in-browser) — market making, copy trading, Kelly slider, cooldown timer, strategy manager, backtester, alerting — see `docs/FEATURES.md`
 - [x] **`.env.example` and `requirements.txt` synced** with all v0.3.0 plugins — every new env var is documented with inline comments in `.env.example`; optional deps (`xgboost`, `cryptography`, `prometheus-client`, `psycopg[binary]`) are listed commented-out in `requirements.txt` so the base install stays lightweight
 
-## Near term (v0.3.1)
+## Still open from v0.3.1
 
 - [ ] **Kalshi order-execution client** — the current cross-venue module only trades the Polymarket leg; without a Kalshi execution client it's a directional signal, not the hedged arbitrage originally scoped
 - [ ] **Decide the relationship between `bot/strategies/*` and the dashboard's Supabase equivalents** (`useMarketMaker`, copy-trading panel, in-browser backtester) — today they're fully independent implementations of the same ideas; either connect them (dashboard reads the worker's real ledger) or explicitly document the dashboard versions as simulation/monitoring-only
@@ -36,7 +55,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [x] **Max drawdown + low-profit pair locks** (Nexus-style portfolio protections) — `bot/portfolio_gates.py`
 - [x] **Dashboard bridge** — `bot/status_server.py` JSON status API for the frontend's `BOT_STATUS_URL`
 
-## Medium term (v0.4)
+## Medium term (v0.5)
 
 - [ ] **MCP tools** — read-only status / safety model for AI clients (like Nexus MCP)
 - [ ] **Real historical snapshot capture** — a small worker/cron that writes `bot/backtest.py`-compatible JSONL snapshots from live order books, so backtesting and ML training stop depending on hand-built synthetic data
