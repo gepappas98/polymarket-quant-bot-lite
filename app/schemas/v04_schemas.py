@@ -95,6 +95,21 @@ class TrailingStopRequest(BaseModel):
     current_price: float
 
 
+class PriceUpdateRequest(BaseModel):
+    trade_id: int
+    current_price: float = Field(..., gt=0, lt=1)
+
+
+class CloseTradeResponse(BaseModel):
+    status: str
+    trade_id: int
+    size_usd: float
+    pnl_usd: Optional[float]
+    reason: str
+    fill: Optional[dict]
+    dry_run: bool
+
+
 class StrategyFlags(BaseModel):
     politics_only: bool = False
     sports_fade: bool = False

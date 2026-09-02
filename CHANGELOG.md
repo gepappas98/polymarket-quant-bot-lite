@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.2] — 2026-09-02
+
+### Added
+- Persisted `Trade.token_id` and `Trade.current_price` support for position exits.
+- `POST /api/trades/price`, an authenticated price-update endpoint that evaluates the configured trailing-stop threshold.
+- Automatic SELL intents through the existing paper/live executor when a trailing stop is reached.
+- Close-event persistence and WebSocket broadcast with realized PnL.
+- Regression tests for held positions, trailing-stop closes, token propagation, and realized PnL.
+
+### Safety
+- The close path reuses the existing execution abstraction, so `MODE=paper` remains simulated and live execution still requires the existing double opt-in.
+- A failed close fill leaves the position open and records no realized PnL.
+
 ## [0.4.1] — 2026-09-02
 
 ### Changed

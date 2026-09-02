@@ -2,6 +2,13 @@
 
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
+## Just shipped (v0.4.2) — trailing-stop execution, see CHANGELOG.md
+
+- [x] **Trailing-stop execution** — open trades now persist `token_id` and `current_price`; price updates evaluate the configured adverse-move threshold and submit a SELL intent through the existing paper/live executor.
+- [x] **Close-event accounting** — successful exits persist closed status, exit price, realized PnL, close timestamp, and broadcast a `position_closed` WebSocket event.
+- [x] **Price-update API** — authenticated `POST /api/trades/price` provides a deterministic integration point for live market-feed adapters.
+- [x] **Regression coverage** — hold, close, PnL, token propagation, full backend suite, and frontend build verified.
+
 ## Just shipped (v0.4.1) — reproducibility and verification, see CHANGELOG.md
 
 - [x] **Clean-install runtime dependencies** — `python-dotenv` is declared because configuration loading depends on it.
@@ -22,8 +29,8 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 
 - [ ] **Turn the risk-engine hook on by default** once it has run alongside the paper worker for a while (today `RISK_ENGINE_ENABLED=false`)
 - [ ] **Real leaderboard source** — `LEADERBOARD_SOURCE_URL` currently expects `{address: [{pnl,size,ts}]}`; add an adapter for the Polymarket Data API so `/api/leaders` stops relying on mock traders
-- [ ] **Trailing-stop execution** — `simulate_trailing_stop()` only emits close signals; wire a SELL path in `trading_service` / the executor to act on them
-- [ ] **Feed live prices into `Trade.current_price`** so trailing stops on the dashboard update without manual input
+- [ ] **Trailing-stop execution** — shipped in v0.4.2; remaining work is connecting the live CLOB feed adapter to `POST /api/trades/price`.
+- [ ] **Feed live prices into `Trade.current_price`** — the persistence and close path are shipped; connect the production market-data stream next.
 - [ ] **Auth on mutating `/api/*` routes** — settings/strategies endpoints are unauthenticated; bind them to the Supabase session used by `/settings` and `/strategies`
 - [ ] **Postgres for the app DB** — `APP_DATABASE_URL` accepts any SQLAlchemy URL but only SQLite has been exercised
 

@@ -7,6 +7,7 @@ class Trade(Base):
     __tablename__ = "trades"
     id = Column(Integer, primary_key=True, index=True)
     market_slug = Column(String, index=True, nullable=False)
+    token_id = Column(String, nullable=True)
     category = Column(String, index=True, nullable=False)
     side = Column(String, nullable=False)
     entry_price = Column(Float, nullable=False)
