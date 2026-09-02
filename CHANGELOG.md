@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `HOLD_TO_RESOLUTION` config flag (core strategy remains BUY-oriented)
 - Tests: `tests/test_spot_fair_and_ctf.py`
 
+
+### Added (swarm)
+- `bot/swarm.py` — non-LLM module consensus (TIDAL/NORO/ZEPHR/OKAPI/RUNE/VESKA/MARIN/LUMEN)
+- Config: `SWARM_ENABLED`, `CONSENSUS_THRESHOLD`
+- Strategy filters intents through swarm; RUNE veto blocks the batch
+- Tests: `tests/test_swarm.py`
+
 ### Planned (see `ROADMAP.md`)
 - Live-gated CTF split / merge / redeem; on-chain redeem after resolve
 - Maker-first multi-level quote ladder; richer fill ledger (`set_id`, maker/taker)
