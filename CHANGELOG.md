@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Strategy filters intents through swarm; RUNE veto blocks the batch
 - Tests: `tests/test_swarm.py`
 
+### Added (ledger / status)
+- Ledger `meta.swarm` + unique `meta.set_id` on intents/fills
+- `/status` includes `swarm` agents snapshot and ledger rows with setId/consensus
+- Tests: `tests/test_ledger_swarm_status.py`
+
 ### Planned (see `ROADMAP.md`)
 - Live-gated CTF split / merge / redeem; on-chain redeem after resolve
 - Maker-first multi-level quote ladder; richer fill ledger (`set_id`, maker/taker)
