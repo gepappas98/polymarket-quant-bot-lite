@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Config: `TARGET_SET_COST`, `SECOND_SIDE_LAG_SEC`, `MAX_NAKED_RESIDUAL_USD`, `RESIDUAL_SIZE_FACTOR`, `MIN_BOOK_DEPTH_USD`
 - Tests: `tests/test_inventory.py`
 
+
+### Added (roadmap continuation)
+- Spot fair value: `PriceFeed.anchor_window` / `window_delta_pct`, `MarketState.fair_up_prob`; strategy blends with book edge (`USE_SPOT_FAIR`, `SPOT_FAIR_WEIGHT`)
+- `bot/ctf_ops.py` — paper split/merge/redeem skeleton; live fails closed until relayer integration
+- `HOLD_TO_RESOLUTION` config flag (core strategy remains BUY-oriented)
+- Tests: `tests/test_spot_fair_and_ctf.py`
+
 ### Planned (see `ROADMAP.md`)
 - Live-gated CTF split / merge / redeem; on-chain redeem after resolve
 - Maker-first multi-level quote ladder; richer fill ledger (`set_id`, maker/taker)
