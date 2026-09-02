@@ -1,17 +1,22 @@
 import logging
 import os
-import random
 from statistics import mean, median, stdev
-from typing import Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 import httpx
 from sqlalchemy import select
 
 from app.ledger.reader import trade_history
 from app.models.leader import Leader
-from app.services.leaderboard_adapter import fetch_polymarket_leaderboard
+from app.services.leaderboard_adapter import (
+    fetch_polymarket_closed_positions,
+    fetch_polymarket_leaderboard,
+)
 
 log = logging.getLogger(__name__)
+
+
+HistoryFetcher = Callable[..., List[dict]]
 
 
 def hampel_filter(values: List[float], threshold=3.5) -> Tuple[List[float], List[int]]:
@@ -37,11 +42,87 @@ def _norm(values):
     return [100.0 * (v - lo) / (hi - lo) for v in values]
 
 
+def _as_float(value, default=0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _chronological(trades: List[dict]) -> List[dict]:
+    """Keep an input-stable ordering while treating timestamped rows chronologically."""
+    indexed = list(enumerate(trades))
+    return [
+        trade
+        for _, trade in sorted(
+            indexed,
+            key=lambda item: (_as_float(item[1].get("ts"), float("inf")), item[0]),
+        )
+    ]
+
+
+def _env_flag(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        value = default
+    return max(minimum, min(value, maximum))
+
+
+def enrich_leaderboard_history(
+    aggregate_history: Dict[str, List[dict]],
+    *,
+    fetcher: HistoryFetcher = fetch_polymarket_closed_positions,
+) -> Dict[str, List[dict]]:
+    """Replace aggregate snapshots with public closed-position history when available.
+
+    The leaderboard endpoint itself only provides aggregate PnL and volume.
+    This optional enrichment fetches realized-PnL observations for the top
+    aggregate rows, so Sharpe, win-rate and drawdown are calculated from more
+    than one observation. Each wallet remains fail-soft: an empty response or
+    request error preserves the original aggregate observation rather than
+    deleting it or creating synthetic trade data.
+    """
+    if not aggregate_history or not _env_flag("LEADERBOARD_ENRICH_HISTORY", True):
+        return aggregate_history
+
+    trader_limit = _bounded_env_int("LEADERBOARD_HISTORY_TRADER_LIMIT", 20, 1, 50)
+    position_limit = _bounded_env_int("LEADERBOARD_HISTORY_POSITION_LIMIT", 25, 1, 50)
+    enriched = {address: list(rows) for address, rows in aggregate_history.items()}
+    enriched_count = 0
+
+    for address in list(aggregate_history)[:trader_limit]:
+        try:
+            detailed_rows = fetcher(address=address, limit=position_limit)
+        except Exception as exc:
+            log.warning("closed-position history fetch failed for %s: %s", address, exc)
+            continue
+        if not detailed_rows:
+            continue
+        enriched[address] = detailed_rows
+        enriched_count += 1
+
+    log.info(
+        "leaderboard history enrichment completed for %s of %s requested leaders",
+        enriched_count,
+        min(len(aggregate_history), trader_limit),
+    )
+    return enriched
+
+
 def compute_leader_scores(trader_history: Dict[str, List[dict]]) -> List[dict]:
     raw = []
-    for address, trades in trader_history.items():
-        pnls = [float(t.get("pnl", 0)) for t in trades]
-        sizes = [float(t.get("size", 0) or 0) for t in trades]
+    for address, original_trades in trader_history.items():
+        trades = _chronological(original_trades)
+        pnls = [_as_float(t.get("pnl")) for t in trades]
+        sizes = [_as_float(t.get("size")) for t in trades]
         returns = [p / s for p, s in zip(pnls, sizes) if s]
         avg = mean(returns) if returns else 0.0
         deviation = stdev(returns) if len(returns) >= 2 else 0.0
@@ -57,13 +138,28 @@ def compute_leader_scores(trader_history: Dict[str, List[dict]]) -> List[dict]:
             if peak > 0:
                 max_dd = max(max_dd, (peak - cumulative) / max(peak, 1) * 100)
         stability = 100 * (1 - deviation / (abs(avg) + deviation + 1e-9)) if returns else 0.0
-        raw.append({"address": address, "trade_count": len(trades), "win_rate": 100 * sum(p > 0 for p in pnls) / len(pnls) if pnls else 0.0, "sharpe_ratio": sharpe, "roi": roi, "max_drawdown": max_dd, "stability_score": max(0.0, min(100.0, stability))})
+        raw.append({
+            "address": address,
+            "trade_count": len(trades),
+            "win_rate": 100 * sum(p > 0 for p in pnls) / len(pnls) if pnls else 0.0,
+            "sharpe_ratio": sharpe,
+            "roi": roi,
+            "max_drawdown": max_dd,
+            "stability_score": max(0.0, min(100.0, stability)),
+        })
     sharpe, _ = hampel_filter([r["sharpe_ratio"] for r in raw])
     roi, _ = hampel_filter([r["roi"] for r in raw])
     ns, nr = _norm(sharpe), _norm(roi)
     for i, row in enumerate(raw):
         row["sharpe_ratio"], row["roi"] = sharpe[i], roi[i]
-        row["composite_score"] = round(0.30 * ns[i] + 0.25 * nr[i] + 0.20 * row["win_rate"] + 0.15 * (100 - min(row["max_drawdown"], 100)) + 0.10 * row["stability_score"], 4)
+        row["composite_score"] = round(
+            0.30 * ns[i]
+            + 0.25 * nr[i]
+            + 0.20 * row["win_rate"]
+            + 0.15 * (100 - min(row["max_drawdown"], 100))
+            + 0.10 * row["stability_score"],
+            4,
+        )
         for key in ("win_rate", "sharpe_ratio", "roi", "max_drawdown", "stability_score"):
             row[key] = round(row[key], 4)
     return sorted(raw, key=lambda r: r["composite_score"], reverse=True)
@@ -80,9 +176,10 @@ def fetch_trader_history() -> Dict[str, List[dict]]:
     """Fetch leaderboard history from a configured source or Polymarket.
 
     ``LEADERBOARD_SOURCE_URL`` remains a compatibility override for the old
-    mapping-shaped mock/source contract. Without it, the official public API is
-    used. If the network is unavailable, only the local closed-trade ledger is
-    returned; synthetic traders are intentionally no longer introduced.
+    mapping-shaped mock/source contract. Without it, the official aggregate
+    leaderboard is enriched with public realized-PnL history when available.
+    If the network is unavailable, only the local closed-trade ledger is
+    returned; synthetic traders are intentionally never introduced.
     """
     custom_url = os.getenv("LEADERBOARD_SOURCE_URL")
     if custom_url:
@@ -96,14 +193,14 @@ def fetch_trader_history() -> Dict[str, List[dict]]:
             log.warning("custom leaderboard fetch failed: %s", exc)
 
     try:
-        data = fetch_polymarket_leaderboard(
+        aggregate_history = fetch_polymarket_leaderboard(
             category=os.getenv("LEADERBOARD_CATEGORY", "OVERALL"),
             time_period=os.getenv("LEADERBOARD_TIME_PERIOD", "ALL"),
             order_by=os.getenv("LEADERBOARD_ORDER_BY", "PNL"),
             limit=int(os.getenv("LEADERBOARD_LIMIT", "50")),
         )
-        if data:
-            return data
+        if aggregate_history:
+            return enrich_leaderboard_history(aggregate_history)
         log.warning("Polymarket leaderboard returned no usable trader rows")
     except Exception as exc:
         log.warning("Polymarket leaderboard fetch failed: %s", exc)

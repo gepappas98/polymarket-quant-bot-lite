@@ -5,6 +5,41 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.6] — 2026-09-02
+
+### Added
+- Explicit regression coverage for the authentication boundary on every mutating `/api/*` route: risk updates, trailing-stop simulation, strategy updates, leaderboard refresh, ML retraining, trade placement and price updates.
+
+### Security
+- Confirmed that all mutating sidecar routes use the shared `require_api_token` dependency.
+- Confirmed that missing `API_TOKEN` remains fail-closed in live mode and returns the existing `503 API_TOKEN required in live mode` response.
+- Confirmed that valid `Authorization: Bearer ...` credentials continue to allow authenticated settings/strategy changes.
+
+## [0.4.5] — 2026-09-02
+
+### Added
+- Public CLOB midpoint adapter for `GET https://clob.polymarket.com/midpoint?token_id=...`.
+- Optional FastAPI sidecar poller controlled by `CLOB_PRICE_FEED_ENABLED` and `CLOB_PRICE_FEED_INTERVAL_SECONDS`.
+- Open-position routing that supplies valid midpoint prices to the existing `process_price_update()` and trailing-stop execution path.
+- Regression coverage for midpoint normalization, invalid-price rejection, missing-price fail-soft behavior and open-trade updates.
+
+### Safety
+- The feed is disabled by default and only supplies market prices; it does not bypass risk gates or change paper/live execution semantics.
+- Each polling cycle uses a fresh database session, ignores invalid/unavailable prices, isolates failures per trade and cancels cleanly during API shutdown.
+
+## [0.4.4] — 2026-09-02
+
+### Added
+- Public `GET https://data-api.polymarket.com/closed-positions` adapter for normalized realized-PnL observations per leaderboard wallet.
+- Bounded, configurable leaderboard-history enrichment: `LEADERBOARD_ENRICH_HISTORY`, `LEADERBOARD_HISTORY_TRADER_LIMIT` (default `20`) and `LEADERBOARD_HISTORY_POSITION_LIMIT` (default `25`).
+- Regression coverage for closed-position normalization, public-API parameter clamping, fail-soft wallet-level fallback, chronological drawdown, and enrichment opt-out.
+- `docs/polymarket-closed-positions-api.md`, recording the supported public data contract used by the adapter.
+
+### Changed
+- Official leaderboard refresh now replaces aggregate PnL/volume snapshots with public closed-position observations for the configured number of leading wallets, yielding stronger Sharpe, win-rate, ROI and drawdown estimates.
+- A failed, empty or malformed per-wallet history request preserves the original aggregate row; the refresh remains free of synthetic traders and continues for all other wallets.
+- The legacy `LEADERBOARD_SOURCE_URL` mapping override still takes precedence and intentionally skips public enrichment to preserve its established contract.
+
 ## [0.4.3] — 2026-09-02
 
 ### Added

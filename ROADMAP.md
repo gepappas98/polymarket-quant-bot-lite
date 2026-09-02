@@ -2,6 +2,26 @@
 
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
+## Just shipped (v0.4.6) — mutating API authentication audit, see CHANGELOG.md
+
+- [x] **Protected mutating routes** — settings/risk, strategy updates, leaderboard refresh, ML retraining, trade placement, price updates and trailing-stop mutation all require the shared `require_api_token` dependency.
+- [x] **Authentication regression coverage** — unauthenticated requests are rejected consistently while Bearer-token authenticated strategy updates remain functional.
+- [x] **Live-mode fail-closed behavior** — when `API_TOKEN` is missing in live mode, mutating routes return the existing explicit configuration error instead of allowing changes.
+
+## Just shipped (v0.4.5) — CLOB price-feed integration, see CHANGELOG.md
+
+- [x] **CLOB midpoint adapter** — reads public midpoint prices for persisted open-position token IDs from the Polymarket CLOB API.
+- [x] **Trailing-stop routing** — each valid price is routed through the existing `process_price_update()` path, preserving persistence, safety gates, paper/live execution semantics and WebSocket close events.
+- [x] **Optional sidecar poller** — `CLOB_PRICE_FEED_ENABLED=false` by default; when enabled, the FastAPI sidecar polls at the configured interval using a fresh database session per cycle and shuts down cleanly.
+- [x] **Regression coverage** — midpoint normalization, invalid-price handling, open-trade routing and missing-price fail-soft behavior are tested.
+
+## Just shipped (v0.4.4) — realized-PnL leaderboard enrichment, see CHANGELOG.md
+
+- [x] **Per-trader closed-position history** — the top aggregate public leaderboard rows are enriched from Polymarket's public `/closed-positions` API, supplying realized PnL, invested notional, and timestamps for meaningful per-trader statistics.
+- [x] **Fail-soft score enrichment** — a missing or failed trader-history response retains its aggregate leaderboard observation; no synthetic traders are introduced and a single failed wallet cannot fail the refresh.
+- [x] **Controlled API footprint** — enrichment is configurable and bounded (`LEADERBOARD_ENRICH_HISTORY`, top-trader and per-wallet history limits), with defaults below the documented public endpoint limit.
+- [x] **Regression coverage** — response normalization, parameter bounds, fail-soft fallback, chronological drawdown calculation, and the opt-out path are tested.
+
 ## Just shipped (v0.4.3) — public leaderboard adapter, see CHANGELOG.md
 
 - [x] **Official leaderboard source** — added a public Data API adapter for `GET /v1/leaderboard` with category, period, ordering, pagination, timeout, numeric-string parsing, and wallet-field compatibility.
@@ -32,13 +52,13 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [x] **Advanced risk gates** — circuit breaker, time window, trailing stop, per-category ceilings in `evaluate_safety_gates()`; opt-in worker hook via `RISK_ENGINE_ENABLED=true` (`bot/gates.register_check`)
 - [x] **Dashboard pages** `/leaders`, `/sizing`, `/strategies`, `/settings`; Control Room "Simulate trade" widget and extended `GatesPanel`
 
-## Near term (v0.4.1)
+## Near-term follow-ups (v0.4.x)
 
-- [ ] **Turn the risk-engine hook on by default** once it has run alongside the paper worker for a while (today `RISK_ENGINE_ENABLED=false`)
-- [ ] **Real leaderboard source** — shipped in v0.4.3; remaining work is enriching aggregate leaderboard rows with per-trader trade history for more statistically robust Sharpe and win-rate estimates.
-- [ ] **Trailing-stop execution** — shipped in v0.4.2; remaining work is connecting the live CLOB feed adapter to `POST /api/trades/price`.
-- [ ] **Feed live prices into `Trade.current_price`** — the persistence and close path are shipped; connect the production market-data stream next.
-- [ ] **Auth on mutating `/api/*` routes** — settings/strategies endpoints are unauthenticated; bind them to the Supabase session used by `/settings` and `/strategies`
+- [ ] **Turn the risk-engine hook on by default** once it has run alongside the paper worker for a while (today `RISK_ENGINE_ENABLED=false`).
+- [x] **Real leaderboard source** — the public aggregate source shipped in v0.4.3 and per-trader realized-PnL enrichment shipped in v0.4.4.
+- [x] **Trailing-stop execution** — the close path shipped in v0.4.2 and the optional CLOB midpoint poller now supplies live prices in v0.4.5.
+- [x] **Feed live prices into `Trade.current_price`** — the sidecar poller updates open positions through the existing price-update service.
+- [x] **Auth on mutating `/api/*` routes** — the shared API-token boundary protects all mutating sidecar routes; frontend callers can send `VITE_API_TOKEN` through the existing client configuration.
 - [ ] **Postgres for the app DB** — `APP_DATABASE_URL` accepts any SQLAlchemy URL but only SQLite has been exercised
 
 ## Shipped in v0.3.0

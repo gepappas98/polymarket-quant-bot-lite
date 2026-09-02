@@ -198,6 +198,33 @@ def test_api_token_auth_and_live_missing_token(monkeypatch):
         monkeypatch.setattr(cfg, "mode", "paper")
 
 
+def test_all_mutating_api_routes_require_auth(monkeypatch):
+    monkeypatch.setenv("API_TOKEN", "secret-token")
+    cases = [
+        ("/api/risk/update", {"k_value": 0.2}),
+        ("/api/risk/trailing-stop", {"trade_id": 999999, "current_price": 0.5}),
+        ("/api/strategies/update", {"politics_only": True}),
+        ("/api/leaders/refresh", None),
+        ("/api/ml/retrain", None),
+        ("/api/trades/place", {
+            "market_slug": "btc-up-or-down", "token_id": "token", "side": "UP",
+            "price": 0.5, "confidence": 0.8, "balance": 100,
+        }),
+        ("/api/trades/price", {"trade_id": 999999, "current_price": 0.5}),
+    ]
+    with TestClient(app) as client:
+        for path, payload in cases:
+            response = client.post(path, json=payload) if payload is not None else client.post(path)
+            assert response.status_code == 401, (path, response.status_code, response.text)
+
+        allowed = client.post(
+            "/api/strategies/update",
+            json={"politics_only": True},
+            headers={"Authorization": "Bearer secret-token"},
+        )
+        assert allowed.status_code == 200
+
+
 def test_wildcard_cors_does_not_enable_credentials():
     with TestClient(app) as client:
         response = client.options(
