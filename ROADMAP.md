@@ -96,24 +96,18 @@ These items come from public analysis of high-volume Up/Down makers (complete-se
 - [x] **Second-side lag logic** — `needs_second_side(max_lag_sec, max_naked_usd)` → `SECOND_SIDE` intents
 - [x] **Config** — `TARGET_SET_COST`, `SECOND_SIDE_LAG_SEC`, `MAX_NAKED_RESIDUAL_USD`, `RESIDUAL_SIZE_FACTOR`, `MIN_BOOK_DEPTH_USD`
 - [x] **Unit tests** — `tests/test_inventory.py` (5 passed)
-- [ ] **Hold-to-resolution default**
-  - Align with low early-sell behavior observed on profitable MM wallets
-  - Early exit only via existing risk paths (trailing stop, kill switch, pair lock) — not discretionary churn
+- [x] **Hold-to-resolution default** — `HOLD_TO_RESOLUTION=true` (config); core strategy emits BUY-only; early exit left to risk/trailing paths
 
 ### P0 — CTF inventory ops (live)
 
-- [ ] **`bot/ctf_ops.py`** — split / merge / redeem via Polymarket relayer (gasless where supported)
-  - Split pUSD → YES+NO before two-sided quoting
-  - Merge excess pairs to free collateral
-  - On-chain **redeem** winning tokens after resolve (complements `resolver.py` bookkeeping)
-  - Hard-gated: `MODE=live` + double opt-in only
+- [x] **`bot/ctf_ops.py`** — paper-safe split / merge / redeem + `maybe_merge_excess`; live path refuses until relayer wired (fail-closed)
 
 ### P1 — execution quality
 
 - [ ] **Maker-first quote ladder** — multi-level or single-level resting both sides; skew from residual (extends `market_making.py`)
 - [x] **Thin-book reject** — optional `MIN_BOOK_DEPTH_USD` gate in strategy (`_depth_ok`); default 0 = off
 - [ ] **Fill ledger enrichment** — `maker|taker`, `set_id`, `residual_after`, `set_cost_contribution`
-- [ ] **Wire `PriceFeed` (Binance/ccxt) into strategy fair value** — window open-price delta / spot vs mid (still open from v0.3.1)
+- [x] **Wire `PriceFeed` into strategy fair value** — window open anchor, `window_delta_pct`, `fair_up_prob`; blended with book edge via `USE_SPOT_FAIR` / `SPOT_FAIR_WEIGHT`
 - [ ] **Order lifecycle** — cancel stale limits; reconcile fills via CLOB user channel / WS
 
 ### P1 — worker ↔ product hygiene
