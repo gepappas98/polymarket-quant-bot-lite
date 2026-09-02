@@ -2,171 +2,186 @@
 
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
-External references that shaped recent priorities (research only — not affiliations):
+**Audit snapshot (static + runtime on `polymarket-quant-bot-lite`):** ~6.2/10 as a framework, ~4.5/10 for real-money readiness. Strong gates/ledger/architecture; **not** production-ready on live fills, pair atomicity, or backtest realism. Do **not** treat paper/backtest PnL as proof of edge until the v0.5.x overhaul below lands.
 
-- Public trader **@hot-garbage** (`0x3139…9e2e`): high-volume crypto Up/Down activity consistent with **complete-set accumulation + residual directional + inventory rebalance** (~50–55% event win rate, not 100%). See Polydata / Polymarket profile analytics.
-- Viral **“GROK_001 / Grok Bot”** terminals: treat as **simulated / marketing UI** unless a wallet is independently verified; do not copy 100% win-rate claims into product metrics.
+External references that shaped priorities (research only — not affiliations):
 
----
-
-## Just shipped (v0.4.7) — PostgreSQL app-database compatibility
-
-- [x] **PostgreSQL URL support** — `APP_DATABASE_URL=postgresql+psycopg://...` uses native SQLAlchemy engine options without SQLite-only args
-- [x] **Driver guidance** — optional `psycopg[binary]`, deployment checklist, secret handling
-- [x] **Compatibility tests** — PostgreSQL configuration + preserved SQLite in-memory/thread behavior
-- [x] **Verification boundary** — local tests cover URL/engine config; live Postgres remains a CI/deploy responsibility
-
-## Just shipped (v0.4.6) — mutating API authentication audit
-
-- [x] **Protected mutating routes** — settings/risk, strategy updates, leaderboard refresh, ML retrain, trade placement, price updates, trailing-stop mutation require `require_api_token`
-- [x] **Auth regression coverage** — unauthenticated rejected; Bearer strategy updates work
-- [x] **Live-mode fail-closed** — missing `API_TOKEN` in live mode returns explicit config error
-
-## Just shipped (v0.4.5) — CLOB price-feed integration
-
-- [x] **CLOB midpoint adapter** — public midpoints for open-position token IDs
-- [x] **Trailing-stop routing** — prices go through `process_price_update()` (persistence, gates, paper/live, WS close)
-- [x] **Optional sidecar poller** — `CLOB_PRICE_FEED_ENABLED=false` by default
-- [x] **Regression coverage** — midpoint normalization, invalid prices, fail-soft missing prices
-
-## Just shipped (v0.4.4) — realized-PnL leaderboard enrichment
-
-- [x] **Per-trader closed-position history** — public `/closed-positions` enrichment
-- [x] **Fail-soft score enrichment** — single wallet failure does not fail refresh
-- [x] **Bounded API footprint** — configurable top-N / per-wallet limits
-- [x] **Regression coverage** — normalization, bounds, drawdown, opt-out
-
-## Just shipped (v0.4.3) — public leaderboard adapter
-
-- [x] **Official `GET /v1/leaderboard`** — category, period, pagination, wallet-field compatibility
-- [x] **No synthetic fallback traders** — API failure → local closed-trade ledger only
-- [x] **Configurable source** — official API + legacy `LEADERBOARD_SOURCE_URL` override
-
-## Just shipped (v0.4.2) — trailing-stop execution
-
-- [x] **Trailing-stop execution** — `token_id` / `current_price`; adverse-move → SELL intent
-- [x] **Close-event accounting** — exit price, realized PnL, `position_closed` WebSocket event
-- [x] **Price-update API** — authenticated `POST /api/trades/price`
-
-## Just shipped (v0.4.1) — reproducibility and verification
-
-- [x] **Clean-install deps** — `python-dotenv` declared
-- [x] **Clean-checkout tests** — `pytest.ini` `pythonpath = .`
-- [x] **v0.4.0 integration verification** — risk engine + dashboard surfaces intact
-
-## Just shipped (v0.4.0) — advanced risk engine
-
-- [x] **FastAPI risk-engine sidecar** (`app/`) — SQLite/Postgres app DB, ledger history
-- [x] **Variance-capped Kelly** — rolling variance, `k_value` / `max_position_pct`
-- [x] **Composite leaderboard + Hampel filtering**
-- [x] **Category-aware strategy flags**
-- [x] **Hampel preprocessing before XGBoost retrain**
-- [x] **Advanced risk gates** — circuit breaker, time window, trailing stop, per-category ceilings; worker hook `RISK_ENGINE_ENABLED`
-- [x] **Dashboard pages** `/leaders`, `/sizing`, `/strategies`, `/settings`
-
-## Shipped in v0.3.x
-
-- [x] Plugin strategy architecture (`bot/strategies/loader.py`)
-- [x] Market making — inventory-skewed two-sided quoting
-- [x] Copy trading — tracked-wallet replication
-- [x] Kelly Criterion sizing (`bot/kelly.py`)
-- [x] Daily kill switch persisted across restarts
-- [x] Backtest harness (`bot/backtest.py`)
-- [x] PostgreSQL ledger option (`bot/ledger_pg.py`)
-- [x] ML ensemble (XGBoost) + `ml_directional` strategy
-- [x] Cross-venue signal Polymarket ↔ Kalshi (directional only)
-- [x] Prometheus/Grafana stack (`deploy/`)
-- [x] Dashboard trading panels (Supabase-backed)
-- [x] Multi-asset defaults (BTC, ETH, SOL, XRP) + per-asset exposure caps
-- [x] Max drawdown + low-profit pair locks (`portfolio_gates.py`)
-- [x] Auto-settle bookkeeping via `resolver.py` (on-chain redeem still open for LIVE)
-- [x] Structured logging + metrics hooks
-- [x] Unit tests for gates, arb math, discovery (`tests/`)
+- Public trader **@hot-garbage** (`0x3139…9e2e`): complete-set accumulation + residual directional + inventory rebalance (~50–55% event win rate).
+- Viral “GROK / GROKTOPUS” terminals: treat as **simulated / marketing UI** unless a wallet is independently verified.
 
 ---
 
-## Near-term (v0.5) — hot-garbage–style inventory edge
+## Just shipped (reference)
 
-These items come from public analysis of high-volume Up/Down makers (complete-set + residual directional). They are the highest-ROI gaps relative to what the worker already has.
+### v0.4.x — risk engine & dashboard
 
-### P0 — inventory & complete-set economics
+- [x] FastAPI risk-engine sidecar (`app/`), Kelly, leaderboard adapter, trailing-stop path, auth on mutating routes (when `API_TOKEN` set)
+- [x] Plugin strategies (MM, copy, ML, cross-venue **signal**), gates, kill switch, Prometheus hooks
+- [x] React control room (Monitor / Desk / Leaders / Sizing / Strategies / Settings)
 
-- [x] **`bot/inventory.py`** — `MarketInventory` / `InventoryBook`: paired, residual, avg_set_cost, edge_per_set, net_exposure_usd, fill history
-- [x] **Complete-set accumulator** in core `strategy.py` — instant ARB pair + staggered `SET_ACCUM` when `sum_asks ≤ TARGET_SET_COST`
-- [x] **Second-side lag logic** — `needs_second_side(max_lag_sec, max_naked_usd)` → `SECOND_SIDE` intents
-- [x] **Config** — `TARGET_SET_COST`, `SECOND_SIDE_LAG_SEC`, `MAX_NAKED_RESIDUAL_USD`, `RESIDUAL_SIZE_FACTOR`, `MIN_BOOK_DEPTH_USD`
-- [x] **Unit tests** — `tests/test_inventory.py` (5 passed)
-- [x] **Hold-to-resolution default** — `HOLD_TO_RESOLUTION=true` (config); core strategy emits BUY-only; early exit left to risk/trailing paths
+### v0.5.0-ish — inventory & swarm (worker)
 
-### P0 — CTF inventory ops (live)
+- [x] `bot/inventory.py` — paired / residual / avg_set_cost / second-side lag
+- [x] Complete-set accumulator + SECOND_SIDE + spot fair blend (`USE_SPOT_FAIR`)
+- [x] `bot/ctf_ops.py` — paper-safe split/merge/redeem skeleton (live fail-closed)
+- [x] `bot/swarm.py` — non-LLM module consensus (TIDAL…LUMEN)
+- [x] Ledger `meta.swarm` / `set_id`; `/status` swarm block
+- [x] Deploy docs: `fly.risk.toml`, `Dockerfile.risk` (Leaders API ≠ worker)
 
-- [x] **`bot/ctf_ops.py`** — paper-safe split / merge / redeem + `maybe_merge_excess`; live path refuses until relayer wired (fail-closed)
-
-### P1 — execution quality
-
-- [ ] **Maker-first quote ladder** — multi-level or single-level resting both sides; skew from residual (extends `market_making.py`)
-- [x] **Thin-book reject** — optional `MIN_BOOK_DEPTH_USD` gate in strategy (`_depth_ok`); default 0 = off
-- [x] **Fill ledger enrichment** — `set_id`, `is_arb_leg`, `prefer_maker`, full `meta.swarm` (maker|taker explicit flag still approximate)
-- [x] **Wire `PriceFeed` into strategy fair value** — window open anchor, `window_delta_pct`, `fair_up_prob`; blended with book edge via `USE_SPOT_FAIR` / `SPOT_FAIR_WEIGHT`
-- [ ] **Order lifecycle** — cancel stale limits; reconcile fills via CLOB user channel / WS
-
-### P1 — worker ↔ product hygiene
-
-- [ ] **Turn `RISK_ENGINE_ENABLED` on by default** after sustained paper co-run with the worker
-- [ ] **Injectable clock for gates** — so `backtest.py` can replay cooldown / drawdown faithfully
-- [ ] **Kalshi order-execution client** — until then keep cross-venue labeled **directional signal only** (not hedged arb)
-- [ ] **Dashboard vs worker strategy dual implementation** — either:
-  - connect desk panels to worker ledger / `/status`, or
-  - document dashboard MM/copy/backtest as **simulation/monitoring only** in README + FEATURES.md
-- [ ] **Exercise PostgreSQL ledger against a real database** in CI
-- [ ] **WebSocket CLOB market channel** — lower-latency books than REST
-
-### P2 — observability (honest UI)
-
-- [ ] **Status/dashboard inventory plane (numeric)** — paired vs residual, avg set cost, naked exposure — not cinematic fake lattices
-- [ ] **Explicit PAPER / LIVE / SIMULATED badges** everywhere (never imply live 100% win rate)
-- [ ] **Session report** — sets completed, mean set edge, residual PnL vs paired PnL
-- [ ] **Optional public-wallet watcher** — read-only poll of a configured address (e.g. research target) into leaderboard/compare tools — no auto-copy without `COPY_TRADING_ENABLED`
+**Known gap after ship:** suite not fully green when swarm filters ARB; `LiveExecutor` still treats post-accept as fill; legacy `bot/bot_*.py` duplicates may remain in tree.
 
 ---
 
+## CRITICAL — v0.5 execution & accounting overhaul
 
-### P1 — Swarm consensus (GROKTOPUS-inspired, non-LLM)
+> Do not enable `MODE=live` until **P0-1** and **P0-2** are done. Do not use backtest PnL as go-live evidence until **P0-4**.
 
-- [x] **`bot/swarm.py`** — `AgentScore`, `consensus()`, `score_market_state()`, `filter_intents()`
-- [x] **Named module roles** — TIDAL/NORO/ZEPHR/OKAPI/RUNE/VESKA/MARIN/LUMEN mapped to existing quant functions (not 8 LLM calls)
-- [x] **RUNE hard veto** + weighted consensus ≥ `CONSENSUS_THRESHOLD` (default 0.70)
-- [x] **Strategy hook** — `Strategy._swarm_filter` on all evaluate return paths; `SWARM_ENABLED=true` by default
-- [x] **Tests** — `tests/test_swarm.py`
-- [x] **Ledger field** `meta.swarm` + `meta.set_id` on intent/fill records; unique `{slug}:set:{n}`
-- [x] **Status `/status` swarm block** — 8 agent tiles scores, last consensus, weights; ledger rows expose setId/consensus
+### P0-1 — Real CLOB fill reconciliation 🔴
+
+**Bug:** `LiveExecutor` treats `create_and_post_order` acceptance as a full fill at requested size/price.
+
+**Target state machine**
+
+```text
+ORDER_SUBMITTED → ORDER_OPEN → ORDER_PARTIAL → ORDER_FILLED
+                              ↘ ORDER_CANCELLED / REJECTED
+```
+
+- [ ] Persist order id + requested vs filled qty/avg price
+- [ ] Poll user channel / open-orders / trades until terminal state (or timeout → cancel + reconcile)
+- [ ] Update **inventory + ledger only from confirmed fills** (partials allowed)
+- [ ] Never set `status=filled` on submit alone
+- [ ] Paper path may stay optimistic **but** must be labeled `SIMULATED_FILL` and excluded from “proven edge” reports
+
+### P0-2 — Pair-aware / atomic arbitrage execution 🔴
+
+**Bug:** UP and DOWN legs are independent posts → one leg can fill alone (naked directional risk).
+
+- [ ] `ArbPair` / pair intent: `PAIR_PENDING | PAIR_PARTIAL | PAIR_COMPLETE | PAIR_FAILED`
+- [ ] Shared `set_id` already exists — wire through executor + inventory (`is_arb_leg` must not be forced `False` in `update_inventory`)
+- [ ] On `PAIR_PARTIAL`: active second-side / reduce / timeout policy (extend SECOND_SIDE)
+- [ ] Optional: reject opening second independent arb while pair incomplete on same window
+
+### P0-3 — Swarm must not veto deterministic complete-set arb 🔴
+
+**Bug:** ARB detects `sum_asks < threshold` then swarm returns 0 intents (`consensus < 0.70`).
+
+- [ ] **Bypass swarm** for `is_arb_leg` / reason `ARB` / `SECOND_SIDE` (deterministic + risk gates only)
+- [ ] Keep swarm for **directional** (and optionally MM soft-score)
+- [ ] Pipeline:
+
+```text
+ARB / SECOND_SIDE → depth + risk gates → execute
+DIRECTIONAL       → fair value → swarm → risk gates → execute
+MM / COPY         → strategy-specific gates → risk → execute
+```
+
+- [ ] Regression: `test_buys_both_sides_when_sum_below_threshold` must pass with `SWARM_ENABLED=true`
+
+### P0-4 — Realistic paper + backtest execution 🔴
+
+**Bug:** `shares = size_usd / price` ignores book depth, fees, partials, latency.
+
+- [ ] Consume L1 (and later L2) size at touch; partial fills; residual unfilled
+- [ ] Fee model (taker/maker), optional slippage bps, stale-quote reject
+- [ ] Backtest: one fill per level/snapshot rules; no infinite refill of the same $3 ask across 100 bars
+- [ ] Report **net edge** = `1 - exec_up - exec_down - fees - slippage` (not raw `1 - sum_asks`)
+- [ ] Mark backtest reports: `SIMULATED — not live expectancy`
+
+### P1-5 — MarketState contract hygiene 🟠
+
+**Bug:** `state.fair_up_prob` AttributeError on FakeState / partial mocks (majority of current test failures).
+
+- [ ] `fair_up = getattr(state, "fair_up_prob", None)` (or Protocol + adapter)
+- [ ] Document required vs optional fields for strategy / backtest / tests
+- [ ] Green full `pytest` on clean checkout
+
+### P1-6 — Remove duplicate modules 🟠
+
+- [ ] Delete or quarantine unused: `bot/bot_config.py`, `bot/bot_strategy.py`, `bot/bot_inventory.py`
+- [ ] Single import path: `bot.config` / `bot.strategy` / `bot.inventory` only
+- [ ] Grep CI check: no `bot_strategy` imports
+
+### P1-7 — Pass `is_arb_leg` into inventory 🟠
+
+- [ ] `update_inventory(..., is_arb_leg=intent.is_arb_leg)`
+- [ ] Analytics: arb vs directional PnL attribution
+
+### P1-8 — Execution policy (not global PREFER_MAKER) 🟠
+
+- [ ] ARB: taker if net edge > X; maker only if fill-prob model allows
+- [ ] DIRECTIONAL: maker-preferred default
+- [ ] Config: `ARB_EXECUTION_MODE=taker|maker|auto`
+
+### P1-9 — API security for exposed deploys 🟠
+
+- [ ] Require `API_TOKEN` whenever process is reachable beyond localhost (not only `MODE=live`)
+- [ ] Production: explicit `API_CORS_ORIGINS` (no `*`); document in `deploy/RISK_API_FLY.md`
+- [ ] Multi-user: replace hard-coded `user_id=1` before any shared SaaS claim
+
+### P1-10 — Single source of truth for positions 🟠
+
+- [ ] Prefer: worker ledger (JSONL/Postgres) → `/status` or risk API → dashboard
+- [ ] Document Supabase / in-browser sim as **demo only** (README + Monitor badge already partially does this)
+- [ ] Optional: dashboard read-only mode when `BOT_STATUS_URL` set (no dual write)
+
+---
+
+## Near-term (after soft green + P0)
+
+### Execution quality
+
+- [ ] Maker ladder + cancel/replace (order lifecycle)
+- [ ] WebSocket CLOB user + market channels
+- [ ] Explicit maker|taker from exchange fill messages
+
+### CTF / settlement
+
+- [ ] Live relayer for split/merge/redeem (today paper-safe only)
+- [ ] Settlement identity: `order_id → fill_id → position_id → outcome` (not broad slug+time)
+
+### Observability
+
+- [ ] Inventory plane on dashboard: paired vs residual, avg set cost, naked USD
+- [ ] Session report: sets completed, mean set edge, residual vs paired PnL
+- [ ] Copy-trading latency fields: detect → execute ms in ledger
+
+### Naming / honesty
+
+- [ ] Rename `cross_platform_arbitrage` → `cross_platform_signal` (or label everywhere “directional only”)
+- [ ] Trailing stop: real peak-price trail vs fixed adverse threshold (document which)
+
+---
 
 ## Medium term (v0.6)
 
-- [ ] **MCP tools** — read-only status / safety model for AI clients
-- [ ] **Real historical snapshot capture worker** — JSONL books for backtest + ML (stop relying on synthetic-only data)
-- [ ] **Automated tests for dashboard** (`src/`, `supabase/`)
-- [ ] **Shadow mode** — live signals, paper size; parity report paper vs would-be live
-- [ ] **Maker rebate / fee-aware edge** — net edge after fees and estimated maker rebate
-- [ ] **Multi-level quotes + inventory reservation price** (Avellaneda-style skew documented in code comments)
+- [ ] Event-driven backtest + walk-forward validation for ML
+- [ ] ML: calibration, Brier / log-loss, PnL-after-fees at threshold (not accuracy alone)
+- [ ] Shadow mode: live signals, paper size; parity report
+- [ ] Injectable clock for gates/backtest
+- [ ] Historical book snapshot worker (stop synthetic-only training)
+- [ ] Kalshi **execution** client only after dual-leg risk limits exist
+- [ ] MCP read-only status tools
+
+---
 
 ## Longer term
 
-- [ ] Adaptive arb / set-cost threshold by volatility regime
-- [ ] Multi-process or multi-region coordination (optional)
-- [ ] Hedged Polymarket↔Kalshi only after both execution clients + joint risk limits exist
+- [ ] Adaptive set-cost threshold by volatility regime
+- [ ] Multi-process / multi-region coordination (optional)
+- [ ] True hedged Polymarket↔Kalshi
 
 ---
 
 ## Explicit non-goals
 
-- Guaranteed profit or “copy hot-garbage / bosona / GROK_001”
-- Treating viral terminal screenshots as verified live performance
+- Guaranteed profit or “copy hot-garbage / bosona / GROKTOPUS”
+- Treating viral screenshots as verified live performance
 - 100% win-rate marketing metrics
-- Full browser UI as the primary execution path
-- Running the trading loop on Vercel serverless
-- Blind copy-trading of Telegram/GitHub “bot packs” (supply-chain risk)
-- Labeling Kalshi gap signals as risk-free arb before dual-leg execution exists
+- Running the trading loop on Vercel / Lovable serverless
+- Blind copy of Telegram “bot packs”
+- Labeling Kalshi gap signals as risk-free arb without dual-leg execution
+- Using current optimistic backtest as live go-ahead
 
 ---
 
@@ -174,12 +189,11 @@ These items come from public analysis of high-volume Up/Down makers (complete-se
 
 | Platform | Role | Status |
 |----------|------|--------|
-| **Fly.io** | Primary long-running worker | Config ready (`fly.toml`) |
-| **Railway** | Worker alternative | Config ready (`railway.toml`) |
-| **Render** | Worker alternative | Blueprint ready (`render.yaml`) |
-| **Docker** | Any host / K8s | `Dockerfile` |
-| **Vercel** | Static / dashboard only | `vercel.json` + `public/` |
-| **Lovable** | Dashboard experiments only | Not a worker host |
+| **Fly.io worker** | `fly.toml` → `python -m bot.main` + `/status` | Config ready |
+| **Fly.io risk API** | `fly.risk.toml` → `uvicorn app.main:app` | Config ready (`Dockerfile.risk`) |
+| **Railway / Render** | Worker alternatives | Config ready |
+| **Docker** | Any host | `Dockerfile` / `Dockerfile.risk` |
+| **Vercel / Lovable** | Dashboard only | Not a worker host |
 
 ---
 
@@ -187,11 +201,22 @@ These items come from public analysis of high-volume Up/Down makers (complete-se
 
 | Tag | Theme |
 |-----|--------|
-| **v0.5.0** | Inventory model + complete-set accumulator + second-side lag + set-cost metrics |
-| **v0.5.1** | CTF split/merge/redeem (live-gated) |
-| **v0.5.2** | PriceFeed→fair value, thin-book reject, fill ledger fields |
-| **v0.6.0** | WS books, shadow mode, snapshot capture, dashboard↔worker clarity |
+| **v0.5.0** | Inventory + set accumulator + second-side + swarm module |
+| **v0.5.1** | Swarm ARB bypass + MarketState hygiene + delete `bot_*` dupes + green pytest |
+| **v0.5.2** | Real fill reconciliation + pair state machine |
+| **v0.5.3** | Realistic paper/backtest fills + fees/slippage net edge |
+| **v0.6.0** | WS books, shadow mode, walk-forward ML, dashboard↔worker SoT |
 
 ---
 
-Contributions and issues: open on [github.com/gepappas98/polymarket-quant-bot](https://github.com/gepappas98/polymarket-quant-bot).
+## Immediate work order (do in this sequence)
+
+1. **P0-3** — swarm skip for ARB/SECOND_SIDE (unblocks tests + correct arb path)  
+2. **P1-5** — `getattr` / Protocol for `fair_up_prob` (green suite)  
+3. **P1-6 / P1-7** — delete dupes; pass `is_arb_leg`  
+4. **P0-1** — order/fill state machine on live (and honest labels on paper)  
+5. **P0-2** — pair engine  
+6. **P0-4** — realistic backtest/paper  
+7. Only then consider **live** capital  
+
+Contributions and issues: [github.com/gepappas98/polymarket-quant-bot-lite](https://github.com/gepappas98/polymarket-quant-bot-lite).
