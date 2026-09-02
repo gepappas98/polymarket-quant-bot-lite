@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.3] — 2026-09-02
+
+### Added
+- Public Polymarket Data API adapter at `GET https://data-api.polymarket.com/v1/leaderboard`.
+- Configurable leaderboard category, time period, ordering, pagination, and timeout settings.
+- Defensive normalization for decimal-string PnL/volume values and both `proxyWallet` and `wallet` response fields.
+- Regression coverage for API normalization, parameter clamping, malformed responses, and scoring integration.
+
+### Changed
+- Leaderboard refresh now prefers the official public API when no legacy custom source override is configured.
+- Removed synthetic mock traders from the production fallback path; API failures fall back to the local closed-trade ledger only.
+- Documented the new settings in `.env.example`; `LEADERBOARD_SOURCE_URL` remains available for compatibility.
+
 ## [0.4.2] — 2026-09-02
 
 ### Added

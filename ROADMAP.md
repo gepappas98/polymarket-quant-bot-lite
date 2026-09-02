@@ -2,6 +2,13 @@
 
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
+## Just shipped (v0.4.3) — public leaderboard adapter, see CHANGELOG.md
+
+- [x] **Official leaderboard source** — added a public Data API adapter for `GET /v1/leaderboard` with category, period, ordering, pagination, timeout, numeric-string parsing, and wallet-field compatibility.
+- [x] **No synthetic fallback traders** — API failures now fall back to the local closed-trade ledger instead of injecting mock addresses into production leaderboard results.
+- [x] **Configurable source behavior** — the legacy `LEADERBOARD_SOURCE_URL` mapping override remains supported, while official API settings are documented in `.env.example`.
+- [x] **Regression coverage** — adapter normalization, parameter clamping, malformed payload rejection, scoring, API, and review-fix tests pass.
+
 ## Just shipped (v0.4.2) — trailing-stop execution, see CHANGELOG.md
 
 - [x] **Trailing-stop execution** — open trades now persist `token_id` and `current_price`; price updates evaluate the configured adverse-move threshold and submit a SELL intent through the existing paper/live executor.
@@ -28,7 +35,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 ## Near term (v0.4.1)
 
 - [ ] **Turn the risk-engine hook on by default** once it has run alongside the paper worker for a while (today `RISK_ENGINE_ENABLED=false`)
-- [ ] **Real leaderboard source** — `LEADERBOARD_SOURCE_URL` currently expects `{address: [{pnl,size,ts}]}`; add an adapter for the Polymarket Data API so `/api/leaders` stops relying on mock traders
+- [ ] **Real leaderboard source** — shipped in v0.4.3; remaining work is enriching aggregate leaderboard rows with per-trader trade history for more statistically robust Sharpe and win-rate estimates.
 - [ ] **Trailing-stop execution** — shipped in v0.4.2; remaining work is connecting the live CLOB feed adapter to `POST /api/trades/price`.
 - [ ] **Feed live prices into `Trade.current_price`** — the persistence and close path are shipped; connect the production market-data stream next.
 - [ ] **Auth on mutating `/api/*` routes** — settings/strategies endpoints are unauthenticated; bind them to the Supabase session used by `/settings` and `/strategies`

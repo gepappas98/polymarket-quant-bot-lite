@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.ledger.reader import trade_history
 from app.models.leader import Leader
+from app.services.leaderboard_adapter import fetch_polymarket_leaderboard
 
 log = logging.getLogger(__name__)
 
@@ -68,27 +69,45 @@ def compute_leader_scores(trader_history: Dict[str, List[dict]]) -> List[dict]:
     return sorted(raw, key=lambda r: r["composite_score"], reverse=True)
 
 
+def _ledger_history() -> Dict[str, List[dict]]:
+    own = trade_history(status="closed")
+    if not own:
+        return {}
+    return {"self": [{"pnl": r.get("pnl_usd", 0), "size": r.get("size_usd", 1), "ts": r.get("ts")} for r in own]}
+
+
 def fetch_trader_history() -> Dict[str, List[dict]]:
-    url = os.getenv("LEADERBOARD_SOURCE_URL")
-    if url:
+    """Fetch leaderboard history from a configured source or Polymarket.
+
+    ``LEADERBOARD_SOURCE_URL`` remains a compatibility override for the old
+    mapping-shaped mock/source contract. Without it, the official public API is
+    used. If the network is unavailable, only the local closed-trade ledger is
+    returned; synthetic traders are intentionally no longer introduced.
+    """
+    custom_url = os.getenv("LEADERBOARD_SOURCE_URL")
+    if custom_url:
         try:
-            response = httpx.get(url, timeout=10)
+            response = httpx.get(custom_url, timeout=10)
             response.raise_for_status()
             data = response.json()
             if isinstance(data, dict):
                 return data
         except Exception as exc:
-            log.warning("leaderboard fetch failed: %s", exc)
-    history = {}
-    own = trade_history(status="closed")
-    if own:
-        history["self"] = [{"pnl": r.get("pnl_usd", 0), "size": r.get("size_usd", 1), "ts": r.get("ts")} for r in own]
-    rng = random.Random(42)
-    for i in range(6):
-        address = f"0xMOCK{i:02d}"
-        quality = 0.65 - i * 0.06
-        history[address] = [{"pnl": (rng.uniform(2, 10) if rng.random() < quality else -rng.uniform(1, 8)), "size": rng.uniform(10, 100), "ts": j} for j in range(30)]
-    return history
+            log.warning("custom leaderboard fetch failed: %s", exc)
+
+    try:
+        data = fetch_polymarket_leaderboard(
+            category=os.getenv("LEADERBOARD_CATEGORY", "OVERALL"),
+            time_period=os.getenv("LEADERBOARD_TIME_PERIOD", "ALL"),
+            order_by=os.getenv("LEADERBOARD_ORDER_BY", "PNL"),
+            limit=int(os.getenv("LEADERBOARD_LIMIT", "50")),
+        )
+        if data:
+            return data
+        log.warning("Polymarket leaderboard returned no usable trader rows")
+    except Exception as exc:
+        log.warning("Polymarket leaderboard fetch failed: %s", exc)
+    return _ledger_history()
 
 
 def refresh_leaderboard(db, source=None):
