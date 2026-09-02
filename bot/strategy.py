@@ -18,6 +18,7 @@ from typing import Dict, List, Optional
 from .config import cfg
 from .feeds import MarketState
 from .inventory import InventoryBook, MarketInventory
+from .swarm import SwarmConfig, filter_intents
 from .ledger import ledger
 
 log = logging.getLogger(__name__)
@@ -99,6 +100,20 @@ class Strategy:
     def market_inv(self, slug: str) -> MarketInventory:
         return self.book.get(slug)
 
+    def _swarm_filter(self, state: MarketState, intents: List[Intent]) -> List[Intent]:
+        """Apply module-swarm consensus; no-op if SWARM_ENABLED=false."""
+        if not intents:
+            return intents
+        if not getattr(cfg, "swarm_enabled", True):
+            return intents
+        mi = self.market_inv(state.market["slug"])
+        scfg = SwarmConfig(
+            enabled=True,
+            threshold=getattr(cfg, "consensus_threshold", 0.70),
+        )
+        return filter_intents(intents, state, mi, cfg=scfg)
+
+
     def evaluate(self, state: MarketState) -> List[Intent]:
         intents: List[Intent] = []
         slug = state.market["slug"]
@@ -107,12 +122,12 @@ class Strategy:
         exposure_cap = cfg.exposure_cap_for(asset)
 
         if mi.total_cost >= exposure_cap:
-            return intents
+            return self._swarm_filter(state, intents)
 
         up_ask = state.up_ask
         down_ask = state.down_ask
         if up_ask is None or down_ask is None:
-            return intents
+            return self._swarm_filter(state, intents)
 
         sum_asks = up_ask + down_ask
         remaining = exposure_cap - mi.total_cost
@@ -157,7 +172,7 @@ class Strategy:
                         f"[SECOND_SIDE] {slug} buy {side.value} size={size:.1f} "
                         f"implied_set={implied_set:.3f}"
                     )
-                    return intents
+                    return self._swarm_filter(state, intents)
 
         # 1. Instant complete-set
         if sum_asks <= cfg.arb_threshold and remaining >= 10:
@@ -182,7 +197,7 @@ class Strategy:
                 log.info(
                     f"[ARB] {slug} sum={sum_asks:.4f} -> buying both @ {size:.1f} USD each"
                 )
-                return intents
+                return self._swarm_filter(state, intents)
 
         # 2. Staggered set accumulation
         if sum_asks <= cfg.target_set_cost and remaining >= 5:
@@ -221,7 +236,7 @@ class Strategy:
                         f"[SET_ACCUM] {slug} {side.value} @ {price:.2f} size={size:.1f} "
                         f"sum={sum_asks:.4f}"
                     )
-                    return intents
+                    return self._swarm_filter(state, intents)
 
         # 3. Directional residual tilt (book imbalance + optional spot fair)
         up_mid = state.up_book.mid or up_ask
@@ -262,7 +277,7 @@ class Strategy:
                 preferred = Side.UP
                 reason_extra = "inventory rebalance"
             else:
-                return intents
+                return self._swarm_filter(state, intents)
         else:
             reason_extra = (
                 f"directional edge={edge_up if preferred == Side.UP else edge_down:.3f}"
@@ -275,14 +290,14 @@ class Strategy:
                 min_samples=cfg.min_track_record_samples,
             ):
                 log.info(f"[DIR] {slug} blocked by track-record gate")
-                return intents
+                return self._swarm_filter(state, intents)
         except Exception:
             pass
 
         remaining = exposure_cap - mi.total_cost
         size = min(cfg.max_order_usd * cfg.residual_size_factor, remaining)
         if size < 5 or not _depth_ok(state, preferred):
-            return intents
+            return self._swarm_filter(state, intents)
 
         token_id = (
             state.market["up_token_id"]
@@ -318,7 +333,7 @@ class Strategy:
             "residual_side": mi.residual_side,
             "ts": time.time(),
         }
-        return intents
+        return self._swarm_filter(state, intents)
 
     def update_inventory(self, slug: str, side: Side, shares: float, cost: float):
         """Apply a fill to both the rich inventory book and legacy mirror."""

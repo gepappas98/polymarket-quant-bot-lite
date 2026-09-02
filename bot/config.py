@@ -70,6 +70,10 @@ class Config:
     # Prefer holding to resolution (no discretionary early SELL intents from core strategy)
     hold_to_resolution: bool = os.getenv("HOLD_TO_RESOLUTION", "true").lower() == "true"
 
+    # Swarm consensus (module pipeline — not multi-LLM)
+    swarm_enabled: bool = os.getenv("SWARM_ENABLED", "true").lower() == "true"
+    consensus_threshold: float = float(os.getenv("CONSENSUS_THRESHOLD", "0.70"))
+
     # Network
     clob_host: str = "https://clob.polymarket.com"
     gamma_host: str = "https://gamma-api.polymarket.com"
