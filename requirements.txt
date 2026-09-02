@@ -15,7 +15,7 @@ httpx>=0.27
 # xgboost>=2.0.0                    # ML_STRATEGY_ENABLED (bot/ml_model.py)
 # cryptography>=42.0.0              # KALSHI_ARB_ENABLED, RSA-PSS request signing (bot/venues/kalshi_client.py)
 # prometheus-client>=0.20.0         # PROMETHEUS_PORT exporter (bot/metrics.py)
-# psycopg[binary]>=3.1.0            # LEDGER_BACKEND=postgres
+# psycopg[binary]>=3.1.0            # APP_DATABASE_URL=postgresql+psycopg://... or LEDGER_BACKEND=postgres
 # psycopg_pool>=3.2.0               # LEDGER_BACKEND=postgres
 
 # Dev/test only:

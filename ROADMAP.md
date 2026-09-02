@@ -2,6 +2,13 @@
 
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
+## Just shipped (v0.4.7) — PostgreSQL app-database compatibility, see CHANGELOG.md
+
+- [x] **PostgreSQL URL support** — verified that `APP_DATABASE_URL=postgresql+psycopg://...` uses native SQLAlchemy engine options without SQLite-only connection arguments.
+- [x] **Driver guidance** — documented the optional `psycopg[binary]` dependency, deployment checklist and secret-handling requirements.
+- [x] **Compatibility coverage** — added tests for PostgreSQL configuration and preserved SQLite in-memory/thread behavior.
+- [x] **Verification boundary documented** — local tests cover URL/engine configuration; end-to-end live PostgreSQL verification remains a deployment/CI responsibility because no PostgreSQL server is bundled locally.
+
 ## Just shipped (v0.4.6) — mutating API authentication audit, see CHANGELOG.md
 
 - [x] **Protected mutating routes** — settings/risk, strategy updates, leaderboard refresh, ML retraining, trade placement, price updates and trailing-stop mutation all require the shared `require_api_token` dependency.
@@ -59,7 +66,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [x] **Trailing-stop execution** — the close path shipped in v0.4.2 and the optional CLOB midpoint poller now supplies live prices in v0.4.5.
 - [x] **Feed live prices into `Trade.current_price`** — the sidecar poller updates open positions through the existing price-update service.
 - [x] **Auth on mutating `/api/*` routes** — the shared API-token boundary protects all mutating sidecar routes; frontend callers can send `VITE_API_TOKEN` through the existing client configuration.
-- [ ] **Postgres for the app DB** — `APP_DATABASE_URL` accepts any SQLAlchemy URL but only SQLite has been exercised
+- [x] **Postgres for the app DB** — PostgreSQL dialect configuration, driver setup and compatibility tests are documented in v0.4.7; live-server execution remains an environment-specific CI/deployment check.
 
 ## Shipped in v0.3.0
 
