@@ -60,7 +60,7 @@ function AgentTile({
   );
 }
 
-export function SwarmAgentsPanel({ swarm }: { swarm?: SwarmSnapshot | null }) {
+export function SwarmAgentsPanel({ swarm }: { swarm?: SwarmSnapshot | null | undefined }) {
   if (!swarm) {
     return (
       <Panel title="Swarm agents" hint="module pipeline">

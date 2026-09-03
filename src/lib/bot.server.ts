@@ -202,7 +202,7 @@ export async function fetchWorkerStatus(): Promise<BotStatus> {
     if (!res.ok) throw new Error(`worker responded ${res.status}`);
     const data = (await res.json()) as Partial<BotStatus>;
     const demo = buildDemoStatus();
-    return { ...demo, ...data, source: "worker", swarm: data.swarm ?? demo.swarm };
+    return { ...demo, ...data, source: "worker", swarm: data.swarm ?? demo.swarm ?? null };
   } catch {
     return buildDemoStatus();
   }

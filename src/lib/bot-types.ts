@@ -96,5 +96,5 @@ export interface BotStatus {
   gates: GateRow[];
   ledger: LedgerRow[];
   /** Present when worker runs v0.5+ swarm; demo feed synthesizes a snapshot. */
-  swarm?: SwarmSnapshot;
+  swarm?: SwarmSnapshot | null;
 }
