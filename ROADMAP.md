@@ -2,12 +2,12 @@
 
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
-**Audit snapshot (static + runtime on `polymarket-quant-bot-lite`):** ~6.2/10 as a framework, ~4.5/10 for real-money readiness. Strong gates/ledger/architecture; **not** production-ready on live fills, pair atomicity, or backtest realism. Do **not** treat paper/backtest PnL as proof of edge until the v0.5.x overhaul below lands.
+**Audit snapshot (static + runtime on `polymarket-quant-bot-lite`):** ~6.2/10 as a framework at audit time; **rising as P0 lands**. Strong gates/ledger/architecture. Still **not** full real-money ready until remaining P0-1 paper labels, P0-2 pair timeout policy, and **P0-4 realistic fills** are done. Do **not** treat paper/backtest PnL as proof of edge until P0-4.
 
 External references that shaped priorities (research only — not affiliations):
 
 - Public trader **@hot-garbage** (`0x3139…9e2e`): complete-set accumulation + residual directional + inventory rebalance (~50–55% event win rate).
-- Viral “GROK / GROKTOPUS” terminals: treat as **simulated / marketing UI** unless a wallet is independently verified.
+- Viral “GROK / GROKTOPUS” and cinematic terminals: treat as **simulated / marketing UI** unless a wallet is independently verified.
 
 ---
 
@@ -20,7 +20,7 @@ External references that shaped priorities (research only — not affiliations):
 - [x] React control room (Monitor / Desk / Leaders / Sizing / Strategies / Settings)
 - [x] Analytics dashboard refresh: status bar, live metric cards, market snapshot, SHAP, volatility, and RSI views
 
-### v0.5.0-ish — inventory & swarm (worker)
+### v0.5.0 — inventory & swarm (worker)
 
 - [x] `bot/inventory.py` — paired / residual / avg_set_cost / second-side lag
 - [x] Complete-set accumulator + SECOND_SIDE + spot fair blend (`USE_SPOT_FAIR`)
@@ -29,106 +29,85 @@ External references that shaped priorities (research only — not affiliations):
 - [x] Ledger `meta.swarm` / `set_id`; `/status` swarm block
 - [x] Deploy docs: `fly.risk.toml`, `Dockerfile.risk` (Leaders API ≠ worker)
 
-**Known gap after ship:** suite not fully green when swarm filters ARB; `LiveExecutor` still treats post-accept as fill; legacy `bot/bot_*.py` duplicates may remain in tree.
+### v0.5.1 — hygiene & arb path (partial → complete)
+
+- [x] **P0-3** Swarm bypass for deterministic ARB / SECOND_SIDE (`is_arb_leg` / reason)
+- [x] Regression: both-sides ARB test passes with `SWARM_ENABLED=true`
+- [x] **P1-5** `getattr(state, "fair_up_prob", None)` (no AttributeError on mocks)
+- [ ] Document MarketState required vs optional fields
+- [ ] Full `pytest` green on clean checkout
+- [ ] Delete unused `bot/bot_config.py`, `bot/bot_strategy.py`, `bot/bot_inventory.py`
+- [ ] Grep CI: no `bot_strategy` / `bot_inventory` / `bot_config` imports
+
+### v0.5.2 — fill reconciliation & pairs (in progress)
+
+- [x] **P0-1 (core):** order id + requested vs filled; poll to terminal state; inventory/ledger only on confirmed fills; never `filled` on submit alone
+- [ ] **P0-1 (paper honesty):** paper fills labeled `SIMULATED_FILL`; excluded from “proven edge” reports
+- [x] **P0-2 (core):** `ArbPair` states `PAIR_PENDING | PAIR_PARTIAL | PAIR_COMPLETE | PAIR_FAILED`; `set_id` through executor; `is_arb_leg` not forced false
+- [ ] **P0-2 (policy):** on `PAIR_PARTIAL` — active second-side / reduce / timeout
+- [ ] Optional: reject new independent arb while pair incomplete on same window
+- [ ] **P1-7:** `update_inventory(..., is_arb_leg=intent.is_arb_leg)` + arb vs directional PnL attribution (if not fully wired)
 
 ---
 
-## CRITICAL — v0.5 execution & accounting overhaul
+## CRITICAL — remaining v0.5 overhaul
 
-> Do not enable `MODE=live` until **P0-1** and **P0-2** are done. Do not use backtest PnL as go-live evidence until **P0-4**.
+> Prefer **paper** until P0-2 policy + P0-4 are done. Live only with tiny size after P0-1 verified against real CLOB fill reports.
 
-### P0-1 — Real CLOB fill reconciliation 🔴
-
-**Bug:** `LiveExecutor` treats `create_and_post_order` acceptance as a full fill at requested size/price.
-
-**Target state machine**
-
-```text
-ORDER_SUBMITTED → ORDER_OPEN → ORDER_PARTIAL → ORDER_FILLED
-                              ↘ ORDER_CANCELLED / REJECTED
-```
-
-- [x] Persist order id + requested vs filled qty/avg price
-- [x] Poll user channel / open-orders / trades until terminal state (or timeout → cancel + reconcile)
-- [x] Update **inventory + ledger only from confirmed fills** (partials allowed)
-- [x] Never set `status=filled` on submit alone
-- [ ] Paper path may stay optimistic **but** must be labeled `SIMULATED_FILL` and excluded from “proven edge” reports
-
-### P0-2 — Pair-aware / atomic arbitrage execution 🔴
-
-**Bug:** UP and DOWN legs are independent posts → one leg can fill alone (naked directional risk).
-
-- [x] `ArbPair` / pair intent: `PAIR_PENDING | PAIR_PARTIAL | PAIR_COMPLETE | PAIR_FAILED`
-- [x] Shared `set_id` already exists — wire through executor + inventory (`is_arb_leg` must not be forced `False` in `update_inventory`)
-- [ ] On `PAIR_PARTIAL`: active second-side / reduce / timeout policy (extend SECOND_SIDE)
-- [ ] Optional: reject opening second independent arb while pair incomplete on same window
-
-### P0-3 — Swarm must not veto deterministic complete-set arb 🔴
-
-**Bug:** ARB detects `sum_asks < threshold` then swarm returns 0 intents (`consensus < 0.70`).
-
-- [x] **Bypass swarm** for `is_arb_leg` / reason `ARB` / `SECOND_SIDE` (deterministic + risk gates only)
-- [ ] Keep swarm for **directional** (and optionally MM soft-score)
-- [ ] Pipeline:
-
-```text
-ARB / SECOND_SIDE → depth + risk gates → execute
-DIRECTIONAL       → fair value → swarm → risk gates → execute
-MM / COPY         → strategy-specific gates → risk → execute
-```
-
-- [x] Regression: `test_buys_both_sides_when_sum_below_threshold` must pass with `SWARM_ENABLED=true`
-
-### P0-4 — Realistic paper + backtest execution 🔴
+### P0-4 — Realistic paper + backtest execution 🔴 NEXT
 
 **Bug:** `shares = size_usd / price` ignores book depth, fees, partials, latency.
 
-- [ ] Consume L1 (and later L2) size at touch; partial fills; residual unfilled
+- [ ] Consume L1 (later L2) size at touch; partial fills; residual unfilled
 - [ ] Fee model (taker/maker), optional slippage bps, stale-quote reject
-- [ ] Backtest: one fill per level/snapshot rules; no infinite refill of the same $3 ask across 100 bars
+- [ ] Backtest: one fill per level/snapshot; no infinite refill of the same touch across bars
 - [ ] Report **net edge** = `1 - exec_up - exec_down - fees - slippage` (not raw `1 - sum_asks`)
-- [ ] Mark backtest reports: `SIMULATED — not live expectancy`
+- [ ] Mark reports: `SIMULATED — not live expectancy`
 
-### P1-5 — MarketState contract hygiene 🟠
+### P0 pipeline (target)
 
-**Bug:** `state.fair_up_prob` AttributeError on FakeState / partial mocks (majority of current test failures).
+```text
+ARB / SECOND_SIDE → depth + risk gates → execute     (swarm bypassed) ✅
+DIRECTIONAL       → fair value → swarm → risk → execute
+MM / COPY         → strategy gates → risk → execute
+```
 
-- [x] `fair_up = getattr(state, "fair_up_prob", None)` (or Protocol + adapter)
-- [ ] Document required vs optional fields for strategy / backtest / tests
-- [ ] Green full `pytest` on clean checkout
+Still open:
+
+- [ ] Keep swarm **only** for directional (and optional MM soft-score) — confirm MM/COPY never hard-blocked by swarm unless intended
+- [ ] Document the pipeline in README / STRATEGY.md
+
+---
+
+## P1 — after soft green
 
 ### P1-6 — Remove duplicate modules 🟠
 
-- [ ] Delete or quarantine unused: `bot/bot_config.py`, `bot/bot_strategy.py`, `bot/bot_inventory.py`
-- [ ] Single import path: `bot.config` / `bot.strategy` / `bot.inventory` only
-- [ ] Grep CI check: no `bot_strategy` imports
-
-### P1-7 — Pass `is_arb_leg` into inventory 🟠
-
-- [ ] `update_inventory(..., is_arb_leg=intent.is_arb_leg)`
-- [ ] Analytics: arb vs directional PnL attribution
+- [ ] Delete or quarantine: `bot/bot_config.py`, `bot/bot_strategy.py`, `bot/bot_inventory.py`
+- [ ] Single path: `bot.config` / `bot.strategy` / `bot.inventory`
+- [ ] CI grep guard
 
 ### P1-8 — Execution policy (not global PREFER_MAKER) 🟠
 
-- [ ] ARB: taker if net edge > X; maker only if fill-prob model allows
+- [ ] ARB: taker if net edge > X; maker only if expected fill allows
 - [ ] DIRECTIONAL: maker-preferred default
 - [ ] Config: `ARB_EXECUTION_MODE=taker|maker|auto`
 
 ### P1-9 — API security for exposed deploys 🟠
 
-- [ ] Require `API_TOKEN` whenever process is reachable beyond localhost (not only `MODE=live`)
-- [ ] Production: explicit `API_CORS_ORIGINS` (no `*`); document in `deploy/RISK_API_FLY.md`
+- [ ] Require `API_TOKEN` when bound beyond localhost (not only `MODE=live`)
+- [ ] Production: explicit `API_CORS_ORIGINS` (no `*`); see `deploy/RISK_API_FLY.md`
 - [ ] Multi-user: replace hard-coded `user_id=1` before any shared SaaS claim
 
 ### P1-10 — Single source of truth for positions 🟠
 
-- [ ] Prefer: worker ledger (JSONL/Postgres) → `/status` or risk API → dashboard
-- [ ] Document Supabase / in-browser sim as **demo only** (README + Monitor badge already partially does this)
-- [ ] Optional: dashboard read-only mode when `BOT_STATUS_URL` set (no dual write)
+- [ ] Worker ledger (JSONL/Postgres) → `/status` or risk API → dashboard
+- [ ] Supabase / in-browser sim documented as **demo only**
+- [ ] Optional: dashboard read-only when `BOT_STATUS_URL` set (no dual write)
 
 ---
 
-## Near-term (after soft green + P0)
+## Near-term (after P0-4)
 
 ### Execution quality
 
@@ -141,16 +120,30 @@ MM / COPY         → strategy-specific gates → risk → execute
 - [ ] Live relayer for split/merge/redeem (today paper-safe only)
 - [ ] Settlement identity: `order_id → fill_id → position_id → outcome` (not broad slug+time)
 
-### Observability
+### Observability (incl. CLAUDE×QUANT-style, data-bound only)
 
-- [ ] Inventory plane on dashboard: paired vs residual, avg set cost, naked USD
+- [ ] **Inventory & Flow panel** — matched % vs residual %, naked USD, avg set cost (`InventoryBook`)
+- [ ] **Decision funnel** on `/status`: `scanned → arb → dir → swarm_pass → gate_pass → submitted → filled`
+- [ ] **Set completion stream** — ledger events when pair completes (`set_id`)
 - [ ] Session report: sets completed, mean set edge, residual vs paired PnL
-- [ ] Copy-trading latency fields: detect → execute ms in ledger
+- [ ] Cycle latency: `book_age_ms`, `cycle_ms` in status + ledger meta
+- [ ] Copy-trading latency: detect → execute ms
+- [ ] Market tile grid (dashboard) — compact multi-window UP/DOWN; PAPER/LIVE badge mandatory
+
+### Spot fair
+
+- [ ] `SPOT_FAIR_MODE=window|vwap` (blended prior, not sole signal)
 
 ### Naming / honesty
 
-- [ ] Rename `cross_platform_arbitrage` → `cross_platform_signal` (or label everywhere “directional only”)
-- [ ] Trailing stop: real peak-price trail vs fixed adverse threshold (document which)
+- [ ] Rename `cross_platform_arbitrage` → `cross_platform_signal` (or label “directional only”)
+- [ ] Trailing stop: document peak-price trail vs fixed adverse threshold
+
+### Explicitly defer from cinematic UIs
+
+- Hexbin / spectrogram as proof of alpha before realistic fills
+- Unverified $/day and six-figure equity as product targets
+- “Neural” branding without walk-forward metrics
 
 ---
 
@@ -170,7 +163,7 @@ MM / COPY         → strategy-specific gates → risk → execute
 
 - [ ] Adaptive set-cost threshold by volatility regime
 - [ ] Multi-process / multi-region coordination (optional)
-- [ ] True hedged Polymarket��Kalshi
+- [ ] True hedged Polymarket ↔ Kalshi
 
 ---
 
@@ -182,7 +175,7 @@ MM / COPY         → strategy-specific gates → risk → execute
 - Running the trading loop on Vercel / Lovable serverless
 - Blind copy of Telegram “bot packs”
 - Labeling Kalshi gap signals as risk-free arb without dual-leg execution
-- Using current optimistic backtest as live go-ahead
+- Using optimistic backtest as live go-ahead
 
 ---
 
@@ -200,24 +193,26 @@ MM / COPY         → strategy-specific gates → risk → execute
 
 ## Suggested milestone tags
 
-| Tag | Theme |
-|-----|--------|
-| **v0.5.0** | Inventory + set accumulator + second-side + swarm module |
-| **v0.5.1** | Swarm ARB bypass + MarketState hygiene + delete `bot_*` dupes + green pytest |
-| **v0.5.2** | Real fill reconciliation + pair state machine |
-| **v0.5.3** | Realistic paper/backtest fills + fees/slippage net edge |
-| **v0.6.0** | WS books, shadow mode, walk-forward ML, dashboard↔worker SoT |
+| Tag | Theme | Status |
+|-----|--------|--------|
+| **v0.5.0** | Inventory + set accumulator + second-side + swarm | Shipped |
+| **v0.5.1** | Swarm ARB bypass + MarketState hygiene + delete `bot_*` + green pytest | Partial (bypass + getattr done) |
+| **v0.5.2** | Real fill reconciliation + pair state machine | Partial (core done; policy/labels open) |
+| **v0.5.3** | Realistic paper/backtest fills + fees/slippage net edge | **Next** |
+| **v0.6.0** | WS books, shadow mode, walk-forward ML, dashboard↔worker SoT | Planned |
 
 ---
 
-## Immediate work order (do in this sequence)
+## Immediate work order (updated)
 
-1. **P0-3** — swarm skip for ARB/SECOND_SIDE (unblocks tests + correct arb path)  
-2. **P1-5** — `getattr` / Protocol for `fair_up_prob` (green suite)  
-3. **P1-6 / P1-7** — delete dupes; pass `is_arb_leg`  
-4. **P0-1** — order/fill state machine on live (and honest labels on paper)  
-5. **P0-2** — pair engine  
-6. **P0-4** — realistic backtest/paper  
-7. Only then consider **live** capital  
+1. ~~P0-3 swarm skip for ARB~~ ✅  
+2. ~~P1-5 getattr fair_up_prob~~ ✅  
+3. **P1-6** — delete `bot/bot_*.py` dupes + CI grep  
+4. **Finish P0-2 policy** — PAIR_PARTIAL second-side / timeout; block stacked arb on incomplete pair  
+5. **Finish P0-1 paper** — `SIMULATED_FILL` label; no proven-edge claims from paper  
+6. **P0-4** — realistic paper/backtest (depth, fees, partials, net edge)  
+7. **P1-7 / P1-8** — arb leg attribution + execution mode config  
+8. Observability panels (inventory flow, funnel, set stream) bound to ledger  
+9. Only then meaningful **live** size  
 
 Contributions and issues: [github.com/gepappas98/polymarket-quant-bot-lite](https://github.com/gepappas98/polymarket-quant-bot-lite).
