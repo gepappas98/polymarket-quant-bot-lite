@@ -18,6 +18,7 @@ External references that shaped priorities (research only — not affiliations):
 - [x] FastAPI risk-engine sidecar (`app/`), Kelly, leaderboard adapter, trailing-stop path, auth on mutating routes (when `API_TOKEN` set)
 - [x] Plugin strategies (MM, copy, ML, cross-venue **signal**), gates, kill switch, Prometheus hooks
 - [x] React control room (Monitor / Desk / Leaders / Sizing / Strategies / Settings)
+- [x] Analytics dashboard refresh: status bar, live metric cards, market snapshot, SHAP, volatility, and RSI views
 
 ### v0.5.0-ish — inventory & swarm (worker)
 

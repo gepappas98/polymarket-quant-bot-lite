@@ -4,6 +4,7 @@ const links = [
   ["monitor", "/"],
   ["desk", "/desk"],
   ["leaders", "/leaders"],
+  ["advanced", "/advanced"],
   ["sizing", "/sizing"],
   ["strategies", "/strategies"],
   ["settings", "/settings"],
