@@ -283,3 +283,99 @@ export function placeOrder(request: PlaceOrderRequest) {
     body: JSON.stringify(request),
   });
 }
+
+// ------------------------------------------------------------- analytics ----
+
+export interface MetricsSummary {
+  system_status: "active" | "paper" | "paused" | string;
+  mode: string;
+  top_market: string | null;
+  current_price: number | null;
+  weekly_trades: number;
+  weekly_volume: number;
+  daily_loss_used: number;
+  daily_loss_limit: number;
+  daily_pnl_change: number;
+  daily_pnl_percent: number;
+  closed_today: number;
+  open_positions: number;
+  generated_at: string;
+}
+
+export interface MarketSnapshotRow {
+  slug: string;
+  category: string;
+  price: number | null;
+  price_no: number | null;
+  ml_signal: "BUY" | "SELL" | "NEUTRAL" | string;
+  confidence: number;
+  open_pnl: number | null;
+  open_positions: number;
+  volume_usd: number;
+  last_ts: number;
+}
+
+export interface FeatureImportanceRow {
+  feature: string;
+  importance: number;
+  shap_value: number;
+}
+
+export interface FeatureImportanceResponse {
+  status: "ok" | "unavailable" | string;
+  model_path: string;
+  base_probability?: number;
+  features: FeatureImportanceRow[];
+  models: string[];
+  selected_model: string;
+}
+
+export interface VolatilityPoint {
+  date: string;
+  price: number;
+  high: number;
+  low: number;
+  volatility: number;
+  rsi: number | null;
+  samples: number;
+}
+
+export interface VolatilityResponse {
+  market_slug: string;
+  category: string;
+  days: number;
+  points: VolatilityPoint[];
+}
+
+export const analyticsQueryKeys = {
+  summary: () => ["risk-api", "metrics-summary"] as const,
+  snapshot: (category?: string) => ["risk-api", "markets-snapshot", category ?? "all"] as const,
+  featureImportance: (model?: string) => ["risk-api", "feature-importance", model ?? "default"] as const,
+  volatility: (slug: string, days: number) => ["risk-api", "volatility", slug, days] as const,
+  sparklines: (days: number) => ["risk-api", "leader-sparklines", days] as const,
+};
+
+export function getMetricsSummary() {
+  return apiFetch<MetricsSummary>("/api/metrics/summary");
+}
+
+export function getMarketsSnapshot(category?: string) {
+  const query = category && category !== "all" ? `?category=${encodeURIComponent(category)}` : "";
+  return apiFetch<MarketSnapshotRow[]>(`/api/markets/snapshot${query}`);
+}
+
+export function getFeatureImportance(model?: string, topN = 10) {
+  const query = new URLSearchParams({ top_n: String(topN) });
+  if (model && model !== "default") query.set("model", model);
+  return apiFetch<FeatureImportanceResponse>(`/api/analytics/feature_importance?${query}`);
+}
+
+export function getVolatility(marketSlug: string, days = 7) {
+  return apiFetch<VolatilityResponse>(
+    `/api/analytics/volatility/${encodeURIComponent(marketSlug)}?days=${days}`,
+  );
+}
+
+export function getLeaderSparklines(days = 7) {
+  return apiFetch<Record<string, number[]>>(`/api/analytics/leader_sparklines?days=${days}`);
+}
