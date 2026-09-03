@@ -80,6 +80,9 @@ class Config:
     chain_id: int = 137
     http_timeout: float = float(os.getenv("HTTP_TIMEOUT", "6"))
     http_retries: int = int(os.getenv("HTTP_RETRIES", "3"))
+    # Live orders are not fills until the CLOB confirms executed quantity.
+    live_order_timeout_sec: float = float(os.getenv("LIVE_ORDER_TIMEOUT_SEC", "15"))
+    live_order_poll_sec: float = float(os.getenv("LIVE_ORDER_POLL_SEC", "1"))
 
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     # "text" (human-readable, default) or "json" (structured, one JSON object per line)

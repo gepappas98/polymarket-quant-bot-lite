@@ -236,3 +236,46 @@ class TestInventoryUpdates:
         inv = strategy.get_inv("btc-updown-5m-12")
         assert inv.up_shares == 10
         assert inv.down_shares == 4
+
+
+class TestSwarmStrategyBoundary:
+    def _failing_swarm(self, monkeypatch):
+        monkeypatch.setattr(cfg, "swarm_enabled", True)
+        monkeypatch.setattr("bot.strategy.filter_intents", lambda *args, **kwargs: [])
+
+    def test_arb_survives_failing_swarm(self, monkeypatch):
+        self._failing_swarm(monkeypatch)
+        monkeypatch.setattr(cfg, "arb_threshold", 0.985)
+        monkeypatch.setattr(cfg, "max_order_usd", 25.0)
+        strategy = Strategy()
+        intents = strategy.evaluate(FakeState("arb", 0.48, 0.49))
+        assert len(intents) == 2
+        assert all(intent.is_arb_leg for intent in intents)
+
+    def test_second_side_survives_failing_swarm(self, monkeypatch):
+        self._failing_swarm(monkeypatch)
+        monkeypatch.setattr(cfg, "second_side_lag_sec", 0.0)
+        monkeypatch.setattr(cfg, "max_naked_residual_usd", 1.0)
+        strategy = Strategy()
+        strategy.update_inventory("second-side", Side.UP, shares=10, cost=5)
+        intents = strategy.evaluate(FakeState("second-side", 0.48, 0.49))
+        assert len(intents) == 1
+        assert intents[0].is_arb_leg
+        assert intents[0].side == Side.DOWN
+
+    def test_directional_still_vetoed_by_failing_swarm(self, monkeypatch):
+        self._failing_swarm(monkeypatch)
+        monkeypatch.setattr(cfg, "arb_threshold", 0.90)
+        monkeypatch.setattr(cfg, "min_directional_edge", 0.03)
+        monkeypatch.setattr(cfg, "prefer_maker", False)
+        strategy = Strategy()
+        state = FakeState("directional", 0.50, 0.50, up_bid=0.48, down_bid=0.30)
+        assert strategy.evaluate(state) == []
+
+    def test_missing_fair_value_is_treated_as_neutral(self, monkeypatch):
+        monkeypatch.setattr(cfg, "arb_threshold", 0.90)
+        monkeypatch.setattr(cfg, "min_directional_edge", 0.03)
+        monkeypatch.setattr(cfg, "prefer_maker", False)
+        strategy = Strategy()
+        state = FakeState("partial-state", 0.50, 0.50, up_bid=0.48, down_bid=0.30)
+        assert strategy.evaluate(state)

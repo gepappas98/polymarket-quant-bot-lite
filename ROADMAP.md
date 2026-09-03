@@ -47,10 +47,10 @@ ORDER_SUBMITTED → ORDER_OPEN → ORDER_PARTIAL → ORDER_FILLED
                               ↘ ORDER_CANCELLED / REJECTED
 ```
 
-- [ ] Persist order id + requested vs filled qty/avg price
-- [ ] Poll user channel / open-orders / trades until terminal state (or timeout → cancel + reconcile)
-- [ ] Update **inventory + ledger only from confirmed fills** (partials allowed)
-- [ ] Never set `status=filled` on submit alone
+- [x] Persist order id + requested vs filled qty/avg price
+- [x] Poll user channel / open-orders / trades until terminal state (or timeout → cancel + reconcile)
+- [x] Update **inventory + ledger only from confirmed fills** (partials allowed)
+- [x] Never set `status=filled` on submit alone
 - [ ] Paper path may stay optimistic **but** must be labeled `SIMULATED_FILL` and excluded from “proven edge” reports
 
 ### P0-2 — Pair-aware / atomic arbitrage execution 🔴
@@ -66,7 +66,7 @@ ORDER_SUBMITTED → ORDER_OPEN → ORDER_PARTIAL → ORDER_FILLED
 
 **Bug:** ARB detects `sum_asks < threshold` then swarm returns 0 intents (`consensus < 0.70`).
 
-- [ ] **Bypass swarm** for `is_arb_leg` / reason `ARB` / `SECOND_SIDE` (deterministic + risk gates only)
+- [x] **Bypass swarm** for `is_arb_leg` / reason `ARB` / `SECOND_SIDE` (deterministic + risk gates only)
 - [ ] Keep swarm for **directional** (and optionally MM soft-score)
 - [ ] Pipeline:
 
@@ -92,7 +92,7 @@ MM / COPY         → strategy-specific gates → risk → execute
 
 **Bug:** `state.fair_up_prob` AttributeError on FakeState / partial mocks (majority of current test failures).
 
-- [ ] `fair_up = getattr(state, "fair_up_prob", None)` (or Protocol + adapter)
+- [x] `fair_up = getattr(state, "fair_up_prob", None)` (or Protocol + adapter)
 - [ ] Document required vs optional fields for strategy / backtest / tests
 - [ ] Green full `pytest` on clean checkout
 
@@ -169,7 +169,7 @@ MM / COPY         → strategy-specific gates → risk → execute
 
 - [ ] Adaptive set-cost threshold by volatility regime
 - [ ] Multi-process / multi-region coordination (optional)
-- [ ] True hedged Polymarket↔Kalshi
+- [ ] True hedged Polymarket��Kalshi
 
 ---
 
