@@ -109,11 +109,21 @@ class Strategy:
         return f"{slug}:set:{n}"
 
     def _swarm_filter(self, state: MarketState, intents: List[Intent]) -> List[Intent]:
+        """Apply swarm consensus to directional intents only.
 
-        """Apply module-swarm consensus; no-op if SWARM_ENABLED=false."""
+        Complete-set arbitrage and second-side recovery are deterministic
+        inventory actions. They still pass the strategy's depth and exposure
+        gates, but must not be vetoed by the soft consensus score.
+        """
         if not intents:
             return intents
         if not getattr(cfg, "swarm_enabled", True):
+            return intents
+        if all(
+            intent.is_arb_leg
+            or any(marker in intent.reason.upper() for marker in ("ARB", "SECOND_SIDE"))
+            for intent in intents
+        ):
             return intents
         mi = self.market_inv(state.market["slug"])
         scfg = SwarmConfig(
@@ -259,7 +269,7 @@ class Strategy:
         book_edge_down = 0.5 - imbalance * 0.5 - down_mid
 
         # Spot window-open fair (PriceFeed): P(UP) vs market mid
-        fair_up = state.fair_up_prob  # Optional[float] from MarketState
+        fair_up = getattr(state, "fair_up_prob", None)  # Optional[float]
 
         if getattr(cfg, "use_spot_fair", True) and fair_up is not None:
             w = getattr(cfg, "spot_fair_weight", 0.7)
