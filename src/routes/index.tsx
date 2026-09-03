@@ -5,7 +5,9 @@ import { getBotStatus } from "@/lib/bot.functions";
 import { NavLinks } from "@/components/dashboard/NavLinks";
 import { SimulateTradeWidget } from "@/components/dashboard/SimulateTradeWidget";
 import { SwarmAgentsPanel } from "@/components/dashboard/SwarmAgentsPanel";
-import { getRiskGates, riskQueryKeys } from "@/lib/riskApi";
+import { getMarketsSnapshot, getRiskGates, riskQueryKeys, analyticsQueryKeys } from "@/lib/riskApi";
+import { MarketSnapshot } from "@/components/dashboard/AnalyticsPanels";
+import { MetricCards, SystemStatusBar, useMetricsSummary } from "@/components/dashboard/MetricCards";
 
 import {
   ConfigPanel,
@@ -13,9 +15,7 @@ import {
   LedgerFeed,
   MarketsTable,
   PnlChart,
-  StatTile,
   SupportPanel,
-  usd,
 } from "@/components/dashboard/Panels";
 
 export const Route = createFileRoute("/")({
@@ -50,6 +50,13 @@ function Dashboard() {
     queryFn: () => fetchStatus(),
     refetchInterval: 10_000,
   });
+  const summary = useMetricsSummary();
+  const snapshot = useQuery({
+    queryKey: analyticsQueryKeys.snapshot(),
+    queryFn: () => getMarketsSnapshot(),
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  });
   const riskGates = useQuery({
     queryKey: riskQueryKeys.gates(),
     queryFn: () => getRiskGates(),
@@ -64,10 +71,7 @@ function Dashboard() {
     );
   }
 
-  const { config, session, trackRecord } = data;
-  const lastPnl = data.pnlSeries[data.pnlSeries.length - 1]?.cumulativePnl ?? 0;
-  const blockRate = session.intents ? (100 * session.blocked) / session.intents : 0;
-
+  const { config } = data;
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-10">
       <header className="panel mb-6 flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-4">
@@ -104,31 +108,11 @@ function Dashboard() {
         </div>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile
-          label="Session P&L"
-          value={usd(lastPnl)}
-          sub={`limit ${usd(config.dailyLossLimitUsd)}`}
-          tone={lastPnl >= 0 ? "up" : "down"}
-        />
-        <StatTile
-          label="Fills"
-          value={String(session.fills)}
-          sub={`${usd(session.totalUsd)} notional · ${session.liveFills} live`}
-        />
-        <StatTile
-          label="Blocked intents"
-          value={`${session.blocked}/${session.intents}`}
-          sub={`${blockRate.toFixed(0)}% gated`}
-          tone={blockRate > 50 ? "warn" : "default"}
-        />
-        <StatTile
-          label="Win rate"
-          value={`${trackRecord.winRatePct}%`}
-          sub={`${trackRecord.sampleSize} outcomes · avg ${usd(trackRecord.avgPnl)}`}
-          tone={trackRecord.winRatePct >= config.minTrackRecordWinPct ? "up" : "warn"}
-        />
-      </div>
+      <SystemStatusBar summary={summary.data} fallbackMode={config.mode} />
+      <MetricCards summary={summary.data} />
+
+      {snapshot.data ? <div className="mt-3"><MarketSnapshot markets={snapshot.data} /></div> : null}
+
 
       <div className="mt-3">
         <SwarmAgentsPanel swarm={data.swarm} />
