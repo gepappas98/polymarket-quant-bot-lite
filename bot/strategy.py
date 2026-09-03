@@ -41,6 +41,7 @@ class Intent:
     size_usd: float
     reason: str
     is_arb_leg: bool = False
+    set_id: Optional[str] = None
 
 
 # Backward-compatible alias used by market_making / older tests
@@ -91,6 +92,13 @@ class Strategy:
         if leg is None:
             leg = Inventory()
             self.inventories[slug] = leg
+        # Legacy callers may mutate this mirror directly; import its values
+        # before using the rich book so exposure gates remain authoritative.
+        if any((leg.up_cost, leg.down_cost, leg.up_shares, leg.down_shares)) and not mi.fills:
+            mi.up_shares = leg.up_shares
+            mi.down_shares = leg.down_shares
+            mi.up_cost = leg.up_cost
+            mi.down_cost = leg.down_cost
         leg.up_shares = mi.up_shares
         leg.down_shares = mi.down_shares
         leg.up_cost = mi.up_cost
@@ -141,6 +149,10 @@ class Strategy:
         exposure_cap = cfg.exposure_cap_for(asset)
 
         if mi.total_cost >= exposure_cap:
+            return self._swarm_filter(state, intents)
+        # Keep compatibility with the legacy mutable Inventory mirror.
+        legacy = self.inventories.get(slug)
+        if legacy is not None and legacy.up_cost + legacy.down_cost >= exposure_cap:
             return self._swarm_filter(state, intents)
 
         up_ask = state.up_ask
@@ -196,7 +208,10 @@ class Strategy:
         # 1. Instant complete-set
         if sum_asks <= cfg.arb_threshold and remaining >= 10:
             size = min(cfg.max_order_usd, remaining / 2)
+            if size * 2 > remaining:
+                return self._swarm_filter(state, intents)
             if size >= 5 and _depth_ok(state, Side.UP) and _depth_ok(state, Side.DOWN):
+                set_id = self.next_set_id(slug)
                 for side, ask, tid in (
                     (Side.UP, up_ask, state.market["up_token_id"]),
                     (Side.DOWN, down_ask, state.market["down_token_id"]),
@@ -211,10 +226,11 @@ class Strategy:
                             size_usd=size,
                             reason=f"ARB pair (sum={sum_asks:.4f})",
                             is_arb_leg=True,
+                            set_id=set_id,
                         )
                     )
                 log.info(
-                    f"[ARB] {slug} sum={sum_asks:.4f} -> buying both @ {size:.1f} USD each"
+                    f"[ARB] {slug} set={set_id} sum={sum_asks:.4f} -> buying both @ {size:.1f} USD each"
                 )
                 return self._swarm_filter(state, intents)
 
@@ -302,16 +318,31 @@ class Strategy:
                 f"directional edge={edge_up if preferred == Side.UP else edge_down:.3f}"
             )
 
-        try:
-            allowed = getattr(ledger, "directional_allowed", None)
-            if callable(allowed) and not allowed(
-                min_win_pct=cfg.min_track_record_win_pct,
-                min_samples=cfg.min_track_record_samples,
-            ):
-                log.info(f"[DIR] {slug} blocked by track-record gate")
+        allowed = getattr(ledger, "directional_allowed", None)
+        if not callable(allowed):
+            def allowed(*, min_win_pct: float, min_samples: int) -> bool:
+                record = ledger.win_rate(asset_prefix=asset, min_samples=min_samples)
+                return record is None or record["win_rate_pct"] >= min_win_pct
+        if callable(allowed):
+            try:
+                if not allowed(
+                    min_win_pct=cfg.min_track_record_win_pct,
+                    min_samples=cfg.min_track_record_samples,
+                ):
+                    log.info(f"[DIR] {slug} blocked by track-record gate")
+                    return self._swarm_filter(state, intents)
+            except TypeError:
+                try:
+                    record = ledger.win_rate(asset_prefix=asset, min_samples=cfg.min_track_record_samples)
+                    if record is not None and record["win_rate_pct"] < cfg.min_track_record_win_pct:
+                        log.info(f"[DIR] {slug} blocked by track-record gate")
+                        return self._swarm_filter(state, intents)
+                except Exception as exc:
+                    log.warning("[DIR] track-record gate failed closed: %s", exc)
+                    return self._swarm_filter(state, intents)
+            except Exception as exc:
+                log.warning("[DIR] track-record gate failed closed: %s", exc)
                 return self._swarm_filter(state, intents)
-        except Exception:
-            pass
 
         remaining = exposure_cap - mi.total_cost
         size = min(cfg.max_order_usd * cfg.residual_size_factor, remaining)
@@ -354,7 +385,9 @@ class Strategy:
         }
         return self._swarm_filter(state, intents)
 
-    def update_inventory(self, slug: str, side: Side, shares: float, cost: float):
+    def update_inventory(
+        self, slug: str, side: Side, shares: float, cost: float, *, is_arb_leg: bool = False
+    ):
         """Apply a fill to both the rich inventory book and legacy mirror."""
         price = (cost / shares) if shares > 0 else 0.0
         self.book.apply_fill(
@@ -363,7 +396,7 @@ class Strategy:
             shares,
             cost,
             price,
-            is_arb_leg=False,
+            is_arb_leg=is_arb_leg,
         )
         self.get_inv(slug)
         mi = self.market_inv(slug)

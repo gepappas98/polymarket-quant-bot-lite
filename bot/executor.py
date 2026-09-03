@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
@@ -92,13 +93,16 @@ class PaperExecutor:
             )
             results.append(fill)
             self.fills.append(fill)
-            self.strategy.update_inventory(intent.market_slug, intent.side, shares, cost)
+            self.strategy.update_inventory(
+                intent.market_slug, intent.side, shares, cost, is_arb_leg=intent.is_arb_leg
+            )
             ledger.record_fill(intent, shares, cost, fill.order_id, dry_run=True)
             metrics.record_fill(side=intent.side.value, size_usd=cost, dry_run=True)
             log.info(
                 f"[PAPER FILL] {intent.side.value} {shares:.2f} shares @ {intent.price:.3f} "
                 f"(${cost:.2f}) | {intent.reason}"
             )
+        _record_pair_states(intents, results, dry_run=True)
         return results
 
     def check_kill_switch(self) -> bool:
@@ -139,6 +143,22 @@ class PaperExecutor:
             return True
         metrics.set_kill_switch_active(False)
         return False
+
+
+def _record_pair_states(intents: List[Intent], fills: List[Fill], *, dry_run: bool) -> None:
+    """Record pair lifecycle without pretending a submitted leg filled."""
+    grouped = defaultdict(list)
+    for intent in intents:
+        if intent.is_arb_leg and intent.set_id:
+            grouped[intent.set_id].append(intent)
+    for set_id, pair_intents in grouped.items():
+        filled = sum(1 for intent in pair_intents if any(fill.intent is intent for fill in fills))
+        state = "PAIR_COMPLETE" if filled == len(pair_intents) else ("PAIR_PARTIAL" if filled else "PAIR_FAILED")
+        ledger.append(LedgerEntry(
+            ts=time.time(), kind="pair", market_slug=pair_intents[0].market_slug,
+            reason=state, status=state.lower(), dry_run=dry_run,
+            meta={"set_id": set_id, "legs": len(pair_intents), "confirmed_fills": filled},
+        ))
 
 
 class LiveExecutor:
@@ -278,7 +298,9 @@ class LiveExecutor:
                     simulated=False,
                 )
                 results.append(fill)
-                self.strategy.update_inventory(intent.market_slug, intent.side, shares, cost)
+                self.strategy.update_inventory(
+                intent.market_slug, intent.side, shares, cost, is_arb_leg=intent.is_arb_leg
+            )
                 ledger.record_fill(intent, shares, cost, order_id, dry_run=False)
                 metrics.record_fill(side=intent.side.value, size_usd=cost, dry_run=False)
                 log.info(f"[LIVE FILL] {order_id} {intent.side.value} {shares:.2f} @ {avg_price:.3f}")
@@ -287,6 +309,7 @@ class LiveExecutor:
                 ledger.record_intent(
                     intent, dry_run=False, blocked=True, block_reason=f"exec error: {e}"
                 )
+        _record_pair_states(intents, results, dry_run=False)
         return results
 
 

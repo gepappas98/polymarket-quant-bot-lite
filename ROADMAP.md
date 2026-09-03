@@ -57,8 +57,8 @@ ORDER_SUBMITTED → ORDER_OPEN → ORDER_PARTIAL → ORDER_FILLED
 
 **Bug:** UP and DOWN legs are independent posts → one leg can fill alone (naked directional risk).
 
-- [ ] `ArbPair` / pair intent: `PAIR_PENDING | PAIR_PARTIAL | PAIR_COMPLETE | PAIR_FAILED`
-- [ ] Shared `set_id` already exists — wire through executor + inventory (`is_arb_leg` must not be forced `False` in `update_inventory`)
+- [x] `ArbPair` / pair intent: `PAIR_PENDING | PAIR_PARTIAL | PAIR_COMPLETE | PAIR_FAILED`
+- [x] Shared `set_id` already exists — wire through executor + inventory (`is_arb_leg` must not be forced `False` in `update_inventory`)
 - [ ] On `PAIR_PARTIAL`: active second-side / reduce / timeout policy (extend SECOND_SIDE)
 - [ ] Optional: reject opening second independent arb while pair incomplete on same window
 
@@ -76,7 +76,7 @@ DIRECTIONAL       → fair value → swarm → risk gates → execute
 MM / COPY         → strategy-specific gates → risk → execute
 ```
 
-- [ ] Regression: `test_buys_both_sides_when_sum_below_threshold` must pass with `SWARM_ENABLED=true`
+- [x] Regression: `test_buys_both_sides_when_sum_below_threshold` must pass with `SWARM_ENABLED=true`
 
 ### P0-4 — Realistic paper + backtest execution 🔴
 
