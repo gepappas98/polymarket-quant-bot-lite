@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- **P0-1 live fill reconciliation** — live orders now poll terminal CLOB status, cancel timed-out orders, and update inventory/ledger only from confirmed full or partial fills.
 - **P0-3 swarm boundary** — deterministic `ARB` and `SECOND_SIDE` intents now bypass soft swarm consensus while directional intents remain filtered.
 - **P1-5 MarketState hygiene** — optional `fair_up_prob` is read safely with `getattr`, preserving compatibility with partial state adapters and test doubles.
 - **Roadmap realigned (v0.5 direction)** — `ROADMAP.md` now prioritizes inventory economics observed on high-volume public Up/Down makers (e.g. complete-set accumulation, paired vs residual inventory, second-side lag, hold-to-resolution bias, CTF split/merge/redeem), while keeping existing v0.4 risk-engine and dashboard work as shipped baseline.

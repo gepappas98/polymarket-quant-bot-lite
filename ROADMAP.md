@@ -47,10 +47,10 @@ ORDER_SUBMITTED → ORDER_OPEN → ORDER_PARTIAL → ORDER_FILLED
                               ↘ ORDER_CANCELLED / REJECTED
 ```
 
-- [ ] Persist order id + requested vs filled qty/avg price
-- [ ] Poll user channel / open-orders / trades until terminal state (or timeout → cancel + reconcile)
-- [ ] Update **inventory + ledger only from confirmed fills** (partials allowed)
-- [ ] Never set `status=filled` on submit alone
+- [x] Persist order id + requested vs filled qty/avg price
+- [x] Poll user channel / open-orders / trades until terminal state (or timeout → cancel + reconcile)
+- [x] Update **inventory + ledger only from confirmed fills** (partials allowed)
+- [x] Never set `status=filled` on submit alone
 - [ ] Paper path may stay optimistic **but** must be labeled `SIMULATED_FILL` and excluded from “proven edge” reports
 
 ### P0-2 — Pair-aware / atomic arbitrage execution 🔴
@@ -169,7 +169,7 @@ MM / COPY         → strategy-specific gates → risk → execute
 
 - [ ] Adaptive set-cost threshold by volatility regime
 - [ ] Multi-process / multi-region coordination (optional)
-- [ ] True hedged Polymarket↔Kalshi
+- [ ] True hedged Polymarket��Kalshi
 
 ---
 
