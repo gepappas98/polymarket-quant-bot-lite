@@ -42,7 +42,7 @@ External references that shaped priorities (research only — not affiliations):
 ### v0.5.2 — fill reconciliation & pairs (in progress)
 
 - [x] **P0-1 (core):** order id + requested vs filled; poll to terminal state; inventory/ledger only on confirmed fills; never `filled` on submit alone
-- [ ] **P0-1 (paper honesty):** paper fills labeled `SIMULATED_FILL`; excluded from “proven edge” reports
+- [x] **P0-1 (paper honesty):** paper fills labeled `SIMULATED_FILL`; excluded from “proven edge” reports
 - [x] **P0-2 (core):** `ArbPair` states `PAIR_PENDING | PAIR_PARTIAL | PAIR_COMPLETE | PAIR_FAILED`; `set_id` through executor; `is_arb_leg` not forced false
 - [ ] **P0-2 (policy):** on `PAIR_PARTIAL` — active second-side / reduce / timeout
 - [ ] Optional: reject new independent arb while pair incomplete on same window

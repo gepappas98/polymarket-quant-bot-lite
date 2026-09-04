@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- **P0-1 paper honesty** — paper fills now use the stable `SIMULATED_FILL` marker while preserving the original strategy reason in ledger metadata.
 - **P0-2 pair lifecycle tracking** — arb legs share a generated `set_id`, preserve `is_arb_leg` through inventory accounting, and emit confirmed pair lifecycle ledger states; the full pair/strategy regression set is green.
 - **P0-1 live fill reconciliation** — live orders now poll terminal CLOB status, cancel timed-out orders, and update inventory/ledger only from confirmed full or partial fills.
 - **P0-3 swarm boundary** — deterministic `ARB` and `SECOND_SIDE` intents now bypass soft swarm consensus while directional intents remain filtered.

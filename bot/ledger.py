@@ -97,6 +97,8 @@ class Ledger:
     def record_fill(self, intent, shares: float, cost: float, order_id: str, dry_run: bool) -> None:
         side = getattr(intent.side, "value", intent.side)
         meta = {"shares": shares}
+        if dry_run:
+            meta["original_reason"] = intent.reason
         swarm = getattr(intent, "swarm", None)
         if swarm is not None:
             meta["swarm"] = swarm
@@ -112,7 +114,7 @@ class Ledger:
             side=side,
             price=intent.price,
             size_usd=cost,
-            reason=intent.reason,
+            reason="SIMULATED_FILL" if dry_run else intent.reason,
             status="filled",
             dry_run=dry_run,
             order_id=order_id,

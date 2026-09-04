@@ -1,6 +1,8 @@
 import pytest
 
-from bot.executor import LiveExecutor
+from bot.executor import LiveExecutor, PaperExecutor
+from bot.ledger import ledger
+from bot.strategy import Intent, Side
 from bot.config import cfg
 
 
@@ -20,6 +22,27 @@ def executor_with(client):
     executor = LiveExecutor.__new__(LiveExecutor)
     executor.client = client
     return executor
+
+
+def test_paper_fill_is_explicitly_marked_simulated(monkeypatch):
+    ledger._entries.clear()
+    strategy = type("Strategy", (), {
+        "update_inventory": lambda *args, **kwargs: None,
+    })()
+    executor = PaperExecutor(strategy)
+    intent = Intent("market", "token", Side.UP, "BUY", 0.4, 10.0, "TEST_SIGNAL")
+
+    monkeypatch.setattr("bot.executor.daily_limit_check", lambda: type("Gate", (), {"allowed": True, "reason": ""})())
+    monkeypatch.setattr("bot.executor.max_drawdown_gate", lambda: type("Gate", (), {"allowed": True, "reason": ""})())
+    monkeypatch.setattr("bot.executor.pair_lock.check", lambda slug: type("Gate", (), {"allowed": True, "reason": ""})())
+    monkeypatch.setattr("bot.executor.gate_intent", lambda *args, **kwargs: type("Gate", (), {"allowed": True, "reason": ""})())
+
+    fills = executor.execute([intent])
+
+    assert fills[0].simulated is True
+    fill_entry = next(entry for entry in ledger._entries if entry.kind == "fill")
+    assert fill_entry.reason == "SIMULATED_FILL"
+    assert fill_entry.meta["original_reason"] == "TEST_SIGNAL"
 
 
 def test_reconcile_returns_confirmed_partial_fill(monkeypatch):
