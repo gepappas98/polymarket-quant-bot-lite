@@ -2,23 +2,42 @@
 
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
-**Audit snapshot (static + runtime on `polymarket-quant-bot-lite`):** ~6.2/10 as a framework at audit time; **rising as P0 lands**. Strong gates/ledger/architecture. Still **not** full real-money ready until remaining P0-1 paper labels, P0-2 pair timeout policy, and **P0-4 realistic fills** are done. Do **not** treat paper/backtest PnL as proof of edge until P0-4.
+## Just shipped (v0.3.0) — see CHANGELOG.md for full detail
 
-External references that shaped priorities (research only — not affiliations):
+- [x] **Plugin strategy architecture** — `bot/strategies/loader.py` auto-discovers strategies; no `main.py` edits to add/remove one
+- [x] **Market making** — `bot/strategies/market_making.py`, inventory-skewed two-sided quoting
+- [x] **Copy trading** — `bot/strategies/copy_trading.py`, tracked-wallet replication
+- [x] **Kelly Criterion sizing** — `bot/kelly.py`
+- [x] **Daily kill switch persisted across restarts** — `bot/daily_limit.py`
+- [x] **Backtest harness** against historical order-book snapshots — `bot/backtest.py` (see near-term note below on its risk-model simplification)
+- [x] **PostgreSQL ledger option** — `bot/ledger_pg.py`, `LEDGER_BACKEND=postgres`
+- [x] **ML ensemble (XGBoost)** for win-probability prediction — `bot/ml_model.py`, `bot/strategies/ml_directional.py`
+- [x] **Cross-venue signal (Polymarket ↔ Kalshi)** — `bot/strategies/cross_platform_arbitrage.py` — directional only, see near-term item below for the hedged version
+- [x] **Prometheus/Grafana monitoring stack** — `bot/metrics.py` + `deploy/`
+- [x] **Dashboard trading panels** (Supabase-backed, in-browser) — market making, copy trading, Kelly slider, cooldown timer, strategy manager, backtester, alerting — see `docs/FEATURES.md`
+- [x] **`.env.example` and `requirements.txt` synced** with all v0.3.0 plugins — every new env var is documented with inline comments in `.env.example`; optional deps (`xgboost`, `cryptography`, `prometheus-client`, `psycopg[binary]`) are listed commented-out in `requirements.txt` so the base install stays lightweight
+- [x] **Competitive research** — `docs/COMPETITIVE_RESEARCH.md`: analysis of two viral "Polymarket bot" videos claiming outsized returns; both show internally inconsistent numbers (impossible trade rates / win rates that move with zero new fills) and match a documented current scam pattern (AI-cloned dashboard mockups screen-recorded as "proof"). Several of their dashboard *visualization ideas* are legitimately buildable from this repo's real ledger data — tracked as new items below.
 
-- Public trader **@hot-garbage** (`0x3139…9e2e`): complete-set accumulation + residual directional + inventory rebalance (~50–55% event win rate).
-- Viral “GROK / GROKTOPUS” and cinematic terminals: treat as **simulated / marketing UI** unless a wallet is independently verified.
+## Near term (v0.3.1)
 
----
+- [ ] **Kalshi order-execution client** — the current cross-venue module only trades the Polymarket leg; without a Kalshi execution client it's a directional signal, not the hedged arbitrage originally scoped
+- [ ] **Decide the relationship between `bot/strategies/*` and the dashboard's Supabase equivalents** (`useMarketMaker`, copy-trading panel, in-browser backtester) — today they're fully independent implementations of the same ideas; either connect them (dashboard reads the worker's real ledger) or explicitly document the dashboard versions as simulation/monitoring-only
+- [ ] **Exercise the PostgreSQL ledger against a real database** — implemented and unit-tested for its fallback path, but not yet run against live Postgres
+- [ ] **Injectable clock for gates** — `bot/gates.py`/`bot/portfolio_gates.py` cooldown and drawdown checks use wall-clock time, which is why `bot/backtest.py` has to fall back to a simplified, time-independent risk model; making the clock injectable would let backtests replay the real gates faithfully
+- [ ] **WebSocket CLOB market channel** — lower-latency books than REST polling
+- [ ] **Window open-price delta** — `bot/feeds.py::PriceFeed` (ccxt/Binance) already exists as a hook point but isn't consumed by the strategy yet; wire it in to replace the lightweight imbalance-only signal
+- [ ] **Order lifecycle** — cancel stale limits, reconcile fills via user channel
 
-## Just shipped (reference)
+## Shipped earlier (v0.2.x, previously undocumented — folded in for completeness)
 
-### v0.4.x — risk engine & dashboard
+- [x] **Auto-redeem** resolved winning positions — internal PnL bookkeeping settles automatically via `bot/resolver.py` once Gamma reports a window's outcome (on-chain redemption for LIVE mode is still a separate, not-yet-done step)
+- [x] **Structured logging** (JSON) + legacy Prometheus-text metrics — `LOG_FORMAT=json`; `ENABLE_METRICS=true` on the status server
+- [x] **Unit tests** for strategy gates, arb math, and market slug discovery — `tests/` (`pytest`, 82 tests)
+- [x] **Multi-asset** defaults: ETH, SOL, XRP 5m/15m with per-asset exposure caps — code default `ASSETS=BTC,ETH,SOL,XRP`; `MAX_MARKET_EXPOSURE_BY_ASSET` overrides per asset
+- [x] **Max drawdown + low-profit pair locks** (Nexus-style portfolio protections) — `bot/portfolio_gates.py`
+- [x] **Dashboard bridge** — `bot/status_server.py` JSON status API for the frontend's `BOT_STATUS_URL`
 
-- [x] FastAPI risk-engine sidecar (`app/`), Kelly, leaderboard adapter, trailing-stop path, auth on mutating routes (when `API_TOKEN` set)
-- [x] Plugin strategies (MM, copy, ML, cross-venue **signal**), gates, kill switch, Prometheus hooks
-- [x] React control room (Monitor / Desk / Leaders / Sizing / Strategies / Settings)
-- [x] Analytics dashboard refresh: status bar, live metric cards, market snapshot, SHAP, volatility, and RSI views
+## Medium term (v0.4)
 
 ### v0.5.0 — inventory & swarm (worker)
 
@@ -158,61 +177,47 @@ Still open:
 - [ ] MCP read-only status tools
 
 ---
+## Additional dashboard and infrastructure items
+
+- [ ] **MCP tools** — read-only status / safety model for AI clients (like Nexus MCP)
+- [ ] **Real historical snapshot capture** — a small worker/cron that writes `bot/backtest.py`-compatible JSONL snapshots from live order books, so backtesting and ML training stop depending on hand-built synthetic data
+- [ ] **Automated test coverage for the dashboard** (`src/`, `supabase/`) — currently none
+- [ ] **Dashboard panels derived from competitive research** — see `docs/COMPETITIVE_RESEARCH.md` for the full mapping; each of these is buildable from data the ledger/strategy layer already produces, no new tracking required except where noted:
+  - [ ] Resolution grid — live heatmap of open windows colored by current UP price
+  - [ ] Inventory plane — UP vs. DOWN shares scatter, per market
+  - [ ] Second-side lag — time between the two legs of a market-making pair filling
+  - [ ] Run chain — recent fill sequence (UP→DOWN→UP...) per market
+  - [ ] Complete-set vs. directional-remainder split, surfaced as a stat
+  - [ ] Drawdown-risk gauge (0–10), normalized from the existing daily-limit/drawdown ratio
+  - [ ] Loop health strip (cycle heartbeat + last-cycle duration) on `/status`
+  - [ ] Win-streak counter from settled ledger outcomes
+  - [ ] Maker/taker fill ratio — blocked on real resting-order tracking (see "Order lifecycle" above)
 
 ## Longer term
 
-- [ ] Adaptive set-cost threshold by volatility regime
+- [ ] Adaptive arb threshold and edge model per volatility regime
+- [ ] Maker rebate optimization and multi-level quotes
+- [ ] Paper ↔ live parity checks and shadow mode (live signals, paper size)
 - [ ] Multi-process / multi-region coordination (optional)
-- [ ] True hedged Polymarket ↔ Kalshi
 
----
+## Non-goals (for now)
 
-## Explicit non-goals
-
-- Guaranteed profit or “copy hot-garbage / bosona / GROKTOPUS”
-- Treating viral screenshots as verified live performance
-- 100% win-rate marketing metrics
-- Running the trading loop on Vercel / Lovable serverless
-- Blind copy of Telegram “bot packs”
-- Labeling Kalshi gap signals as risk-free arb without dual-leg execution
-- Using optimistic backtest as live go-ahead
-
----
+- Guaranteed profit or “copy bosona”
+- Full browser trading UI as the primary product
+- Running the trading loop on Vercel serverless (use Fly / Railway / Render workers)
+- Treating the cross-venue Kalshi signal as risk-free arbitrage before a real execution client exists on both legs
 
 ## Deployment targets
 
 | Platform | Role | Status |
 |----------|------|--------|
-| **Fly.io worker** | `fly.toml` → `python -m bot.main` + `/status` | Config ready |
-| **Fly.io risk API** | `fly.risk.toml` → `uvicorn app.main:app` | Config ready (`Dockerfile.risk`) |
-| **Railway / Render** | Worker alternatives | Config ready |
-| **Docker** | Any host | `Dockerfile` / `Dockerfile.risk` |
-| **Vercel / Lovable** | Dashboard only | Not a worker host |
+| **Fly.io** | Primary long-running worker | Config ready (`fly.toml`) |
+| **Railway** | Worker alternative | Config ready (`railway.toml`) |
+| **Render** | Worker alternative | Blueprint ready (`render.yaml`) |
+| **Docker** | Any host / K8s | `Dockerfile` |
+| **Vercel** | Static placeholder / future dashboard only | `vercel.json` + `public/` |
+| **Lovable** | Not a runtime for this worker; use for UI experiments only | N/A |
 
 ---
 
-## Suggested milestone tags
-
-| Tag | Theme | Status |
-|-----|--------|--------|
-| **v0.5.0** | Inventory + set accumulator + second-side + swarm | Shipped |
-| **v0.5.1** | Swarm ARB bypass + MarketState hygiene + delete `bot_*` + green pytest | Partial (bypass + getattr done) |
-| **v0.5.2** | Real fill reconciliation + pair state machine | Partial (core done; policy/labels open) |
-| **v0.5.3** | Realistic paper/backtest fills + fees/slippage net edge | **Next** |
-| **v0.6.0** | WS books, shadow mode, walk-forward ML, dashboard↔worker SoT | Planned |
-
----
-
-## Immediate work order (updated)
-
-1. ~~P0-3 swarm skip for ARB~~ ✅  
-2. ~~P1-5 getattr fair_up_prob~~ ✅  
-3. **P1-6** — delete `bot/bot_*.py` dupes + CI grep  
-4. **Finish P0-2 policy** — PAIR_PARTIAL second-side / timeout; block stacked arb on incomplete pair  
-5. **Finish P0-1 paper** — `SIMULATED_FILL` label; no proven-edge claims from paper  
-6. **P0-4** — realistic paper/backtest (depth, fees, partials, net edge)  
-7. **P1-7 / P1-8** — arb leg attribution + execution mode config  
-8. Observability panels (inventory flow, funnel, set stream) bound to ledger  
-9. Only then meaningful **live** size  
-
-Contributions and issues: [github.com/gepappas98/polymarket-quant-bot-lite](https://github.com/gepappas98/polymarket-quant-bot-lite).
+Contributions and issues: open on [github.com/gepappas98/polymarket-quant-bot](https://github.com/gepappas98/polymarket-quant-bot).
