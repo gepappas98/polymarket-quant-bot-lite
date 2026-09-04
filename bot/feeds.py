@@ -175,6 +175,9 @@ class MarketState:
     bot/main.py: `MarketState(m, feed)` then `.refresh()`.
     """
 
+    # Required market keys: slug, up_token_id, down_token_id. `asset` is
+    # optional and defaults to BTC for external spot/fair-value calculations.
+    # Optional adapters may provide fair_up_prob; strategy reads it safely.
     market: Dict[str, Any]
     feed: Optional[PriceFeed] = None
     up_book: OrderBook = field(default_factory=OrderBook.empty)

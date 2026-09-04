@@ -53,8 +53,8 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [x] **P0-3** Swarm bypass for deterministic ARB / SECOND_SIDE (`is_arb_leg` / reason)
 - [x] Regression: both-sides ARB test passes with `SWARM_ENABLED=true`
 - [x] **P1-5** `getattr(state, "fair_up_prob", None)` (no AttributeError on mocks)
-- [ ] Document MarketState required vs optional fields
-- [ ] Full `pytest` green on clean checkout
+- [x] Document MarketState required vs optional fields
+- [x] Full `pytest` green on clean checkout
 - [ ] Delete unused `bot/bot_config.py`, `bot/bot_strategy.py`, `bot/bot_inventory.py`
 - [ ] Grep CI: no `bot_strategy` / `bot_inventory` / `bot_config` imports
 
@@ -63,8 +63,8 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [x] **P0-1 (core):** order id + requested vs filled; poll to terminal state; inventory/ledger only on confirmed fills; never `filled` on submit alone
 - [x] **P0-1 (paper honesty):** paper fills labeled `SIMULATED_FILL`; excluded from “proven edge” reports
 - [x] **P0-2 (core):** `ArbPair` states `PAIR_PENDING | PAIR_PARTIAL | PAIR_COMPLETE | PAIR_FAILED`; `set_id` through executor; `is_arb_leg` not forced false
-- [ ] **P0-2 (policy):** on `PAIR_PARTIAL` — active second-side / reduce / timeout
-- [ ] Optional: reject new independent arb while pair incomplete on same window
+- [x] **P0-2 (policy):** on `PAIR_PARTIAL` — active second-side recovery
+- [x] Reject new independent arb while pair incomplete on same window
 - [ ] **P1-7:** `update_inventory(..., is_arb_leg=intent.is_arb_leg)` + arb vs directional PnL attribution (if not fully wired)
 
 ---
@@ -94,7 +94,7 @@ MM / COPY         → strategy gates → risk → execute
 Still open:
 
 - [ ] Keep swarm **only** for directional (and optional MM soft-score) — confirm MM/COPY never hard-blocked by swarm unless intended
-- [ ] Document the pipeline in README / STRATEGY.md
+- [x] Document the pipeline in STRATEGY.md
 
 ---
 
