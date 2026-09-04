@@ -94,8 +94,13 @@ function LeadersPage() {
 }
 
 function LeaderTable({ leaders }: { leaders: Leader[] }) {
+  const sparklines = useQuery({
+    queryKey: analyticsQueryKeys.sparklines(7),
+    queryFn: () => getLeaderSparklines(7),
+    staleTime: 30_000,
+  });
   return (
-    <Table className="min-w-[760px]">
+    <Table className="min-w-[900px]">
       <TableHeader>
         <TableRow className="label-caps">
           <TableHead className="font-normal">Address</TableHead>
@@ -104,6 +109,8 @@ function LeaderTable({ leaders }: { leaders: Leader[] }) {
           <TableHead className="text-right font-normal">Win-rate</TableHead>
           <TableHead className="text-right font-normal">ROI</TableHead>
           <TableHead className="text-right font-normal">Drawdown</TableHead>
+          <TableHead className="text-right font-normal">Stability</TableHead>
+          <TableHead className="font-normal">7D P&amp;L</TableHead>
           <TableHead className="text-right font-normal">Trades</TableHead>
           <TableHead className="text-right font-normal">Last updated</TableHead>
         </TableRow>
@@ -121,6 +128,10 @@ function LeaderTable({ leaders }: { leaders: Leader[] }) {
             <TableCell className="tape text-right">{leader.win_rate.toFixed(1)}%</TableCell>
             <TableCell className="tape text-right">{leader.roi.toFixed(1)}%</TableCell>
             <TableCell className="tape text-right">{leader.max_drawdown.toFixed(1)}%</TableCell>
+            <TableCell className="tape text-right">{leader.stability_score.toFixed(2)}</TableCell>
+            <TableCell>
+              <Sparkline values={sparklines.data?.[leader.address] ?? []} />
+            </TableCell>
             <TableCell className="tape text-right">{leader.trade_count}</TableCell>
             <TableCell className="tape text-right text-muted-foreground">
               {leader.last_updated ? new Date(leader.last_updated).toLocaleString() : "—"}
@@ -129,6 +140,26 @@ function LeaderTable({ leaders }: { leaders: Leader[] }) {
         ))}
       </TableBody>
     </Table>
+  );
+}
+
+function Sparkline({ values }: { values: number[] }) {
+  if (values.length < 2) {
+    return <span className="tape text-[10px] text-muted-foreground">—</span>;
+  }
+  const data = values.map((value, index) => ({ index, value }));
+  const up = (values[values.length - 1] ?? 0) >= (values[0] ?? 0);
+  return (
+    <LineChart width={96} height={28} data={data}>
+      <Line
+        type="monotone"
+        dataKey="value"
+        stroke={up ? "var(--color-up)" : "var(--color-down)"}
+        strokeWidth={1.5}
+        dot={false}
+        isAnimationActive={false}
+      />
+    </LineChart>
   );
 }
 
