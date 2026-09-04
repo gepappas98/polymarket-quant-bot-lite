@@ -24,6 +24,7 @@ import {
   type KellySizingRequest,
 } from "@/lib/riskApi";
 import { kellyFraction, kellySizeUsd } from "@/lib/kelly";
+import { ScalingConfigPanel } from "@/components/dashboard/ScalingConfigPanel";
 
 export const Route = createFileRoute("/sizing")({
   head: () => ({
@@ -50,6 +51,7 @@ function SizingPage() {
   const [varianceText, setVarianceText] = useState("");
   const [kValue, setKValue] = useState(0.25);
   const [maxPositionPct, setMaxPositionPct] = useState(0.05);
+  const [pyramiding, setPyramiding] = useState(false);
 
   useEffect(() => {
     if (config.data) {
@@ -216,6 +218,17 @@ function SizingPage() {
             </div>
           </div>
         </Panel>
+
+        <div className="lg:col-span-2">
+          <ScalingConfigPanel
+            balance={balance}
+            maxPositionPct={maxPositionPct}
+            onMaxPositionPct={setMaxPositionPct}
+            kValue={kValue}
+            pyramiding={pyramiding}
+            onPyramiding={setPyramiding}
+          />
+        </div>
       </div>
     </main>
   );
