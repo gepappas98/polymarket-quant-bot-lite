@@ -12,7 +12,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getLeaders, refreshLeaders, riskQueryKeys, type Leader } from "@/lib/riskApi";
+import { Line, LineChart } from "recharts";
+import {
+  analyticsQueryKeys,
+  getLeaderSparklines,
+  getLeaders,
+  refreshLeaders,
+  riskQueryKeys,
+  type Leader,
+} from "@/lib/riskApi";
 
 export const Route = createFileRoute("/leaders")({
   head: () => ({
