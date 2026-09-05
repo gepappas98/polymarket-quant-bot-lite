@@ -24,7 +24,7 @@ def _parse_asset_map(raw: str) -> Dict[str, float]:
 @dataclass
 class Config:
     # Mode — live requires double opt-in (see gates.is_live_trading_allowed)
-    mode: str = os.getenv("MODE", "paper").lower()  # paper | live
+    mode: str = os.getenv("MODE", "paper").lower()  # paper | shadow | live
 
     # Auth
     private_key: str = os.getenv("POLYMARKET_PRIVATE_KEY", "")

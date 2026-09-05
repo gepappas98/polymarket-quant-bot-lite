@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- **Shadow live mode** — observes real CLOB books, strategy signals, estimated would-be fills, and market movement while never initializing or submitting through the trading client.
 - **V0.5.1 execution realism** — added explicit partial-fill states, verified average/VWAP aggregation, depth-aware taker fills, probabilistic maker fills with queue/latency, and gross/fee/slippage/net reporting.
 - **CTF settlement boundary** — live split/merge/redeem remains intentionally fail-closed pending a verified relayer, so complete-set lifecycle is not yet production-complete.
 - **P0-1 live execution safety** — partial orders are polled instead of treated as terminal, timed-out remainders require confirmed cancellation, and live accounting rejects fills without a verified average/VWAP price.
