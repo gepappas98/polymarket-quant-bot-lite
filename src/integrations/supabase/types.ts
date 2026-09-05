@@ -355,6 +355,129 @@ export type Database = {
         }
         Relationships: []
       }
+      paper_account: {
+        Row: {
+          cash: number
+          cooldown_seconds: number
+          created_at: string
+          daily_loss_limit: number
+          id: string
+          max_position_pct: number
+          realized_pnl: number
+          starting_bankroll: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cash?: number
+          cooldown_seconds?: number
+          created_at?: string
+          daily_loss_limit?: number
+          id?: string
+          max_position_pct?: number
+          realized_pnl?: number
+          starting_bankroll?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cash?: number
+          cooldown_seconds?: number
+          created_at?: string
+          daily_loss_limit?: number
+          id?: string
+          max_position_pct?: number
+          realized_pnl?: number
+          starting_bankroll?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      paper_positions: {
+        Row: {
+          avg_price: number
+          cost_usd: number
+          id: string
+          market: string
+          opened_at: string
+          shares: number
+          side: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avg_price: number
+          cost_usd: number
+          id?: string
+          market: string
+          opened_at?: string
+          shares: number
+          side: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avg_price?: number
+          cost_usd?: number
+          id?: string
+          market?: string
+          opened_at?: string
+          shares?: number
+          side?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      paper_trades: {
+        Row: {
+          action: string
+          cash_after: number
+          created_at: string
+          gates: Json | null
+          id: string
+          market: string
+          price: number
+          realized_pnl: number
+          reason: string | null
+          shares: number
+          side: string
+          size_usd: number
+          user_id: string
+        }
+        Insert: {
+          action: string
+          cash_after?: number
+          created_at?: string
+          gates?: Json | null
+          id?: string
+          market: string
+          price: number
+          realized_pnl?: number
+          reason?: string | null
+          shares: number
+          side: string
+          size_usd: number
+          user_id: string
+        }
+        Update: {
+          action?: string
+          cash_after?: number
+          created_at?: string
+          gates?: Json | null
+          id?: string
+          market?: string
+          price?: number
+          realized_pnl?: number
+          reason?: string | null
+          shares?: number
+          side?: string
+          size_usd?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       strategy_config: {
         Row: {
           created_at: string
