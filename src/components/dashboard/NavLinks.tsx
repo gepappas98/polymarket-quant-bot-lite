@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 const links = [
   ["monitor", "/"],
   ["desk", "/desk"],
+  ["paper", "/paper"],
   ["leaders", "/leaders"],
   ["advanced", "/advanced"],
   ["sizing", "/sizing"],

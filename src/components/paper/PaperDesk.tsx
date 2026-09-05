@@ -16,6 +16,37 @@ import {
 const money = (n: number) => `${n < 0 ? "-" : ""}$${Math.abs(n).toFixed(2)}`;
 const pnlClass = (n: number) => (n > 0 ? "text-up" : n < 0 ? "text-down" : "text-muted-foreground");
 
+type PaperMarket = {
+  slug: string;
+  upAsk: number;
+  downAsk: number;
+  upBid: number;
+  downBid: number;
+};
+
+type PaperPosition = {
+  id: string;
+  market: string;
+  side: "UP" | "DOWN";
+  shares: number;
+  avgPrice: number;
+  costUsd: number;
+};
+
+type PaperGate = { name: string; allowed: boolean; reason: string };
+
+type PaperTrade = {
+  id: string;
+  createdAt: string;
+  market: string;
+  side: string;
+  action: "BUY" | "SELL";
+  price: number;
+  sizeUsd: number;
+  realizedPnl: number;
+  cashAfter: number;
+};
+
 export function PaperDesk() {
   const fetchState = useServerFn(getPaperState);
   const fetchStatus = useServerFn(getBotStatus);
@@ -36,7 +67,7 @@ export function PaperDesk() {
     refetchInterval: 5_000,
   });
 
-  const markets = status.data?.markets ?? [];
+  const markets = (status.data?.markets ?? []) as PaperMarket[];
   const [market, setMarket] = useState<string>("");
   const [side, setSide] = useState<"UP" | "DOWN">("UP");
   const [sizeUsd, setSizeUsd] = useState(100);
@@ -102,12 +133,12 @@ export function PaperDesk() {
   const account = state.data?.account;
   const positions = state.data?.positions ?? [];
 
-  const unrealized = positions.reduce((sum, p) => {
+  const unrealized = (positions as PaperPosition[]).reduce((sum: number, p: PaperPosition) => {
     const bid = quoteFor(p.market, p.side);
     if (bid == null) return sum;
     return sum + (p.shares * bid - p.costUsd);
   }, 0);
-  const openCost = positions.reduce((sum, p) => sum + p.costUsd, 0);
+  const openCost = (positions as PaperPosition[]).reduce((sum: number, p: PaperPosition) => sum + p.costUsd, 0);
   const equity = (account?.cash ?? 0) + openCost + unrealized;
   const dailyUsedPct = account
     ? Math.min(100, Math.max(0, (-Math.min(0, account.dailyPnl) / account.dailyLossLimit) * 100))
@@ -223,7 +254,7 @@ export function PaperDesk() {
               <p className="label-caps flex items-center gap-1 text-[10px]">
                 <ShieldCheck className="size-3" /> risk gates
               </p>
-              {(gates.data?.gates ?? []).map((g) => (
+              {(gates.data?.gates ?? []).map((g: PaperGate) => (
                 <p key={g.name} className="tape flex items-baseline gap-2 text-[10px]">
                   <span className={g.allowed ? "text-up" : "text-down"}>{g.allowed ? "PASS" : "BLOCK"}</span>
                   <span className="text-foreground">{g.name}</span>
@@ -261,7 +292,7 @@ export function PaperDesk() {
                     </tr>
                   </thead>
                   <tbody className="tape">
-                    {positions.map((p) => {
+                    {(positions as PaperPosition[]).map((p: PaperPosition) => {
                       const bid = quoteFor(p.market, p.side);
                       const upnl = bid == null ? 0 : p.shares * bid - p.costUsd;
                       return (
@@ -310,7 +341,7 @@ export function PaperDesk() {
                   </tr>
                 </thead>
                 <tbody className="tape">
-                  {(state.data?.trades ?? []).map((t) => (
+                  {(state.data?.trades ?? []).map((t: PaperTrade) => (
                     <tr key={t.id} className="border-t border-border/60">
                       <td className="py-1 text-muted-foreground">
                         {new Date(t.createdAt).toISOString().slice(5, 19).replace("T", " ")}
