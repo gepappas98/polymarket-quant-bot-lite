@@ -9,6 +9,7 @@ import logging
 import time
 import uuid
 from collections import defaultdict
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
@@ -21,6 +22,16 @@ from .daily_limit import check as daily_limit_check
 from . import metrics
 
 log = logging.getLogger(__name__)
+
+
+class OrderState(str, Enum):
+    NEW = "NEW"
+    SUBMITTED = "SUBMITTED"
+    OPEN = "OPEN"
+    PARTIAL = "PARTIAL"
+    FILLED = "FILLED"
+    CANCEL_REQUESTED = "CANCEL_REQUESTED"
+    CANCELLED = "CANCELLED"
 
 
 @dataclass
@@ -364,5 +375,5 @@ def create_executor(strategy: Strategy):
         log.warning("=== LIVE MODE ENABLED – REAL MONEY (double opt-in passed) ===")
         return LiveExecutor(strategy)
     reason = live.reason if cfg.mode == "live" else "MODE=paper"
-    log.info("Paper trading mode (safe) — %s", reason)
+    log.info("Paper trading mode (safe) ��� %s", reason)
     return PaperExecutor(strategy)

@@ -83,6 +83,11 @@ class Config:
     # Live orders are not fills until the CLOB confirms executed quantity.
     live_order_timeout_sec: float = float(os.getenv("LIVE_ORDER_TIMEOUT_SEC", "15"))
     live_order_poll_sec: float = float(os.getenv("LIVE_ORDER_POLL_SEC", "1"))
+    paper_fee_bps: float = float(os.getenv("PAPER_FEE_BPS", "0"))
+    paper_slippage_bps: float = float(os.getenv("PAPER_SLIPPAGE_BPS", "0"))
+    maker_fill_probability: float = float(os.getenv("MAKER_FILL_PROBABILITY", "0.35"))
+    maker_queue_ahead: float = float(os.getenv("MAKER_QUEUE_AHEAD", "0"))
+    maker_latency_sec: float = float(os.getenv("MAKER_LATENCY_SEC", "0"))
 
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     # "text" (human-readable, default) or "json" (structured, one JSON object per line)

@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -122,6 +123,17 @@ class BacktestFill:
     price: float
     size_usd: float
     reason: str
+    requested_usd: float = 0.0
+    fee_usd: float = 0.0
+    slippage_usd: float = 0.0
+    fill_probability: float = 1.0
+    queue_ahead: float = 0.0
+    latency_sec: float = 0.0
+    simulated: bool = True
+
+    @property
+    def net_pnl_usd(self) -> float:
+        return -(self.fee_usd + self.slippage_usd)
 
 
 @dataclass
@@ -130,6 +142,19 @@ class BacktestResult:
     realized_pnl_usd: float
     outcomes: int
     wins: int
+    gross_pnl_usd: float = 0.0
+
+    @property
+    def fees_usd(self) -> float:
+        return sum(fill.fee_usd for fill in self.fills)
+
+    @property
+    def slippage_usd(self) -> float:
+        return sum(fill.slippage_usd for fill in self.fills)
+
+    @property
+    def net_pnl_usd(self) -> float:
+        return self.gross_pnl_usd - self.fees_usd - self.slippage_usd
 
     @property
     def win_rate_pct(self) -> float:
@@ -137,8 +162,11 @@ class BacktestResult:
 
     def summary(self) -> str:
         return (
+            "SIMULATED — not live expectancy | "
             f"fills={len(self.fills)} outcomes={self.outcomes} "
-            f"win_rate={self.win_rate_pct}% realized_pnl=${self.realized_pnl_usd:+.2f}"
+            f"win_rate={self.win_rate_pct}% gross_pnl=${self.gross_pnl_usd:+.2f} "
+            f"fees=${self.fees_usd:.4f} slippage=${self.slippage_usd:.4f} "
+            f"net_pnl=${self.net_pnl_usd:+.2f}"
         )
 
 
@@ -151,6 +179,60 @@ def _simple_exposure_gate(strategy: Strategy, intent: Intent) -> bool:
     asset = intent.market_slug.split("-")[0].upper()
     cap = cfg.exposure_cap_for(asset)
     return inv.total_cost + intent.size_usd <= cap + 1e-6
+
+
+def _simulate_taker(intent: Intent, snap: Snapshot, consumed: Dict[tuple, float]) -> Optional[BacktestFill]:
+    levels = snap.up_asks if intent.side == Side.UP else snap.down_asks
+    remaining_usd = intent.size_usd
+    consumed_usd = 0.0
+    shares = 0.0
+    slippage = 0.0
+    for level in levels:
+        price = float(level.get("price", 0.0))
+        available = float(level.get("size", 0.0))
+        key = (snap.ts, intent.side.value, price)
+        available = max(0.0, available - consumed.get(key, 0.0))
+        if price <= 0 or available <= 0 or remaining_usd <= 0:
+            continue
+        clip_usd = min(remaining_usd, available * price)
+        clip_shares = clip_usd / price
+        consumed[key] = consumed.get(key, 0.0) + clip_shares
+        shares += clip_shares
+        consumed_usd += clip_usd
+        slippage += clip_shares * max(0.0, price - intent.price)
+        remaining_usd -= clip_usd
+    if shares <= 0:
+        return None
+    avg = consumed_usd / shares
+    fee = consumed_usd * max(0.0, cfg.paper_fee_bps) / 10_000
+    return BacktestFill(
+        ts=snap.ts, market_slug=intent.market_slug,
+        side=intent.side.value, price=avg, size_usd=consumed_usd,
+        reason="SIMULATED_FILL", requested_usd=intent.size_usd,
+        fee_usd=fee, slippage_usd=slippage,
+    )
+
+
+def _simulate_maker(intent: Intent, snap: Snapshot, rng: random.Random) -> Optional[BacktestFill]:
+    probability = max(0.0, min(1.0, cfg.maker_fill_probability))
+    if rng.random() > probability:
+        return None
+    levels = snap.up_bids if intent.side == Side.UP else snap.down_bids
+    touch = next((level for level in levels if abs(float(level.get("price", 0.0)) - intent.price) < 1e-9), None)
+    if touch is None:
+        return None
+    available = max(0.0, float(touch.get("size", 0.0)) - cfg.maker_queue_ahead)
+    filled_usd = min(intent.size_usd, available * intent.price)
+    if filled_usd <= 0:
+        return None
+    fee = filled_usd * max(0.0, cfg.paper_fee_bps) / 10_000
+    return BacktestFill(
+        ts=snap.ts + max(0.0, cfg.maker_latency_sec), market_slug=intent.market_slug,
+        side=intent.side.value, price=intent.price, size_usd=filled_usd,
+        reason="SIMULATED_MAKER_FILL", requested_usd=intent.size_usd,
+        fee_usd=fee, fill_probability=probability,
+        queue_ahead=cfg.maker_queue_ahead, latency_sec=cfg.maker_latency_sec,
+    )
 
 
 def run_backtest(snapshots: Iterable[Snapshot]) -> BacktestResult:
@@ -166,6 +248,9 @@ def run_backtest(snapshots: Iterable[Snapshot]) -> BacktestResult:
     realized_pnl = 0.0
     outcomes = 0
     wins = 0
+    gross_pnl = 0.0
+    consumed: Dict[tuple, float] = {}
+    rng = random.Random(0)
 
     for snap in snapshots:
         state = BacktestMarketState(snap)
@@ -191,18 +276,22 @@ def run_backtest(snapshots: Iterable[Snapshot]) -> BacktestResult:
         for intent in registry.evaluate_all(state):
             if not _simple_exposure_gate(strategy, intent):
                 continue
-            shares = intent.size_usd / intent.price
-            strategy.update_inventory(intent.market_slug, intent.side, shares, intent.size_usd)
-            fills.append(BacktestFill(
-                ts=snap.ts,
-                market_slug=intent.market_slug,
-                side=intent.side.value if isinstance(intent.side, Side) else intent.side,
-                price=intent.price,
-                size_usd=intent.size_usd,
-                reason=intent.reason,
-            ))
+            fill = _simulate_maker(intent, snap, rng) if cfg.prefer_maker else _simulate_taker(intent, snap, consumed)
+            if fill is None and cfg.prefer_maker:
+                fill = _simulate_taker(intent, snap, consumed)
+            if fill is None:
+                continue
+            shares = fill.size_usd / fill.price
+            strategy.update_inventory(intent.market_slug, intent.side, shares, fill.size_usd)
+            fills.append(fill)
 
-    return BacktestResult(fills=fills, realized_pnl_usd=round(realized_pnl, 2), outcomes=outcomes, wins=wins)
+    return BacktestResult(
+        fills=fills,
+        realized_pnl_usd=round(realized_pnl, 2),
+        outcomes=outcomes,
+        wins=wins,
+        gross_pnl_usd=round(realized_pnl, 2),
+    )
 
 
 def main() -> None:

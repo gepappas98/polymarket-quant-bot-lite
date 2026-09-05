@@ -59,6 +59,14 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [x] Delete unused `bot/bot_config.py`, `bot/bot_strategy.py`, `bot/bot_inventory.py`
 - [x] Grep CI: no `bot_strategy` / `bot_inventory` / `bot_config` imports
 
+### v0.5.1 — execution realism
+
+- [x] Explicit partial-fill order state machine and cancel-remainder confirmation
+- [x] Verified fill aggregation via exchange average/VWAP; no intent-price fallback
+- [x] Depth-aware taker simulation with partial L1 consumption, VWAP, fees, and slippage
+- [x] Probabilistic maker simulation with queue-ahead and latency
+- [x] Gross PnL minus fees and slippage net reporting
+
 ### v0.5.2 — fill reconciliation & pairs (in progress)
 
 - [x] **P0-1 (core):** order id + requested vs filled; poll to terminal state; inventory/ledger only on confirmed fills; never `filled` on submit alone
