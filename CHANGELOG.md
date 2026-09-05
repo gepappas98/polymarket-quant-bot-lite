@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- **CTF settlement boundary** — live split/merge/redeem remains intentionally fail-closed pending a verified relayer, so complete-set lifecycle is not yet production-complete.
+- **P0-1 live execution safety** — partial orders are polled instead of treated as terminal, timed-out remainders require confirmed cancellation, and live accounting rejects fills without a verified average/VWAP price.
 - **P1-6 duplicate module cleanup** — canonical imports are guarded against regressions; legacy `bot.bot_config`, `bot.bot_strategy`, and `bot.bot_inventory` paths remain absent.
 - **P1-7 strategy attribution** — inventory updates preserve arb metadata, ledger fills are tagged `arb` or `directional`, and session summaries expose per-strategy fill counts and volume.
 - **P0-1 paper honesty** — paper fills now use the stable `SIMULATED_FILL` marker while preserving the original strategy reason in ledger metadata.

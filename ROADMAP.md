@@ -26,7 +26,8 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [ ] **Injectable clock for gates** — `bot/gates.py`/`bot/portfolio_gates.py` cooldown and drawdown checks use wall-clock time, which is why `bot/backtest.py` has to fall back to a simplified, time-independent risk model; making the clock injectable would let backtests replay the real gates faithfully
 - [ ] **WebSocket CLOB market channel** — lower-latency books than REST polling
 - [ ] **Window open-price delta** — `bot/feeds.py::PriceFeed` (ccxt/Binance) already exists as a hook point but isn't consumed by the strategy yet; wire it in to replace the lightweight imbalance-only signal
-- [ ] **Order lifecycle** — cancel stale limits, reconcile fills via user channel
+- [x] **Order lifecycle** — partial fills remain open, timed-out remainders are canceled and cancellation is confirmed before accounting
+- [ ] **Verified live fill pricing** — consume exchange VWAP/average only; no intent-price fallback
 
 ## Shipped earlier (v0.2.x, previously undocumented — folded in for completeness)
 
@@ -43,7 +44,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 
 - [x] `bot/inventory.py` — paired / residual / avg_set_cost / second-side lag
 - [x] Complete-set accumulator + SECOND_SIDE + spot fair blend (`USE_SPOT_FAIR`)
-- [x] `bot/ctf_ops.py` — paper-safe split/merge/redeem skeleton (live fail-closed)
+- [x] `bot/ctf_ops.py` — paper-safe split/merge/redeem skeleton (live fail-closed; production relayer remains deferred)
 - [x] `bot/swarm.py` — non-LLM module consensus (TIDAL…LUMEN)
 - [x] Ledger `meta.swarm` / `set_id`; `/status` swarm block
 - [x] Deploy docs: `fly.risk.toml`, `Dockerfile.risk` (Leaders API ≠ worker)
