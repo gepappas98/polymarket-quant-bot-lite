@@ -200,14 +200,35 @@ class LiveExecutor:
             log.error(f"Failed to init live client: {e}")
             raise
 
-    def _reconcile_order(self, order_id: str) -> Tuple[str, float, float]:
-        """Poll the CLOB until the submitted order reaches a terminal state.
+    @staticmethod
+    def _verified_average(order: Dict[str, Any]) -> float:
+        direct = order.get("avg_price") or order.get("average_price")
+        if direct is not None:
+            try:
+                value = float(direct)
+                if value > 0:
+                    return value
+            except (TypeError, ValueError):
+                pass
+        fills = order.get("fills") or order.get("matches") or []
+        weighted = 0.0
+        quantity = 0.0
+        for item in fills:
+            try:
+                price = float(item.get("price"))
+                size = float(item.get("size") or item.get("quantity") or item.get("matched_size"))
+            except (TypeError, ValueError):
+                continue
+            if price > 0 and size > 0:
+                weighted += price * size
+                quantity += size
+        return weighted / quantity if quantity else 0.0
 
-        Returns ``(status, filled_size, average_price)``. Submission alone is
-        never treated as a fill; unknown responses remain open until timeout.
-        """
+    def _reconcile_order(self, order_id: str) -> Tuple[str, float, float]:
+        """Poll, cancel any remainder, then confirm the final cumulative fill."""
         deadline = time.monotonic() + max(cfg.live_order_timeout_sec, 0.0)
         last: Dict[str, Any] = {}
+        cancel_requested = False
         while True:
             try:
                 last = self.client.get_order(order_id) or {}
@@ -215,15 +236,21 @@ class LiveExecutor:
                 log.warning("Order reconciliation failed for %s: %s", order_id, exc)
             status = str(last.get("status") or last.get("state") or "").upper()
             filled = float(last.get("size_matched") or last.get("filled_size") or last.get("filled") or 0.0)
-            average = float(last.get("avg_price") or last.get("average_price") or last.get("price") or 0.0)
-            if status in {"FILLED", "MATCHED", "PARTIALLY_FILLED", "PARTIAL", "CANCELLED", "CANCELED", "REJECTED", "EXPIRED"}:
+            average = self._verified_average(last)
+            terminal = {"FILLED", "MATCHED", "CANCELLED", "CANCELED", "REJECTED", "EXPIRED"}
+            if status in terminal:
                 return status, filled, average
-            if time.monotonic() >= deadline:
+            if time.monotonic() >= deadline and not cancel_requested:
                 try:
                     self.client.cancel(order_id)
+                    cancel_requested = True
+                    deadline = time.monotonic() + max(cfg.live_order_timeout_sec, 0.0)
                 except Exception as exc:
                     log.warning("Failed to cancel timed-out order %s: %s", order_id, exc)
-                return "CANCELLED", filled, average
+                    return "CANCEL_UNCONFIRMED", filled, average
+            elif time.monotonic() >= deadline:
+                log.error("Cancel not confirmed for order %s", order_id)
+                return "CANCEL_UNCONFIRMED", filled, average
             time.sleep(max(cfg.live_order_poll_sec, 0.0))
 
     def execute(self, intents: List[Intent]) -> List[Fill]:
@@ -282,7 +309,7 @@ class LiveExecutor:
                 )
                 order_id = str(resp.get("orderID") or resp.get("id") or uuid.uuid4())
                 status, shares, avg_price = self._reconcile_order(order_id)
-                if status not in {"FILLED", "MATCHED", "PARTIALLY_FILLED", "PARTIAL"} or shares <= 0:
+                if status not in {"FILLED", "MATCHED", "CANCELLED", "CANCELED", "EXPIRED"} or shares <= 0:
                     log.warning("[LIVE ORDER] %s ended without a confirmed fill: %s", order_id, status)
                     ledger.append(LedgerEntry(
                         ts=time.time(), kind="order", market_slug=intent.market_slug,
@@ -291,7 +318,15 @@ class LiveExecutor:
                         status=status.lower(), dry_run=False, order_id=order_id,
                     ))
                     continue
-                avg_price = avg_price or intent.price
+                if avg_price <= 0:
+                    log.error("[LIVE ORDER] %s has fills without a verified execution price", order_id)
+                    ledger.append(LedgerEntry(
+                        ts=time.time(), kind="order", market_slug=intent.market_slug,
+                        side=intent.side.value, price=intent.price,
+                        size_usd=intent.size_usd, reason=intent.reason,
+                        status="unpriced_fill", dry_run=False, order_id=order_id,
+                    ))
+                    continue
                 cost = shares * avg_price
                 fill = Fill(
                     intent=intent,
