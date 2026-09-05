@@ -59,15 +59,19 @@ function AuthPage() {
   }
 
   async function google() {
+    setBusy(true);
+    const redirectUri =
+      import.meta.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
+      `${window.location.origin}/auth/callback`;
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+      redirect_uri: redirectUri,
     });
     if (result.error) {
       toast.error("Google sign-in failed");
-      return;
+    } else if (!result.redirected) {
+      await navigate({ to: "/desk" });
     }
-    if (result.redirected) return;
-    navigate({ to: "/desk" });
+    setBusy(false);
   }
 
   return (
@@ -105,7 +109,7 @@ function AuthPage() {
           </Button>
         </form>
 
-        <Button variant="outline" className="mt-3 w-full" onClick={google}>
+        <Button variant="outline" className="mt-3 w-full" onClick={google} disabled={busy}>
           Continue with Google
         </Button>
 
