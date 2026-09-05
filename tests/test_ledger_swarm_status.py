@@ -33,8 +33,21 @@ def test_record_fill_stores_swarm_and_set_id(tmp_path):
     led.record_fill(intent, shares=20, cost=9.0, order_id="oid", dry_run=True)
     e = led._entries[-1]
     assert e.meta["set_id"] == "btc-x:set:1"
+    assert e.meta["strategy"] == "arb"
     assert e.meta["swarm"]["ok"] is True
     assert "consensus" in e.meta["swarm"]
+
+
+def test_session_summary_attributes_arb_and_directional_fills(tmp_path):
+    led = Ledger(path=tmp_path / "attribution.jsonl")
+    for is_arb, reason in ((True, "ARB"), (False, "ML_DIRECTIONAL")):
+        intent = Intent("m", "token", Side.UP, "BUY", 0.5, 10, reason, is_arb_leg=is_arb)
+        led.record_fill(intent, shares=20, cost=10, order_id=reason, dry_run=False)
+    summary = led.session_summary()
+    assert summary["arb_fills"] == 1
+    assert summary["directional_fills"] == 1
+    assert summary["arb_volume_usd"] == 10
+    assert summary["directional_volume_usd"] == 10
 
 
 def test_status_swarm_from_ledger(tmp_path, monkeypatch):

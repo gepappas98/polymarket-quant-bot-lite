@@ -65,7 +65,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [x] **P0-2 (core):** `ArbPair` states `PAIR_PENDING | PAIR_PARTIAL | PAIR_COMPLETE | PAIR_FAILED`; `set_id` through executor; `is_arb_leg` not forced false
 - [x] **P0-2 (policy):** on `PAIR_PARTIAL` — active second-side recovery
 - [x] Reject new independent arb while pair incomplete on same window
-- [ ] **P1-7:** `update_inventory(..., is_arb_leg=intent.is_arb_leg)` + arb vs directional PnL attribution (if not fully wired)
+- [x] **P1-7:** `update_inventory(..., is_arb_leg=intent.is_arb_leg)` + arb vs directional fill attribution
 
 ---
 

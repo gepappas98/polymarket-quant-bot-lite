@@ -74,7 +74,7 @@ class Ledger:
         block_reason: str = "",
     ) -> None:
         side = getattr(intent.side, "value", intent.side)
-        meta = {}
+        meta = {"strategy": "arb" if getattr(intent, "is_arb_leg", False) else "directional"}
         swarm = getattr(intent, "swarm", None)
         if swarm is not None:
             meta["swarm"] = swarm
@@ -96,7 +96,10 @@ class Ledger:
 
     def record_fill(self, intent, shares: float, cost: float, order_id: str, dry_run: bool) -> None:
         side = getattr(intent.side, "value", intent.side)
-        meta = {"shares": shares}
+        meta = {
+            "shares": shares,
+            "strategy": "arb" if getattr(intent, "is_arb_leg", False) else "directional",
+        }
         if dry_run:
             meta["original_reason"] = intent.reason
         swarm = getattr(intent, "swarm", None)
@@ -172,6 +175,8 @@ class Ledger:
         dry_run_fills = sum(1 for e in fills if e.dry_run)
         live_fills = sum(1 for e in fills if not e.dry_run)
         total_usd = sum(e.size_usd or 0.0 for e in fills)
+        arb_fills = [e for e in fills if (e.meta or {}).get("strategy") == "arb"]
+        directional_fills = [e for e in fills if (e.meta or {}).get("strategy") == "directional"]
         return {
             "intents": intents,
             "blocked": blocked,
@@ -179,6 +184,10 @@ class Ledger:
             "dry_run_fills": dry_run_fills,
             "live_fills": live_fills,
             "total_usd": total_usd,
+            "arb_fills": len(arb_fills),
+            "arb_volume_usd": sum(e.size_usd or 0.0 for e in arb_fills),
+            "directional_fills": len(directional_fills),
+            "directional_volume_usd": sum(e.size_usd or 0.0 for e in directional_fills),
         }
 
 
