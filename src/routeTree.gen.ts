@@ -18,6 +18,7 @@ import { Route as SizingRouteImport } from './routes/sizing'
 import { Route as AuthenticatedDeskRouteImport } from './routes/_authenticated/desk'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedStrategiesRouteImport } from './routes/_authenticated/strategies'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiPublicHooksMonitorAlertsRouteImport } from './routes/api/public/hooks/monitor-alerts'
 
 const IndexRoute = IndexRouteImport.update({
@@ -64,6 +65,11 @@ const AuthenticatedStrategiesRoute = AuthenticatedStrategiesRouteImport.update({
   path: '/strategies',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => AuthRoute,
+} as any)
 const ApiPublicHooksMonitorAlertsRoute =
   ApiPublicHooksMonitorAlertsRouteImport.update({
     id: '/api/public/hooks/monitor-alerts',
@@ -74,23 +80,25 @@ const ApiPublicHooksMonitorAlertsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/advanced': typeof AdvancedRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/leaders': typeof LeadersRoute
   '/sizing': typeof SizingRoute
   '/desk': typeof AuthenticatedDeskRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/strategies': typeof AuthenticatedStrategiesRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/advanced': typeof AdvancedRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/leaders': typeof LeadersRoute
   '/sizing': typeof SizingRoute
   '/desk': typeof AuthenticatedDeskRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/strategies': typeof AuthenticatedStrategiesRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRoutesById {
@@ -98,12 +106,13 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/advanced': typeof AdvancedRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/leaders': typeof LeadersRoute
   '/sizing': typeof SizingRoute
   '/_authenticated/desk': typeof AuthenticatedDeskRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/strategies': typeof AuthenticatedStrategiesRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRouteTypes {
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/desk'
     | '/settings'
     | '/strategies'
+    | '/auth/callback'
     | '/api/public/hooks/monitor-alerts'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/desk'
     | '/settings'
     | '/strategies'
+    | '/auth/callback'
     | '/api/public/hooks/monitor-alerts'
   id:
     | '__root__'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/_authenticated/desk'
     | '/_authenticated/settings'
     | '/_authenticated/strategies'
+    | '/auth/callback'
     | '/api/public/hooks/monitor-alerts'
   fileRoutesById: FileRoutesById
 }
@@ -147,7 +159,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AdvancedRoute: typeof AdvancedRoute
-  AuthRoute: typeof AuthRoute
+  AuthRoute: typeof AuthRouteWithChildren
   LeadersRoute: typeof LeadersRoute
   SizingRoute: typeof SizingRoute
   ApiPublicHooksMonitorAlertsRoute: typeof ApiPublicHooksMonitorAlertsRoute
@@ -218,6 +230,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStrategiesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/api/public/hooks/monitor-alerts': {
       id: '/api/public/hooks/monitor-alerts'
       path: '/api/public/hooks/monitor-alerts'
@@ -243,11 +262,21 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface AuthRouteChildren {
+  AuthCallbackRoute: typeof AuthCallbackRoute
+}
+
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthCallbackRoute: AuthCallbackRoute,
+}
+
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AdvancedRoute: AdvancedRoute,
-  AuthRoute: AuthRoute,
+  AuthRoute: AuthRouteWithChildren,
   LeadersRoute: LeadersRoute,
   SizingRoute: SizingRoute,
   ApiPublicHooksMonitorAlertsRoute: ApiPublicHooksMonitorAlertsRoute,
