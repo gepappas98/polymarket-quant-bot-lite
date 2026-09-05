@@ -16,6 +16,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as LeadersRouteImport } from './routes/leaders'
 import { Route as SizingRouteImport } from './routes/sizing'
 import { Route as AuthenticatedDeskRouteImport } from './routes/_authenticated/desk'
+import { Route as AuthenticatedPaperRouteImport } from './routes/_authenticated/paper'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedStrategiesRouteImport } from './routes/_authenticated/strategies'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
@@ -55,6 +56,11 @@ const AuthenticatedDeskRoute = AuthenticatedDeskRouteImport.update({
   path: '/desk',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPaperRoute = AuthenticatedPaperRouteImport.update({
+  id: '/paper',
+  path: '/paper',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/leaders': typeof LeadersRoute
   '/sizing': typeof SizingRoute
   '/desk': typeof AuthenticatedDeskRoute
+  '/paper': typeof AuthenticatedPaperRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/strategies': typeof AuthenticatedStrategiesRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/leaders': typeof LeadersRoute
   '/sizing': typeof SizingRoute
   '/desk': typeof AuthenticatedDeskRoute
+  '/paper': typeof AuthenticatedPaperRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/strategies': typeof AuthenticatedStrategiesRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/leaders': typeof LeadersRoute
   '/sizing': typeof SizingRoute
   '/_authenticated/desk': typeof AuthenticatedDeskRoute
+  '/_authenticated/paper': typeof AuthenticatedPaperRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/strategies': typeof AuthenticatedStrategiesRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/leaders'
     | '/sizing'
     | '/desk'
+    | '/paper'
     | '/settings'
     | '/strategies'
     | '/auth/callback'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/leaders'
     | '/sizing'
     | '/desk'
+    | '/paper'
     | '/settings'
     | '/strategies'
     | '/auth/callback'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/leaders'
     | '/sizing'
     | '/_authenticated/desk'
+    | '/_authenticated/paper'
     | '/_authenticated/settings'
     | '/_authenticated/strategies'
     | '/auth/callback'
@@ -216,6 +228,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDeskRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/paper': {
+      id: '/_authenticated/paper'
+      path: '/paper'
+      fullPath: '/paper'
+      preLoaderRoute: typeof AuthenticatedPaperRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
@@ -249,12 +268,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDeskRoute: typeof AuthenticatedDeskRoute
+  AuthenticatedPaperRoute: typeof AuthenticatedPaperRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStrategiesRoute: typeof AuthenticatedStrategiesRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDeskRoute: AuthenticatedDeskRoute,
+  AuthenticatedPaperRoute: AuthenticatedPaperRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStrategiesRoute: AuthenticatedStrategiesRoute,
 }
