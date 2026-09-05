@@ -386,7 +386,14 @@ class Strategy:
         return self._swarm_filter(state, intents)
 
     def update_inventory(
-        self, slug: str, side: Side, shares: float, cost: float, *, is_arb_leg: bool = False
+        self,
+        slug: str,
+        side: Side,
+        shares: float,
+        cost: float,
+        *,
+        is_arb_leg: bool = False,
+        set_id: Optional[str] = None,
     ):
         """Apply a fill to both the rich inventory book and legacy mirror."""
         price = (cost / shares) if shares > 0 else 0.0

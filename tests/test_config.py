@@ -1,4 +1,12 @@
+from importlib.util import find_spec
+
 from bot.config import Config, _parse_asset_map
+
+
+class TestCanonicalModuleLayout:
+    def test_legacy_duplicate_modules_and_import_paths_are_absent(self):
+        for module_name in ("bot.bot_config", "bot.bot_strategy", "bot.bot_inventory"):
+            assert find_spec(module_name) is None
 
 
 class TestParseAssetMap:

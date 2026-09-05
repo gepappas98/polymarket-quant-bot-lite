@@ -94,8 +94,13 @@ class PaperExecutor:
             results.append(fill)
             self.fills.append(fill)
             self.strategy.update_inventory(
-                intent.market_slug, intent.side, shares, cost, is_arb_leg=intent.is_arb_leg
-            )
+                    intent.market_slug,
+                    intent.side,
+                    shares,
+                    cost,
+                    is_arb_leg=intent.is_arb_leg,
+                    set_id=intent.set_id,
+                )
             ledger.record_fill(intent, shares, cost, fill.order_id, dry_run=True)
             metrics.record_fill(side=intent.side.value, size_usd=cost, dry_run=True)
             log.info(
@@ -299,8 +304,13 @@ class LiveExecutor:
                 )
                 results.append(fill)
                 self.strategy.update_inventory(
-                intent.market_slug, intent.side, shares, cost, is_arb_leg=intent.is_arb_leg
-            )
+                    intent.market_slug,
+                    intent.side,
+                    shares,
+                    cost,
+                    is_arb_leg=intent.is_arb_leg,
+                    set_id=intent.set_id,
+                )
                 ledger.record_fill(intent, shares, cost, order_id, dry_run=False)
                 metrics.record_fill(side=intent.side.value, size_usd=cost, dry_run=False)
                 log.info(f"[LIVE FILL] {order_id} {intent.side.value} {shares:.2f} @ {avg_price:.3f}")
