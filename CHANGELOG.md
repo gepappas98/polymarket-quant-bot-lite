@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- **P1-6 duplicate module cleanup** — canonical imports are guarded against regressions; legacy `bot.bot_config`, `bot.bot_strategy`, and `bot.bot_inventory` paths remain absent.
 - **P1-7 strategy attribution** — inventory updates preserve arb metadata, ledger fills are tagged `arb` or `directional`, and session summaries expose per-strategy fill counts and volume.
 - **P0-1 paper honesty** — paper fills now use the stable `SIMULATED_FILL` marker while preserving the original strategy reason in ledger metadata.
 - **P0-2 pair lifecycle tracking** — arb legs share a generated `set_id`, preserve `is_arb_leg` through inventory accounting, and emit confirmed pair lifecycle ledger states; the full pair/strategy regression set is green.

@@ -55,8 +55,8 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [x] **P1-5** `getattr(state, "fair_up_prob", None)` (no AttributeError on mocks)
 - [x] Document MarketState required vs optional fields
 - [x] Full `pytest` green on clean checkout
-- [ ] Delete unused `bot/bot_config.py`, `bot/bot_strategy.py`, `bot/bot_inventory.py`
-- [ ] Grep CI: no `bot_strategy` / `bot_inventory` / `bot_config` imports
+- [x] Delete unused `bot/bot_config.py`, `bot/bot_strategy.py`, `bot/bot_inventory.py`
+- [x] Grep CI: no `bot_strategy` / `bot_inventory` / `bot_config` imports
 
 ### v0.5.2 — fill reconciliation & pairs (in progress)
 
@@ -102,9 +102,9 @@ Still open:
 
 ### P1-6 — Remove duplicate modules 🟠
 
-- [ ] Delete or quarantine: `bot/bot_config.py`, `bot/bot_strategy.py`, `bot/bot_inventory.py`
-- [ ] Single path: `bot.config` / `bot.strategy` / `bot.inventory`
-- [ ] CI grep guard
+- [x] Delete or quarantine: `bot/bot_config.py`, `bot/bot_strategy.py`, `bot/bot_inventory.py`
+- [x] Single path: `bot.config` / `bot.strategy` / `bot.inventory`
+- [x] CI grep guard
 
 ### P1-8 — Execution policy (not global PREFER_MAKER) 🟠
 
