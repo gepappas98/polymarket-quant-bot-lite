@@ -61,7 +61,7 @@ function AuthPage() {
   async function google() {
     setBusy(true);
     const redirectUri =
-      import.meta.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
+      import.meta.env['NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL'] ||
       `${window.location.origin}/auth/callback`;
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: redirectUri,
