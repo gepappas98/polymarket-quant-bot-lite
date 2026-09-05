@@ -177,11 +177,16 @@ def main():
 
             # Evaluate & execute (arb/directional + market-making + copy-trading)
             all_intents = []
+            intents_by_slug = {}
             for st in states:
                 intents = registry.evaluate_all(st)
+                intents_by_slug[st.market.get("slug", "")] = intents
                 all_intents.extend(intents)
 
-            if all_intents:
+            if hasattr(executor, "observe"):
+                for st in states:
+                    executor.observe(st, intents_by_slug.get(st.market.get("slug", ""), []))
+            elif all_intents:
                 fills = executor.execute(all_intents)
                 console.print(f"[cyan]Cycle {cycle}: executed {len(fills)} fills[/cyan]")
 

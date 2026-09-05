@@ -177,6 +177,8 @@ class Ledger:
         total_usd = sum(e.size_usd or 0.0 for e in fills)
         arb_fills = [e for e in fills if (e.meta or {}).get("strategy") == "arb"]
         directional_fills = [e for e in fills if (e.meta or {}).get("strategy") == "directional"]
+        shadow_fills = [e for e in fills if (e.meta or {}).get("shadow")]
+        shadow_observations = sum(1 for e in self._entries if e.kind == "shadow_observation")
         return {
             "intents": intents,
             "blocked": blocked,
@@ -188,6 +190,9 @@ class Ledger:
             "arb_volume_usd": sum(e.size_usd or 0.0 for e in arb_fills),
             "directional_fills": len(directional_fills),
             "directional_volume_usd": sum(e.size_usd or 0.0 for e in directional_fills),
+            "shadow_would_fills": len(shadow_fills),
+            "shadow_would_volume_usd": sum(e.size_usd or 0.0 for e in shadow_fills),
+            "shadow_observations": shadow_observations,
         }
 
 

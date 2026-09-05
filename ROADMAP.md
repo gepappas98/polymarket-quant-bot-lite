@@ -69,6 +69,8 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 
 ### v0.5.2 — fill reconciliation & pairs (in progress)
 
+- [x] Shadow live mode observes real CLOB books, signals, would-be fills, and market movement without order submission
+
 - [x] **P0-1 (core):** order id + requested vs filled; poll to terminal state; inventory/ledger only on confirmed fills; never `filled` on submit alone
 - [x] **P0-1 (paper honesty):** paper fills labeled `SIMULATED_FILL`; excluded from “proven edge” reports
 - [x] **P0-2 (core):** `ArbPair` states `PAIR_PENDING | PAIR_PARTIAL | PAIR_COMPLETE | PAIR_FAILED`; `set_id` through executor; `is_arb_leg` not forced false

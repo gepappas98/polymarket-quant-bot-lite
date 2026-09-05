@@ -177,6 +177,65 @@ def _record_pair_states(intents: List[Intent], fills: List[Fill], *, dry_run: bo
         ))
 
 
+class ShadowExecutor:
+    """Observe live CLOB data and strategy decisions without submitting orders."""
+
+    def __init__(self, strategy: Strategy):
+        self.strategy = strategy
+        self.would_be_fills: List[Fill] = []
+        self.observations = 0
+
+    @staticmethod
+    def _estimate(intent: Intent, state) -> Optional[Fill]:
+        book = state.up_book if intent.side.value == "UP" else state.down_book
+        levels = getattr(book, "_asks", [])
+        remaining = intent.size_usd
+        shares = 0.0
+        cost = 0.0
+        for level in sorted(levels, key=lambda item: float(item.get("price", 9))):
+            price = float(level.get("price", 0))
+            available = float(level.get("size", 0))
+            if price <= 0 or available <= 0 or remaining <= 0:
+                continue
+            clip = min(remaining, price * available)
+            shares += clip / price
+            cost += clip
+            remaining -= clip
+        if shares <= 0:
+            return None
+        return Fill(intent, shares, cost / shares, cost, time.time(), f"shadow-{uuid.uuid4().hex[:10]}", True)
+
+    def observe(self, state, intents: List[Intent]) -> List[Fill]:
+        self.observations += 1
+        for intent in intents:
+            ledger.record_intent(intent, dry_run=True)
+            estimate = self._estimate(intent, state)
+            if estimate:
+                self.would_be_fills.append(estimate)
+                ledger.append(LedgerEntry(
+                    ts=time.time(), kind="fill", market_slug=intent.market_slug,
+                    side=intent.side.value, price=estimate.avg_price,
+                    size_usd=estimate.cost, reason="SHADOW_WOULD_FILL",
+                    status="shadow", dry_run=True, order_id=estimate.order_id,
+                    meta={"shadow": True, "shares": estimate.shares,
+                          "signal_reason": intent.reason},
+                ))
+        ledger.append(LedgerEntry(
+            ts=time.time(), kind="shadow_observation", market_slug=state.market.get("slug", "?"),
+            status="observed", dry_run=True,
+            meta={"up_ask": state.up_ask, "down_ask": state.down_ask,
+                  "sum_asks": state.sum_asks, "arb_available": state.arb_available,
+                  "external_price": state.external_price, "intent_count": len(intents)},
+        ))
+        return [fill for fill in self.would_be_fills if fill.intent in intents]
+
+    def execute(self, intents: List[Intent]) -> List[Fill]:
+        raise RuntimeError("ShadowExecutor requires observe(state, intents); it never submits orders")
+
+    def check_kill_switch(self) -> bool:
+        return False
+
+
 class LiveExecutor:
     """
     Live execution with the same gates + ledger as paper.
@@ -370,6 +429,9 @@ class LiveExecutor:
 
 
 def create_executor(strategy: Strategy):
+    if cfg.mode == "shadow":
+        log.info("Shadow live mode: observing CLOB only; order submission disabled")
+        return ShadowExecutor(strategy)
     live = is_live_trading_allowed()
     if live.allowed:
         log.warning("=== LIVE MODE ENABLED – REAL MONEY (double opt-in passed) ===")
