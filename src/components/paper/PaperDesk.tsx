@@ -8,8 +8,7 @@ import { getBotStatus } from "@/lib/bot.functions";
 import {
   checkPaperGates,
   getPaperState,
-  paperBuy,
-  paperSell,
+  executePaperOrder,
   resetPaperAccount,
 } from "@/lib/paper.functions";
 
@@ -51,8 +50,8 @@ export function PaperDesk() {
   const fetchState = useServerFn(getPaperState);
   const fetchStatus = useServerFn(getBotStatus);
   const runGates = useServerFn(checkPaperGates);
-  const buy = useServerFn(paperBuy);
-  const sell = useServerFn(paperSell);
+  const execute = useServerFn(executePaperOrder);
+  const [lastReceipt, setLastReceipt] = useState<any>(null);
   const reset = useServerFn(resetPaperAccount);
   const qc = useQueryClient();
 
@@ -98,12 +97,13 @@ export function PaperDesk() {
 
   const buyMutation = useMutation({
     mutationFn: () =>
-      buy({ data: { market: selected!.slug, side, price: askPrice, sizeUsd, reason: "manual paper buy" } }),
+      execute({ data: { action: "BUY", market: selected!.slug, side, price: askPrice, sizeUsd, clientOrderId: crypto.randomUUID(), reason: "manual paper buy" } }),
     onSuccess: (result) => {
+      setLastReceipt(result);
       if (result.status === "blocked") {
         toast.error(`Blocked: ${result.gates.filter((g) => !g.allowed).map((g) => g.name).join(", ")}`);
-      } else {
-        toast.success(`Paper filled ${sizeUsd.toFixed(2)} USD @ ${askPrice.toFixed(3)}`);
+      } else if ("filledShares" in result) {
+        toast.success(`Paper ${result.state} ${result.filledShares.toFixed(2)} shares @ ${result.avgFillPrice.toFixed(3)}`);
       }
       invalidate();
     },
@@ -111,11 +111,12 @@ export function PaperDesk() {
   });
 
   const sellMutation = useMutation({
-    mutationFn: (vars: { positionId: string; price: number }) =>
-      sell({ data: { positionId: vars.positionId, price: vars.price, fraction: 1 } }),
+    mutationFn: (vars: { positionId: string; price: number; market: string; side: "UP" | "DOWN"; shares: number }) =>
+      execute({ data: { action: "SELL", positionId: vars.positionId, market: vars.market, side: vars.side, price: vars.price, sizeUsd: vars.shares * vars.price, clientOrderId: crypto.randomUUID(), reason: "manual paper close" } }),
     onSuccess: (result) => {
-      if (result.status === "closed") {
-        toast.success(`Closed — realized ${money(result.realized)}`);
+      setLastReceipt(result);
+      if ("realizedPnl" in result) {
+        toast.success(`Closed — realized ${money(result.realizedPnl)}`);
       }
       invalidate();
     },
@@ -306,7 +307,7 @@ export function PaperDesk() {
                           <td className="text-right">
                             <button
                               disabled={bid == null || sellMutation.isPending}
-                              onClick={() => sellMutation.mutate({ positionId: p.id, price: bid ?? 0.5 })}
+                              onClick={() => sellMutation.mutate({ positionId: p.id, market: p.market, side: p.side, shares: p.shares, price: bid ?? 0.5 })}
                               className="tape rounded border border-border px-2 py-0.5 text-[10px] uppercase hover:border-down/60 hover:text-down disabled:opacity-40"
                             >
                               close
@@ -321,6 +322,24 @@ export function PaperDesk() {
             )}
           </div>
         </div>
+
+        {lastReceipt ? (
+          <div className="panel border-primary/40 bg-primary/5 px-3 py-3">
+            <h2 className="label-caps mb-2 text-[11px]">last execution receipt</h2>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] sm:grid-cols-4">
+              <Receipt label="order id" value={lastReceipt.orderId ?? "—"} />
+              <Receipt label="state" value={lastReceipt.state ?? lastReceipt.status} />
+              <Receipt label="requested" value={lastReceipt.requestedShares?.toFixed?.(2) ?? "—"} />
+              <Receipt label="filled" value={lastReceipt.filledShares?.toFixed?.(2) ?? "—"} />
+              <Receipt label="remaining" value={lastReceipt.remainingShares?.toFixed?.(2) ?? "—"} />
+              <Receipt label="VWAP" value={lastReceipt.avgFillPrice?.toFixed?.(4) ?? "—"} />
+              <Receipt label="fees" value={lastReceipt.fees == null ? "—" : money(lastReceipt.fees)} />
+              <Receipt label="slippage" value={lastReceipt.slippage?.toFixed?.(5) ?? "—"} />
+              <Receipt label="realized P&L" value={lastReceipt.realizedPnl == null ? "—" : money(lastReceipt.realizedPnl)} />
+              <Receipt label="reason" value={lastReceipt.reason ?? "—"} />
+            </div>
+          </div>
+        ) : null}
 
         <div className="panel px-3 py-3">
           <h2 className="label-caps mb-2 text-[11px]">paper ledger / trade history</h2>
@@ -366,6 +385,10 @@ export function PaperDesk() {
       </div>
     </div>
   );
+}
+
+function Receipt({ label, value }: { label: string; value: string }) {
+  return <div><span className="label-caps text-muted-foreground">{label}</span><p className="tape truncate text-foreground">{value}</p></div>;
 }
 
 function Stat({
