@@ -80,6 +80,15 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 
 ---
 
+## Full P0 execution foundation
+
+- [x] Shared order lifecycle, fill aggregation, VWAP, fee/slippage, and injectable clock primitives in `bot/execution.py`
+- [x] Depth-aware paper fill engine with residuals and account-level buy/sell realized P&L
+- [x] Deterministic lifecycle, depth, account, and clock tests
+- [ ] Wire the shared primitives into the existing worker executor and Supabase Paper Desk without duplicate accounting paths
+- [x] Add position settlement, exit policy, and arbitrage scanner primitives in `bot/p0.py`
+- [ ] Wire these primitives into the existing worker executor and Supabase Paper Desk without duplicate accounting paths
+
 ## CRITICAL — remaining v0.5 overhaul
 
 > Prefer **paper** until P0-2 policy + P0-4 are done. Live only with tiny size after P0-1 verified against real CLOB fill reports.
