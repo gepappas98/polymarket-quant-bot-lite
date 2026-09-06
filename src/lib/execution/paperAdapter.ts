@@ -5,16 +5,21 @@
  */
 
 import type { ExchangeAdapter, PlaceOrderRequest, PlaceOrderResult, VenueOrderSnapshot } from "./adapter";
-import type { Fill } from "./models";
+import type { BookLevel, Fill } from "./models";
 import { round6 } from "./models";
 import type { Clock } from "./clock";
 import { systemClock } from "./clock";
 
 export interface PaperQuote {
-  /** Best ask (buy price) and its available shares. */
-  ask: number;
+  /** Full L2 asks, sorted best-to-worst by the adapter. */
+  asks?: BookLevel[];
+  /** Full L2 bids, sorted best-to-worst by the adapter. */
+  bids?: BookLevel[];
+  /** Legacy top-of-book fields are normalized into one-level depth. */
+  ask?: number;
   askShares?: number;
   bid?: number;
+  bidShares?: number;
   feeBps?: number;
 }
 
@@ -66,24 +71,41 @@ export class PaperAdapter implements ExchangeAdapter {
       return { accepted: false, venueOrderId: null, fills: [], closed: true, rejectReason: "no quote for market" };
     }
 
-    const price = req.orderType === "MARKET" ? quote.ask : Math.min(req.price, quote.ask);
-    const tradable = req.orderType === "MARKET" || req.price >= quote.ask;
-    const available = quote.askShares ?? req.sizeShares;
-    const shares = tradable ? round6(Math.min(req.sizeShares, available)) : 0;
+    const action = req.action ?? "BUY";
+    const rawLevels = action === "BUY"
+      ? (quote.asks ?? (quote.ask ? [{ price: quote.ask, shares: quote.askShares ?? req.sizeShares }] : []))
+      : (quote.bids ?? (quote.bid ? [{ price: quote.bid, shares: quote.bidShares ?? req.sizeShares }] : []));
+    const levels = [...rawLevels]
+      .filter((level) => level.price > 0 && level.shares > 0)
+      .sort((a, b) => action === "BUY" ? a.price - b.price : b.price - a.price);
     const feeBps = quote.feeBps ?? 0;
-
-    const fills: Fill[] =
-      shares > 0
-        ? [
-            {
-              fillId: `${req.clientOrderId}:1`,
-              price,
-              shares,
-              fee: round6((shares * price * feeBps) / 10_000),
-              filledAt: this.clock.isoNow(),
-            },
-          ]
-        : [];
+    const fills: Fill[] = [];
+    let remaining = req.sizeShares;
+    for (const level of levels) {
+      if (remaining <= 1e-9) break;
+      const tradable = req.orderType === "MARKET" || (action === "BUY" ? req.price >= level.price : req.price <= level.price);
+      if (!tradable) break;
+      const shares = round6(Math.min(remaining, level.shares));
+      fills.push({
+        fillId: `${req.clientOrderId}:${fills.length + 1}`,
+        price: level.price,
+        shares,
+        fee: round6((shares * level.price * feeBps) / 10_000),
+        filledAt: this.clock.isoNow(),
+      });
+      remaining = round6(remaining - shares);
+    }
+    const shares = fills.reduce((sum, fill) => sum + fill.shares, 0);
+    let consumed = 0;
+    for (const level of levels) {
+      const fillShares = fills
+        .filter((fill) => fill.price === level.price)
+        .reduce((sum, fill) => sum + fill.shares, 0);
+      if (fillShares <= 0) continue;
+      level.shares = round6(Math.max(0, level.shares - Math.min(level.shares, fillShares)));
+      consumed += fillShares;
+      if (consumed >= shares - 1e-9) break;
+    }
 
     const open = shares < req.sizeShares && req.orderType === "LIMIT";
     this.orders.set(req.clientOrderId, {

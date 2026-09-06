@@ -121,7 +121,9 @@ class OrderBook:
 
     @classmethod
     def from_levels(cls, bids: Sequence[Mapping[str, float]], asks: Sequence[Mapping[str, float]]) -> "OrderBook":
-        return cls(tuple(BookLevel(float(x["price"]), float(x["shares"])) for x in bids), tuple(BookLevel(float(x["price"]), float(x["shares"])) for x in asks))
+        bid_levels = sorted((BookLevel(float(x["price"]), float(x["shares"])) for x in bids), key=lambda level: level.price, reverse=True)
+        ask_levels = sorted((BookLevel(float(x["price"]), float(x["shares"])) for x in asks), key=lambda level: level.price)
+        return cls(tuple(bid_levels), tuple(ask_levels))
 
 
 @dataclass(frozen=True)
@@ -149,6 +151,10 @@ class PaperFillEngine:
                 break
             if level.price <= 0 or level.shares <= 0:
                 continue
+            if order.action.upper() == "BUY" and order.limit_price < level.price:
+                break
+            if order.action.upper() == "SELL" and order.limit_price > 0 and order.limit_price > level.price:
+                break
             notional = min(remaining, level.price * level.shares)
             shares = notional / level.price
             fee = notional * self.fee_bps / 10_000
