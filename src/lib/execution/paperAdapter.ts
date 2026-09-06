@@ -117,7 +117,7 @@ export class PaperAdapter implements ExchangeAdapter {
     return fill;
   }
 
-  async cancelOrder(ref: { clientOrderId: string }): Promise<{ cancelled: boolean }> {
+  async cancelOrder(ref: { clientOrderId: string; venueOrderId?: string | null }): Promise<{ cancelled: boolean }> {
     const stored = this.orders.get(ref.clientOrderId);
     if (!stored) return { cancelled: false };
     if (!stored.open) return { cancelled: false };
