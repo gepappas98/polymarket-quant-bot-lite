@@ -14,6 +14,7 @@ export interface PlaceOrderRequest {
   orderType: OrderType;
   price: number;
   sizeShares: number;
+  action?: "BUY" | "SELL";
 }
 
 export interface PlaceOrderResult {

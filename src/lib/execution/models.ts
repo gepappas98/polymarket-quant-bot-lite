@@ -23,7 +23,13 @@ export type OrderSide = "UP" | "DOWN";
 export type OrderType = "LIMIT" | "MARKET";
 export type ExecutionMode = "paper" | "backtest" | "shadow" | "live";
 
+export interface BookLevel {
+  price: number;
+  shares: number;
+}
+
 export interface Fill {
+
   /** Venue-supplied (or deterministic) id — used for idempotent application. */
   fillId: string;
   price: number;

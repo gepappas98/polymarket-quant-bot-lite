@@ -88,6 +88,27 @@ describe("partial fills", () => {
 });
 
 describe("adapter + reconciliation", () => {
+  it("consumes multiple ask levels with VWAP and residual depth", async () => {
+    const c = clock();
+    const adapter = new PaperAdapter({ mkt: { asks: [{ price: 0.5, shares: 20 }, { price: 0.51, shares: 30 }, { price: 0.52, shares: 50 }] } }, c);
+    const req = { clientOrderId: "l2-1", market: "mkt", side: "UP" as const, orderType: "MARKET" as const, price: 1, sizeShares: 100 };
+    const result = await adapter.placeOrder(req);
+    expect(result.fills.map((fill) => fill.shares)).toEqual([20, 30, 50]);
+    expect(result.fills.map((fill) => fill.price)).toEqual([0.5, 0.51, 0.52]);
+    expect(result.closed).toBe(true);
+    const second = await adapter.placeOrder({ ...req, clientOrderId: "l2-2", sizeShares: 10 });
+    expect(second.fills).toHaveLength(0);
+    expect(second.closed).toBe(true);
+  });
+
+  it("consumes bid levels for sells", async () => {
+    const c = clock();
+    const adapter = new PaperAdapter({ mkt: { bids: [{ price: 0.49, shares: 10 }, { price: 0.48, shares: 20 }] } }, c);
+    const result = await adapter.placeOrder({ clientOrderId: "l2-sell", market: "mkt", side: "UP", action: "SELL", orderType: "MARKET", price: 0, sizeShares: 25 });
+    expect(result.fills.map((fill) => fill.shares)).toEqual([10, 15]);
+    expect(result.fills.map((fill) => fill.price)).toEqual([0.49, 0.48]);
+  });
+
   it("fills a market order through the adapter", async () => {
     const c = clock();
     const adapter = new PaperAdapter({ "btc-up-or-down": { ask: 0.52, feeBps: 10 } }, c);
