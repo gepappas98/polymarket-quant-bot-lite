@@ -355,6 +355,116 @@ export type Database = {
         }
         Relationships: []
       }
+      order_fills: {
+        Row: {
+          created_at: string
+          fee: number
+          fill_id: string
+          filled_at: string
+          id: string
+          order_id: string
+          price: number
+          shares: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fee?: number
+          fill_id: string
+          filled_at?: string
+          id?: string
+          order_id: string
+          price: number
+          shares: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fee?: number
+          fill_id?: string
+          filled_at?: string
+          id?: string
+          order_id?: string
+          price?: number
+          shares?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_fills_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          avg_fill_price: number
+          client_order_id: string
+          created_at: string
+          error: string | null
+          fees_paid: number
+          filled_shares: number
+          id: string
+          market: string
+          mode: string
+          order_type: string
+          price: number
+          reason: string | null
+          side: string
+          size_shares: number
+          status: string
+          updated_at: string
+          user_id: string
+          venue: string
+          venue_order_id: string | null
+        }
+        Insert: {
+          avg_fill_price?: number
+          client_order_id: string
+          created_at?: string
+          error?: string | null
+          fees_paid?: number
+          filled_shares?: number
+          id?: string
+          market: string
+          mode?: string
+          order_type?: string
+          price: number
+          reason?: string | null
+          side: string
+          size_shares: number
+          status?: string
+          updated_at?: string
+          user_id: string
+          venue?: string
+          venue_order_id?: string | null
+        }
+        Update: {
+          avg_fill_price?: number
+          client_order_id?: string
+          created_at?: string
+          error?: string | null
+          fees_paid?: number
+          filled_shares?: number
+          id?: string
+          market?: string
+          mode?: string
+          order_type?: string
+          price?: number
+          reason?: string | null
+          side?: string
+          size_shares?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+          venue?: string
+          venue_order_id?: string | null
+        }
+        Relationships: []
+      }
       paper_account: {
         Row: {
           cash: number
