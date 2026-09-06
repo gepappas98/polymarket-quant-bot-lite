@@ -151,10 +151,6 @@ class PaperFillEngine:
                 break
             if level.price <= 0 or level.shares <= 0:
                 continue
-            if order.action.upper() == "BUY" and order.limit_price < level.price:
-                break
-            if order.action.upper() == "SELL" and order.limit_price > 0 and order.limit_price > level.price:
-                break
             notional = min(remaining, level.price * level.shares)
             shares = notional / level.price
             fee = notional * self.fee_bps / 10_000

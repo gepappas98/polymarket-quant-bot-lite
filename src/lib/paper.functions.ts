@@ -1,6 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { PaperAdapter } from "@/lib/execution/paperAdapter";
+import { applyPlaceResult, createOrder } from "@/lib/execution/orderExecutor";
+import { systemClock } from "@/lib/execution/clock";
 
 export interface PaperGate {
   name: string;
@@ -127,7 +130,77 @@ export const checkPaperGates = createServerFn({ method: "POST" })
     return { gates, allowed: gates.every((g) => g.allowed) };
   });
 
-/** Paper BUY — gated, updates cash and the position's weighted average price. */
+/** Canonical Paper execution path: risk gates -> OrderExecutor -> PaperAdapter -> order/fills -> account/position ledger. */
+export const executePaperOrder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    action: z.enum(["BUY", "SELL"]),
+    market: z.string().min(1),
+    side: z.enum(["UP", "DOWN"]),
+    price: z.number().gt(0).lte(1),
+    sizeUsd: z.number().positive().max(1_000_000),
+    positionId: z.string().uuid().optional(),
+    clientOrderId: z.string().min(1).max(128),
+    reason: z.string().max(200).default("manual paper order"),
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const ctx = context as unknown as Ctx;
+    const account = await loadAccount(ctx);
+    const gates = data.action === "BUY" ? await evaluateGates(ctx, account, data.market, data.sizeUsd) : [];
+    if (gates.length && !gates.every((gate) => gate.allowed)) return { status: "blocked" as const, gates };
+
+    const existingOrder = await ctx.supabase.from("paper_orders").select("*").eq("user_id", ctx.userId).eq("client_order_id", data.clientOrderId).maybeSingle();
+    if (existingOrder.error) throw new Error(existingOrder.error.message);
+    if (existingOrder.data) return { status: "already_filled" as const, orderId: existingOrder.data.id, state: existingOrder.data.state, filledShares: Number(existingOrder.data.filled_shares), remainingShares: Number(existingOrder.data.remaining_shares), avgFillPrice: Number(existingOrder.data.avg_fill_price), fees: Number(existingOrder.data.fees), slippage: Number(existingOrder.data.slippage), timestamp: existingOrder.data.updated_at };
+
+    let requestedShares = data.sizeUsd / data.price;
+    let position: any = null;
+    if (data.action === "SELL") {
+      const positionResult = await ctx.supabase.from("paper_positions").select("*").eq("user_id", ctx.userId).eq("id", data.positionId ?? "").maybeSingle();
+      if (positionResult.error) throw new Error(positionResult.error.message);
+      position = positionResult.data;
+      if (!position) return { status: "rejected" as const, reason: "position not found" };
+      requestedShares = Number(position.shares);
+    }
+
+    const adapter = new PaperAdapter({ [data.market]: data.action === "BUY" ? { asks: [{ price: data.price, shares: requestedShares }] } : { bids: [{ price: data.price, shares: requestedShares }] } }, systemClock);
+    const request = { clientOrderId: data.clientOrderId, market: data.market, side: data.side, action: data.action, orderType: "MARKET" as const, price: data.price, sizeShares: requestedShares, mode: "paper" as const };
+    const order = createOrder(request, systemClock, data.clientOrderId);
+    const venueResult = await adapter.placeOrder(request);
+    const executed = applyPlaceResult(order, venueResult, systemClock);
+    const filledShares = executed.filledShares;
+    const notional = executed.fills.reduce((sum, fill) => sum + fill.price * fill.shares, 0);
+    const fees = executed.feesPaid;
+    const proceedsOrCost = notional + (data.action === "BUY" ? fees : -fees);
+    const avgFillPrice = executed.avgFillPrice;
+    const orderInsert = await ctx.supabase.from("paper_orders").insert({ user_id: ctx.userId, client_order_id: data.clientOrderId, market: data.market, side: data.side, action: data.action, order_type: "MARKET", requested_shares: requestedShares, filled_shares: filledShares, remaining_shares: Math.max(0, requestedShares - filledShares), avg_fill_price: avgFillPrice, fees, slippage: avgFillPrice - data.price, state: executed.status, reason: data.reason }).select("id, updated_at").single();
+    if (orderInsert.error) throw new Error(orderInsert.error.message);
+    if (executed.fills.length) {
+      const fillsInsert = await ctx.supabase.from("paper_order_fills").insert(executed.fills.map((fill) => ({ order_id: orderInsert.data.id, user_id: ctx.userId, price: fill.price, shares: fill.shares, fee: fill.fee, filled_at: fill.filledAt })));
+      if (fillsInsert.error) throw new Error(fillsInsert.error.message);
+    }
+
+    let realized = 0;
+    if (data.action === "BUY") {
+      const current = await ctx.supabase.from("paper_positions").select("*").eq("user_id", ctx.userId).eq("market", data.market).eq("side", data.side).maybeSingle();
+      const oldShares = Number(current.data?.shares ?? 0); const oldCost = Number(current.data?.cost_usd ?? 0); const newCost = oldCost + notional + fees; const newShares = oldShares + filledShares;
+      const positionWrite = current.data ? ctx.supabase.from("paper_positions").update({ shares: newShares, cost_usd: newCost, avg_price: newCost / newShares, updated_at: new Date().toISOString() }).eq("id", current.data.id) : ctx.supabase.from("paper_positions").insert({ user_id: ctx.userId, market: data.market, side: data.side, shares: newShares, avg_price: newCost / newShares, cost_usd: newCost });
+      const writeResult = await positionWrite; if (writeResult.error) throw new Error(writeResult.error.message);
+    } else {
+      const costPortion = Number(position.cost_usd) * (filledShares / Number(position.shares)); realized = Math.round((notional - fees - costPortion) * 100) / 100;
+      const remaining = Number(position.shares) - filledShares;
+      const writeResult = remaining <= 1e-8 ? await ctx.supabase.from("paper_positions").delete().eq("id", position.id) : await ctx.supabase.from("paper_positions").update({ shares: remaining, cost_usd: Number(position.cost_usd) - costPortion, updated_at: new Date().toISOString() }).eq("id", position.id);
+      if (writeResult.error) throw new Error(writeResult.error.message);
+    }
+    const cashAfter = Number(account.cash) + (data.action === "BUY" ? -proceedsOrCost : proceedsOrCost);
+    const accountWrite = await ctx.supabase.from("paper_accounts").update({ cash: cashAfter, realized_pnl: Number(account.realized_pnl) + realized, updated_at: new Date().toISOString() }).eq("user_id", ctx.userId);
+    if (accountWrite.error) throw new Error(accountWrite.error.message);
+    const tradeWrite = await ctx.supabase.from("paper_trades").insert({ user_id: ctx.userId, market: data.market, side: data.side, action: data.action, price: avgFillPrice, shares: filledShares, size_usd: notional, realized_pnl: realized, cash_after: cashAfter, reason: data.reason, gates, client_order_id: data.clientOrderId, execution_mode: "paper" });
+    if (tradeWrite.error) throw new Error(tradeWrite.error.message);
+    return { status: executed.status === "FILLED" ? "filled" as const : "partial" as const, orderId: orderInsert.data.id, state: executed.status, requestedShares, filledShares, remainingShares: requestedShares - filledShares, avgFillPrice, fees, slippage: avgFillPrice - data.price, timestamp: orderInsert.data.updated_at, position: data.market, realizedPnl: realized, unrealizedPnl: 0, reason: data.reason, cashAfter };
+  });
+
+/** Paper BUY — compatibility wrapper. Canonical UI execution uses executePaperOrder. */
 export const paperBuy = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
