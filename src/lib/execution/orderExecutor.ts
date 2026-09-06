@@ -74,10 +74,8 @@ export function applyFill(order: Order, fill: Fill, clock: Clock): { order: Orde
   };
   const complete = filledShares >= order.sizeShares - EPS;
   const target: OrderStatus = complete ? "FILLED" : "PARTIALLY_FILLED";
-  return {
-    order: isTerminal(next.status) && !complete ? next : { ...next, status: nextStatus(next.status, target) },
-    applied: true,
-  };
+  if (isTerminal(next.status)) return { order: next, applied: true };
+  return { order: { ...next, status: nextStatus(next.status, target) }, applied: true };
 }
 
 function nextStatus(from: OrderStatus, to: OrderStatus): OrderStatus {
