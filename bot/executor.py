@@ -20,6 +20,7 @@ from .ledger import ledger, LedgerEntry
 from .portfolio_gates import max_drawdown_gate, pair_lock
 from .daily_limit import check as daily_limit_check
 from . import metrics
+from .execution import Order as ExecutionOrder, OrderBook as ExecutionBook, PaperFillEngine
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ class PaperExecutor:
         self.fills: List[Fill] = []
         self.realized_pnl = 0.0
         self.daily_pnl = 0.0
+        self.fill_engine = PaperFillEngine(cfg.paper_fee_bps, cfg.paper_slippage_bps)
 
     def execute(self, intents: List[Intent]) -> List[Fill]:
         results: List[Fill] = []
@@ -91,15 +93,28 @@ class PaperExecutor:
             ledger.record_intent(intent, dry_run=True)
             metrics.record_intent(side=intent.side.value)
 
-            shares = intent.size_usd / intent.price
-            cost = intent.size_usd
+            execution_order = ExecutionOrder(
+                market=intent.market_slug,
+                side=intent.side.value,
+                action="BUY" if intent.side.value in {"UP", "DOWN"} else "SELL",
+                requested_usd=intent.size_usd,
+                limit_price=intent.price,
+            )
+            level = {"price": intent.price, "shares": intent.size_usd / intent.price}
+            execution_book = ExecutionBook.from_levels([], [level])
+            report = self.fill_engine.execute(execution_order, execution_book)
+            if not report.fills:
+                ledger.record_intent(intent, dry_run=True, blocked=True, block_reason="no paper liquidity")
+                continue
+            shares = sum(item.shares for item in report.fills)
+            cost = report.filled_usd
             fill = Fill(
                 intent=intent,
                 shares=shares,
-                avg_price=intent.price,
+                avg_price=report.vwap or intent.price,
                 cost=cost,
                 ts=time.time(),
-                order_id=f"paper-{uuid.uuid4().hex[:10]}",
+                order_id=f"paper-{execution_order.order_id[:10]}",
                 simulated=True,
             )
             results.append(fill)
