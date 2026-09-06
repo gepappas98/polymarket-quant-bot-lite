@@ -21,7 +21,7 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export type OrderSide = "UP" | "DOWN";
 export type OrderType = "LIMIT" | "MARKET";
-export type ExecutionMode = "paper" | "live";
+export type ExecutionMode = "paper" | "backtest" | "shadow" | "live";
 
 export interface Fill {
   /** Venue-supplied (or deterministic) id — used for idempotent application. */

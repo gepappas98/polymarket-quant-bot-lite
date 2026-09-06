@@ -104,61 +104,22 @@ export const getPaperState = createServerFn({ method: "POST" })
     const ctx = context as unknown as Ctx;
     const account = await loadAccount(ctx);
     const [{ data: positions }, { data: trades }] = await Promise.all([
-      ctx.supabase
-        .from("paper_positions")
-        .select("*")
-        .eq("user_id", ctx.userId)
-        .order("opened_at", { ascending: false }),
-      ctx.supabase
-        .from("paper_trades")
-        .select("*")
-        .eq("user_id", ctx.userId)
-        .order("created_at", { ascending: false })
-        .limit(100),
+      ctx.supabase.from("paper_positions").select("*").eq("user_id", ctx.userId).order("opened_at", { ascending: false }),
+      ctx.supabase.from("paper_trades").select("*").eq("user_id", ctx.userId).order("created_at", { ascending: false }).limit(100),
     ]);
     const dailyPnl = await todayRealized(ctx);
     return {
       engine: "paper" as const,
-      account: {
-        startingBankroll: Number(account.starting_bankroll),
-        cash: Number(account.cash),
-        realizedPnl: Number(account.realized_pnl),
-        dailyPnl: Math.round(dailyPnl * 100) / 100,
-        dailyLossLimit: Number(account.daily_loss_limit),
-        maxPositionPct: Number(account.max_position_pct),
-        cooldownSeconds: Number(account.cooldown_seconds),
-      },
-      positions: (positions ?? []).map((p: any) => ({
-        id: p.id as string,
-        market: p.market as string,
-        side: p.side as "UP" | "DOWN",
-        shares: Number(p.shares),
-        avgPrice: Number(p.avg_price),
-        costUsd: Number(p.cost_usd),
-        openedAt: p.opened_at as string,
-      })),
-      trades: (trades ?? []).map((t: any) => ({
-        id: t.id as string,
-        market: t.market as string,
-        side: t.side as string,
-        action: t.action as "BUY" | "SELL",
-        price: Number(t.price),
-        shares: Number(t.shares),
-        sizeUsd: Number(t.size_usd),
-        realizedPnl: Number(t.realized_pnl),
-        cashAfter: Number(t.cash_after),
-        reason: (t.reason as string | null) ?? "",
-        createdAt: t.created_at as string,
-      })),
+      account: { startingBankroll: Number(account.starting_bankroll), cash: Number(account.cash), realizedPnl: Number(account.realized_pnl), dailyPnl, dailyLossLimit: Number(account.daily_loss_limit), maxPositionPct: Number(account.max_position_pct), cooldownSeconds: Number(account.cooldown_seconds) },
+      positions: (positions ?? []).map((p: any) => ({ id: p.id, market: p.market, side: p.side, shares: Number(p.shares), avgPrice: Number(p.avg_price), costUsd: Number(p.cost_usd), openedAt: p.opened_at })),
+      trades: (trades ?? []).map((t: any) => ({ id: t.id, market: t.market, side: t.side, action: t.action, price: Number(t.price), shares: Number(t.shares), sizeUsd: Number(t.size_usd), realizedPnl: Number(t.realized_pnl), cashAfter: Number(t.cash_after), reason: t.reason ?? "", createdAt: t.created_at })),
     };
   });
 
 /** Dry risk-gate evaluation shown before an order is submitted. */
 export const checkPaperGates = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ market: z.string().min(1), sizeUsd: z.number().positive() }).parse(input),
-  )
+  .inputValidator((input) => z.object({ market: z.string().min(1), sizeUsd: z.number().positive() }).parse(input))
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as Ctx;
     const account = await loadAccount(ctx);
@@ -176,12 +137,25 @@ export const paperBuy = createServerFn({ method: "POST" })
         side: z.enum(["UP", "DOWN"]),
         price: z.number().gt(0).lte(1),
         sizeUsd: z.number().positive().max(1_000_000),
+        clientOrderId: z.string().min(1).max(128).optional(),
         reason: z.string().max(200).default("manual paper buy"),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as Ctx;
+    if (data.clientOrderId) {
+      const { data: prior, error: priorError } = await ctx.supabase
+        .from("paper_trades")
+        .select("id, shares, cash_after")
+        .eq("user_id", ctx.userId)
+        .eq("client_order_id", data.clientOrderId)
+        .maybeSingle();
+      if (priorError) throw new Error(priorError.message);
+      if (prior) {
+        return { status: "already_filled" as const, tradeId: prior.id, shares: Number(prior.shares), cashAfter: Number(prior.cash_after) };
+      }
+    }
     const account = await loadAccount(ctx);
     const gates = await evaluateGates(ctx, account, data.market, data.sizeUsd);
     if (!gates.every((g) => g.allowed)) {
@@ -241,6 +215,8 @@ export const paperBuy = createServerFn({ method: "POST" })
       cash_after: cashAfter,
       reason: data.reason,
       gates,
+      client_order_id: data.clientOrderId ?? null,
+      execution_mode: "paper",
     });
 
     return { status: "filled" as const, gates, shares, cashAfter };
