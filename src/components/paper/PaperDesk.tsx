@@ -107,7 +107,7 @@ export function PaperDesk() {
       }
       invalidate();
     },
-    onError: () => toast.error("Paper buy failed"),
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const sellMutation = useMutation({
@@ -120,7 +120,7 @@ export function PaperDesk() {
       }
       invalidate();
     },
-    onError: () => toast.error("Paper close failed"),
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const resetMutation = useMutation({
@@ -163,7 +163,7 @@ export function PaperDesk() {
             <AlertTriangle className="size-3" /> paper engine — simulated money only
           </span>
           <span className="tape text-[10px] uppercase text-muted-foreground">
-            engine {state.isError ? "offline" : state.data ? "active" : "connecting"} · quotes{" "}
+            engine {state.isError ? state.error.message : state.data ? "active" : "connecting"} · quotes{" "}
             {status.data?.source === "worker" ? "worker feed" : "demo feed"}
           </span>
           <button
@@ -262,12 +262,14 @@ export function PaperDesk() {
                   <span className="truncate text-muted-foreground">{g.reason}</span>
                 </p>
               ))}
-              {!gates.data ? <p className="tape text-[10px] text-muted-foreground">evaluating…</p> : null}
+              {gates.isError ? <p className="tape text-[10px] text-down">{gates.error.message}</p> : null}
+              {!gates.data && !gates.isError ? <p className="tape text-[10px] text-muted-foreground">evaluating…</p> : null}
             </div>
 
+            {state.isError ? <p className="tape text-[10px] text-down">paper ledger unavailable — paper buy is disabled</p> : null}
             <button
               onClick={() => buyMutation.mutate()}
-              disabled={!selected || askPrice <= 0 || sizeUsd <= 0 || buyMutation.isPending || gates.data?.allowed === false}
+              disabled={state.isError || !state.data || !selected || askPrice <= 0 || sizeUsd <= 0 || buyMutation.isPending || gates.isError || gates.data?.allowed === false}
               className="tape w-full rounded border border-primary/60 bg-primary/20 px-2 py-2 text-[11px] uppercase text-primary disabled:opacity-40"
             >
               {buyMutation.isPending ? "submitting…" : "paper buy"}
