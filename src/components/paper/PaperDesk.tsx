@@ -46,6 +46,20 @@ type PaperTrade = {
   cashAfter: number;
 };
 
+type PaperReceipt = {
+  orderId: string;
+  state: string;
+  status?: string;
+  requestedShares: number;
+  filledShares: number;
+  remainingShares: number;
+  avgFillPrice?: number;
+  fees: number;
+  slippage?: number;
+  realizedPnl?: number;
+  reason?: string;
+};
+
 export function PaperDesk() {
   const fetchState = useServerFn(getPaperState);
   const fetchStatus = useServerFn(getBotStatus);
