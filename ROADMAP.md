@@ -1,5 +1,17 @@
 # Roadmap
 
+## 0.4.0 Architecture Clarification & Realism
+
+- [x] **[SIM]** Move market maker hook and dashboard panels under `src/simulation/` with explicit simulation-only markers.
+- [x] **[WORKER]** Add market quality filters and configurable defaults.
+- [x] **[WORKER]** Make the arb threshold volatility-aware and cap fractional Kelly sizing.
+- [x] **[WORKER]** Protect the status API with optional `X-API-Token` authentication.
+- [x] **[WORKER]** Add backtest slippage, copy-trading eligibility filters, and a consecutive-loss pause.
+- [x] **[WORKER]** Add validated dependency extras and keep paper mode as the default.
+- [ ] **[WORKER]** WebSocket CLOB feed.
+- [ ] **[WORKER]** Hedged Kalshi execution.
+
+
 Prioritized plan for the Polymarket Quant Bot. Order may change based on usage and market structure.
 
 ## Just shipped (v0.3.0) — see CHANGELOG.md for full detail

@@ -1,6 +1,9 @@
 # Feature implementation notes
 
-## Stack mapping
+> Ownership tags: **[SIM]** = browser/Supabase simulation; **[WORKER]** = Python bot worker.
+
+
+## Stack mapping [SIM]
 
 The requested "Supabase Edge Functions only" backend maps onto this project's
 TanStack Start runtime as **server functions** (`createServerFn`) plus one
@@ -18,7 +21,7 @@ runs client-side as requested.
 | wallet positions | `fetchWalletPositions` in `src/lib/copy.functions.ts` |
 | alert monitor (cron) | `POST /api/public/hooks/monitor-alerts` (cron-secret auth, service role) |
 
-## Priority 1
+## Priority 1 [SIM]
 
 1. **Market making** — `src/hooks/useMarketMaker.ts` opens a Binance trade
    WebSocket, quotes both sides at `spreadBps/2` around mid, simulates fills
@@ -34,7 +37,7 @@ runs client-side as requested.
 4. **Cooldown** — `CooldownTimer` reads server state every 30s, ticks locally,
    and can arm a cooldown that survives reloads (`cooldown_state`).
 
-## Priority 2
+## Priority 2 [SIM]
 
 5. **Plugin strategies** — `src/strategies/registry.ts` declares plugins whose
    parameter editors are `React.lazy()` code-split modules; enable/disable and
@@ -46,7 +49,7 @@ runs client-side as requested.
    evaluates kill-switch / daily-loss / drawdown / win-rate thresholds hourly,
    is idempotent per rule per hour, and delivers via webhook.
 
-## Schema
+## Schema [SIM]
 
 All tables carry `id`, `created_at`, `updated_at`, and a `user_id` owner with
 RLS restricted to `auth.uid()`: `mm_trades`, `copy_watchlist`, `copy_trades`,
@@ -56,13 +59,13 @@ user+name), `backtest_results`, `alert_config`, `alert_history`,
 by authenticated users, writable only by the service role. Realtime is enabled
 on `mm_trades`, `cooldown_state`, `alert_history`.
 
-## Dependencies
+## Dependencies [SIM]
 
 `@supabase/supabase-js`, `@tanstack/react-query`, `recharts` and `date-fns`
 were already in `package.json`; no additions were required. Realtime ships
 inside `@supabase/supabase-js`.
 
-## Scheduling the monitor
+## Scheduling the monitor [SIM]
 
 ```sql
 select cron.schedule(
@@ -75,3 +78,9 @@ select cron.schedule(
      ) $$
 );
 ```
+
+
+## Ownership index
+
+- **[SIM]** Browser market making, copy trading, backtesting, and alert configuration in `src/simulation/`.
+- **[WORKER]** Market discovery, strategy evaluation, execution gates, ledgers, status API, and worker backtesting in `bot/`.

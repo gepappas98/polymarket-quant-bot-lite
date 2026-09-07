@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass, field
+from pydantic import BaseModel, Field, ValidationError
 from typing import Dict, List
 from dotenv import load_dotenv
 
@@ -21,6 +22,29 @@ def _parse_asset_map(raw: str) -> Dict[str, float]:
     return out
 
 
+
+class NewEnvSettings(BaseModel):
+    """Validated settings introduced by the architecture/realism refactor."""
+    min_liquidity_usd: float = Field(default=2000.0, ge=0)
+    max_spread: float = Field(default=0.08, ge=0, le=1)
+    min_time_to_expiry_sec: float = Field(default=45.0, ge=0)
+    api_token: str = Field(default="")
+    max_consecutive_losses: int = Field(default=5, ge=1)
+
+def _new_env_settings() -> NewEnvSettings:
+    try:
+        return NewEnvSettings(
+            min_liquidity_usd=os.getenv("MIN_LIQUIDITY_USD", "2000"),
+            max_spread=os.getenv("MAX_SPREAD", "0.08"),
+            min_time_to_expiry_sec=os.getenv("MIN_TIME_TO_EXPIRY_SEC", "45"),
+            api_token=os.getenv("API_TOKEN", ""),
+            max_consecutive_losses=os.getenv("MAX_CONSECUTIVE_LOSSES", "5"),
+        )
+    except ValidationError as exc:
+        raise ValueError(f"Invalid new worker environment settings: {exc}") from exc
+
+_new_settings = _new_env_settings()
+
 @dataclass
 class Config:
     # Mode — live requires double opt-in (see gates.is_live_trading_allowed)
@@ -33,6 +57,13 @@ class Config:
     # Markets
     assets: List[str] = field(default_factory=lambda: os.getenv("ASSETS", "BTC,ETH,SOL,XRP").split(","))
     windows: List[int] = field(default_factory=lambda: [int(x) for x in os.getenv("WINDOWS", "5,15").split(",")])
+
+    # Validated market-quality and API safety defaults
+    min_liquidity_usd: float = _new_settings.min_liquidity_usd
+    max_spread: float = _new_settings.max_spread
+    min_time_to_expiry_sec: float = _new_settings.min_time_to_expiry_sec
+    api_token: str = _new_settings.api_token
+    max_consecutive_losses: int = _new_settings.max_consecutive_losses
 
     # Risk
     max_order_usd: float = float(os.getenv("MAX_ORDER_USD", "25"))

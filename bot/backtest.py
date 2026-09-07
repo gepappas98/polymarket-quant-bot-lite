@@ -130,6 +130,8 @@ class BacktestFill:
     queue_ahead: float = 0.0
     latency_sec: float = 0.0
     simulated: bool = True
+    fill_price: Optional[float] = None
+    modeled_slippage_usd: float = 0.0
 
     @property
     def net_pnl_usd(self) -> float:
@@ -204,12 +206,19 @@ def _simulate_taker(intent: Intent, snap: Snapshot, consumed: Dict[tuple, float]
     if shares <= 0:
         return None
     avg = consumed_usd / shares
+    book_depth = max(sum(float(level.get("size", 0.0)) * float(level.get("price", 0.0)) for level in levels), 1e-9)
+    side_sign = 1 if intent.action == "BUY" else -1
+    fill_price = max(0.0, min(1.0, intent.price + (0.005 + 0.01 * intent.size_usd / book_depth) * side_sign))
+    # Keep the public price as the observed VWAP for compatibility; the modeled
+    # fill price is reflected in slippage cost and therefore net P&L.
+    modeled_slippage_usd = abs(fill_price - intent.price) * shares
     fee = consumed_usd * max(0.0, cfg.paper_fee_bps) / 10_000
     return BacktestFill(
         ts=snap.ts, market_slug=intent.market_slug,
         side=intent.side.value, price=avg, size_usd=consumed_usd,
         reason="SIMULATED_FILL", requested_usd=intent.size_usd,
-        fee_usd=fee, slippage_usd=slippage,
+        fee_usd=fee, slippage_usd=slippage, fill_price=fill_price,
+        modeled_slippage_usd=modeled_slippage_usd,
     )
 
 

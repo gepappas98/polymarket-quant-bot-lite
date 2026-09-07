@@ -1,3 +1,7 @@
+/** @SIMULATION_ONLY - Browser paper-trading, Supabase-backed, DOES NOT PLACE REAL ORDERS. Real orders only via bot/ worker. */
+export const IS_SIMULATION_ONLY = true;
+
+import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -69,12 +73,14 @@ export function CopyTradingPanel() {
   });
 
   const mirrored = new Map<string, number>();
-  for (const t of trades ?? []) mirrored.set(t.market, (mirrored.get(t.market) ?? 0) + Number(t.size));
+  for (const t of trades ?? [])
+    mirrored.set(t.market, (mirrored.get(t.market) ?? 0) + Number(t.size));
 
   const totalPnl = (trades ?? []).reduce((a, t) => a + Number(t.pnl), 0);
 
   return (
     <Panel title="Copy trading" hint="polymarket wallets" className="overflow-hidden">
+      <Badge variant="outline">Simulated • No real funds • Supabase only</Badge>
       <div className="grid gap-3 px-4 py-4 sm:grid-cols-[2fr_1fr_auto]">
         <div className="space-y-1.5">
           <Label className="label-caps" htmlFor="ct-wallet">
@@ -94,7 +100,10 @@ export function CopyTradingPanel() {
           <Input id="ct-label" value={label} onChange={(e) => setLabel(e.target.value)} />
         </div>
         <div className="flex items-end">
-          <Button onClick={() => addWallet.mutate()} disabled={!/^0x[a-fA-F0-9]{40}$/.test(wallet.trim())}>
+          <Button
+            onClick={() => addWallet.mutate()}
+            disabled={!/^0x[a-fA-F0-9]{40}$/.test(wallet.trim())}
+          >
             Watch
           </Button>
         </div>
@@ -142,7 +151,8 @@ export function CopyTradingPanel() {
       {selected ? (
         <div className="border-b border-border">
           <div className="label-caps px-4 py-2">
-            Position diff · {isFetching ? "loading…" : positions?.ok ? "live" : (positions?.reason ?? "")}
+            Position diff ·{" "}
+            {isFetching ? "loading…" : positions?.ok ? "live" : (positions?.reason ?? "")}
           </div>
           <table className="w-full text-left">
             <thead>
@@ -169,7 +179,9 @@ export function CopyTradingPanel() {
                     >
                       {mine.toFixed(2)}
                     </td>
-                    <td className={`tape px-4 py-2 text-right ${p.pnl >= 0 ? "text-up" : "text-down"}`}>
+                    <td
+                      className={`tape px-4 py-2 text-right ${p.pnl >= 0 ? "text-up" : "text-down"}`}
+                    >
                       {usd(p.pnl)}
                     </td>
                     <td className="px-4 py-2 text-right">

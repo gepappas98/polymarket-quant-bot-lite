@@ -79,6 +79,11 @@ def _depth_ok(state: MarketState, side: Side) -> bool:
     return (float(size) * float(book.best_ask)) >= min_d
 
 
+def dynamic_arb_threshold(btc_1h_volatility: float = 0.0) -> float:
+    """Lower the arb threshold as BTC one-hour volatility rises."""
+    return max(0.965, min(0.985, 0.985 - 0.5 * max(0.0, btc_1h_volatility)))
+
+
 class Strategy:
     def __init__(self) -> None:
         self.book = InventoryBook()
@@ -206,7 +211,8 @@ class Strategy:
                     return self._swarm_filter(state, intents)
 
         # 1. Instant complete-set
-        if sum_asks <= cfg.arb_threshold and remaining >= 10:
+        btc_vol = float(getattr(state, "btc_1h_volatility", 0.0) or state.market.get("btc_1h_volatility", 0.0) or 0.0)
+        if sum_asks <= dynamic_arb_threshold(btc_vol) and remaining >= 10:
             size = min(cfg.max_order_usd, remaining / 2)
             if size * 2 > remaining:
                 return self._swarm_filter(state, intents)

@@ -225,6 +225,12 @@ def _prometheus_metrics() -> str:
 
 class _Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        if cfg.api_token and self.headers.get("X-API-Token") != cfg.api_token:
+            self.send_response(401)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"error":"unauthorized"}')
+            return
         if self.path in ("/", "/status", "/health", "/healthz"):
             try:
                 body = json.dumps(build_status()).encode("utf-8")

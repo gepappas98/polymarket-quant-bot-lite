@@ -95,12 +95,41 @@ def parse_event(event: Dict) -> Optional[Dict]:
     }
 
 
+
+def _market_quality_ok(market: Dict) -> bool:
+    """Reject illiquid, wide, or nearly-expired markets before strategy evaluation."""
+    raw = market.get("raw") or market
+    liquidity = float(raw.get("liquidity") or raw.get("liquidityNum") or raw.get("liquidity_usd") or 0)
+    spread = raw.get("spread")
+    if spread is None:
+        spread = raw.get("spread_pct")
+    spread = float(spread or 0)
+    expiry = raw.get("time_to_expiry") or raw.get("timeToExpiry")
+    if expiry is None and market.get("end_date"):
+        try:
+            from datetime import datetime, timezone
+            end = datetime.fromisoformat(str(market["end_date"]).replace("Z", "+00:00"))
+            expiry = (end - datetime.now(timezone.utc)).total_seconds()
+        except (TypeError, ValueError):
+            expiry = 0
+    expiry = float(expiry or 0)
+    if liquidity < cfg.min_liquidity_usd:
+        log.debug("Skipping %s: liquidity %.2f < %.2f", market.get("slug"), liquidity, cfg.min_liquidity_usd)
+        return False
+    if spread > cfg.max_spread:
+        log.debug("Skipping %s: spread %.4f > %.4f", market.get("slug"), spread, cfg.max_spread)
+        return False
+    if expiry < cfg.min_time_to_expiry_sec:
+        log.debug("Skipping %s: expiry %.1fs < %.1fs", market.get("slug"), expiry, cfg.min_time_to_expiry_sec)
+        return False
+    return True
+
 def find_active_market(asset: str, window_minutes: int) -> Optional[Dict]:
     """Find the currently active Up/Down market for the given asset + window."""
     window_ts = current_window_start(window_minutes)
     for slug in slug_candidates(asset, window_minutes, window_ts):
         m = fetch_market_by_slug(slug)
-        if m and m.get("active") and m.get("accepting_orders"):
+        if m and m.get("active") and m.get("accepting_orders") and _market_quality_ok(m):
             m["window_minutes"] = window_minutes
             m["window_ts"] = window_ts
             m["asset"] = asset.upper()

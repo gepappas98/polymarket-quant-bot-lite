@@ -32,6 +32,23 @@ def session_pnl() -> float:
     return sum(e.pnl_usd or 0.0 for e in ledger._entries if e.kind == "outcome")
 
 
+
+def consecutive_loss_gate() -> GateResult:
+    """Pause all new intents for 30 minutes after configured consecutive losses."""
+    outcomes = [e for e in ledger._entries if e.kind == "outcome"]
+    streak = 0
+    for entry in reversed(outcomes):
+        if (entry.pnl_usd or 0.0) < 0:
+            streak += 1
+        else:
+            break
+    if streak < cfg.max_consecutive_losses:
+        return GateResult(allowed=True)
+    last_loss_ts = getattr(outcomes[-1], "ts", time.time()) if outcomes else time.time()
+    if time.time() - float(last_loss_ts) < 30 * 60:
+        return GateResult(allowed=False, reason=f"consecutive losses: {streak}; 30 minute pause")
+    return GateResult(allowed=True)
+
 def max_drawdown_gate() -> GateResult:
     """
     Fail-closed portfolio kill switch: once cumulative session PnL breaches

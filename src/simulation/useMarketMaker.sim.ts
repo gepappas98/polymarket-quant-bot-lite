@@ -1,3 +1,6 @@
+/** @SIMULATION_ONLY - Browser paper-trading, Supabase-backed, DOES NOT PLACE REAL ORDERS. Real orders only via bot/ worker. */
+export const IS_SIMULATION_ONLY = true;
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { getCooldown, logTrade } from "@/lib/trading.functions";
@@ -43,7 +46,7 @@ export function useMarketMaker(opts: MmOptions) {
   const runningRef = useRef(running);
   runningRef.current = running;
 
-  const half = (spreadBps / 10_000) / 2;
+  const half = spreadBps / 10_000 / 2;
   const bid = price !== null ? price * (1 - half) : null;
   const ask = price !== null ? price * (1 + half) : null;
 
@@ -57,16 +60,28 @@ export function useMarketMaker(opts: MmOptions) {
           newInv > 0 ? (avgCostRef.current * invRef.current + fillPrice * qty) / newInv : fillPrice;
         invRef.current = newInv;
       } else {
-        pnl = (fillPrice - (avgCostRef.current || fillPrice)) * Math.min(qty, Math.max(invRef.current, 0));
+        pnl =
+          (fillPrice - (avgCostRef.current || fillPrice)) *
+          Math.min(qty, Math.max(invRef.current, 0));
         invRef.current -= qty;
       }
       setInventory(Math.round(invRef.current * 1e6) / 1e6);
       setRealizedPnl((p) => Math.round((p + pnl) * 100) / 100);
-      setFills((f) => [{ ts: Date.now(), side, price: fillPrice, size: qty, pnl }, ...f].slice(0, 50));
+      setFills((f) =>
+        [{ ts: Date.now(), side, price: fillPrice, size: qty, pnl }, ...f].slice(0, 50),
+      );
 
       try {
         await log({
-          data: { table: "mm_trades", market, side, price: fillPrice, size: qty, pnl, strategy: "market_making" },
+          data: {
+            table: "mm_trades",
+            market,
+            side,
+            price: fillPrice,
+            size: qty,
+            pnl,
+            strategy: "market_making",
+          },
         });
         await cooldown({ data: { market, arm: true, cooldownSeconds } });
       } catch {
@@ -87,8 +102,12 @@ export function useMarketMaker(opts: MmOptions) {
         const p = Number(msg.p);
         if (!Number.isFinite(p)) return;
         setPrice((prev) => {
-          if (runningRef.current && prev !== null && Date.now() - lastFillRef.current > MIN_FILL_GAP_MS) {
-            const h = (spreadBps / 10_000) / 2;
+          if (
+            runningRef.current &&
+            prev !== null &&
+            Date.now() - lastFillRef.current > MIN_FILL_GAP_MS
+          ) {
+            const h = spreadBps / 10_000 / 2;
             if (p <= prev * (1 - h)) {
               lastFillRef.current = Date.now();
               void onFill("BUY", p);
@@ -106,7 +125,8 @@ export function useMarketMaker(opts: MmOptions) {
     return () => ws.close();
   }, [symbol, spreadBps, onFill]);
 
-  const unrealized = price !== null && inventory !== 0 ? (price - avgCostRef.current) * inventory : 0;
+  const unrealized =
+    price !== null && inventory !== 0 ? (price - avgCostRef.current) * inventory : 0;
 
   return {
     price,

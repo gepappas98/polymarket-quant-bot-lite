@@ -47,7 +47,10 @@ class CopyTradingConfig:
         ]
     )
     size_multiplier: float = float(os.getenv("COPY_TRADING_SIZE_MULTIPLIER", "0.1"))
-    min_target_trade_usd: float = float(os.getenv("COPY_TRADING_MIN_TRADE_USD", "20"))
+    min_target_trade_usd: float = float(os.getenv("COPY_TRADING_MIN_TRADE_USD", "10"))
+    min_target_trades: int = int(os.getenv("COPY_TRADING_MIN_TRADES", "100"))
+    min_history_days: int = int(os.getenv("COPY_TRADING_MIN_HISTORY_DAYS", "30"))
+    max_price_move_after_target: float = float(os.getenv("COPY_TRADING_MAX_PRICE_MOVE_AFTER_TARGET", "0.02"))
     poll_interval_sec: float = float(os.getenv("COPY_TRADING_POLL_INTERVAL_SEC", "15"))
     max_trade_age_sec: float = float(os.getenv("COPY_TRADING_MAX_TRADE_AGE_SEC", "120"))
     http_timeout: float = 6.0
@@ -85,7 +88,13 @@ class CopyTradingStrategy:
         self._pending_by_token.clear()
 
         for wallet in self.cfg.target_wallets:
-            for trade in self._fetch_wallet_activity(wallet):
+            activity = self._fetch_wallet_activity(wallet)
+            if len(activity) < self.cfg.min_target_trades:
+                continue
+            oldest = [float(t.get("timestamp") or 0) for t in activity if t.get("timestamp")]
+            if not oldest or now - min(oldest) < self.cfg.min_history_days * 86400:
+                continue
+            for trade in activity:
                 trade_id = str(trade.get("id") or trade.get("transactionHash") or "")
                 if not trade_id or trade_id in self._seen_trade_ids:
                     continue
@@ -94,6 +103,10 @@ class CopyTradingStrategy:
                     continue
                 usd_size = float(trade.get("usdcSize") or trade.get("size") or 0)
                 if usd_size < self.cfg.min_target_trade_usd:
+                    continue
+                target_price = float(trade.get("price") or 0)
+                current_price = float(trade.get("currentPrice") or trade.get("current_price") or target_price)
+                if abs(current_price - target_price) > self.cfg.max_price_move_after_target:
                     continue
                 if str(trade.get("side", "")).upper() != "BUY":
                     continue  # αναπαράγουμε μόνο buys — τα sells/exits τα κρίνει ο δικός μας risk layer

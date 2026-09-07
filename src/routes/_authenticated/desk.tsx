@@ -3,12 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSupabaseUser } from "@/hooks/useSupabaseUser";
 import { Button } from "@/components/ui/button";
 import { MarketMakingPanel } from "@/components/desk/MarketMakingPanel";
-import { CopyTradingPanel } from "@/components/desk/CopyTradingPanel";
+import { CopyTradingPanel } from "@/simulation/CopyTradingPanel";
 import { KellySlider } from "@/components/desk/KellySlider";
 import { CooldownTimer } from "@/components/desk/CooldownTimer";
 import { StrategyManager } from "@/components/desk/StrategyManager";
-import { BacktestConfig } from "@/components/desk/BacktestConfig";
-import { AlertConfigPanel } from "@/components/desk/AlertConfigPanel";
+import { BacktestConfig } from "@/simulation/BacktestConfig";
+import { AlertConfigPanel } from "@/simulation/AlertConfigPanel";
 import { NavLinks } from "@/components/dashboard/NavLinks";
 
 export const Route = createFileRoute("/_authenticated/desk")({

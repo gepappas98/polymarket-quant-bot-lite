@@ -58,6 +58,8 @@ for how the two relate.
 
 ## Features
 
+Feature ownership is explicit: **[SIM]** browser/Supabase paper simulations; **[WORKER]** Python worker capabilities. See [docs/FEATURES.md](docs/FEATURES.md).
+
 | Area | What it does |
 |------|----------------|
 | **Market discovery** | Finds live Up/Down markets for configurable assets and windows via the Gamma API |
@@ -177,6 +179,8 @@ inline comments — see the "STRATEGY PLUGINS" section.
 ---
 
 ## Architecture
+
+> **[SIM]** `src/simulation/` is browser paper-trading only; **[WORKER]** `bot/` is the only real-order path. See [architecture clarification](docs/ARCHITECTURE_CLARIFICATION.md).
 
 ```
 bot/
@@ -320,6 +324,7 @@ polymarket-quant-bot/
 ├── bot/                  # Python trading worker (see Architecture)
 ├── tests/                # pytest suite for bot/
 ├── src/                  # React/TanStack dashboard
+│   └── simulation/       # [SIM] Supabase-backed browser paper trading
 ├── supabase/              # dashboard's own schema (migrations/) + config
 ├── deploy/                 # Prometheus + Grafana compose stack
 ├── docs/FEATURES.md         # spec-to-implementation mapping for the dashboard

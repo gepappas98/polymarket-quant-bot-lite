@@ -17,7 +17,7 @@ from .config import cfg
 from .strategy import Intent, Strategy
 from .gates import gate_intent, is_live_trading_allowed
 from .ledger import ledger, LedgerEntry
-from .portfolio_gates import max_drawdown_gate, pair_lock
+from .portfolio_gates import consecutive_loss_gate, max_drawdown_gate, pair_lock
 from .daily_limit import check as daily_limit_check
 from . import metrics
 from .execution import Order as ExecutionOrder, OrderBook as ExecutionBook, PaperFillEngine
@@ -95,6 +95,12 @@ class PaperExecutor:
                 metrics.record_blocked("daily_kill")
             return results
 
+        loss_pause = consecutive_loss_gate()
+        if not loss_pause.allowed:
+            for intent in intents:
+                ledger.record_intent(intent, dry_run=True, blocked=True, block_reason=loss_pause.reason or "")
+                metrics.record_blocked("consecutive_losses")
+            return results
         drawdown = max_drawdown_gate()
         if not drawdown.allowed:
             for intent in intents:
@@ -189,6 +195,12 @@ class PaperExecutor:
                 status="killed",
             ))
             metrics.set_kill_switch_active(True)
+            return True
+
+        loss_pause = consecutive_loss_gate()
+        if not loss_pause.allowed:
+            log.error(f"PAUSE: {loss_pause.reason}")
+            metrics.set_kill_switch_active(False)
             return True
 
         drawdown = max_drawdown_gate()

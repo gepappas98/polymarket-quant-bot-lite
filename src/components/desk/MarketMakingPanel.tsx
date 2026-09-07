@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getMmStats } from "@/lib/trading.functions";
-import { useMarketMaker } from "@/hooks/useMarketMaker";
+import { useMarketMaker } from "@/simulation/useMarketMaker.sim";
 
 const SYMBOLS = [
   { symbol: "btcusdt", label: "BTC" },
@@ -37,6 +38,7 @@ export function MarketMakingPanel() {
       hint={mm.connected ? `${symbol} feed live` : "connecting feed…"}
       className="overflow-hidden"
     >
+      <Badge variant="outline">Simulated • No real funds • Supabase only</Badge>
       <div className="grid gap-3 px-4 py-4 sm:grid-cols-4">
         <div className="space-y-1.5">
           <Label className="label-caps">Symbol</Label>
@@ -121,10 +123,19 @@ export function MarketMakingPanel() {
             <LineChart data={stats.equityCurve}>
               <YAxis hide domain={["auto", "auto"]} />
               <Tooltip
-                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}
+                contentStyle={{
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                }}
                 labelFormatter={(l) => new Date(String(l)).toLocaleTimeString()}
               />
-              <Line type="monotone" dataKey="pnl" dot={false} strokeWidth={1.5} stroke="currentColor" />
+              <Line
+                type="monotone"
+                dataKey="pnl"
+                dot={false}
+                strokeWidth={1.5}
+                stroke="currentColor"
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -144,7 +155,9 @@ export function MarketMakingPanel() {
               <span className={f.side === "BUY" ? "text-up" : "text-down"}>{f.side}</span>
               <span>{f.price.toFixed(2)}</span>
               <span className="text-muted-foreground">{f.size.toFixed(5)}</span>
-              <span className={`ml-auto ${f.pnl >= 0 ? "text-up" : "text-down"}`}>{usd(f.pnl)}</span>
+              <span className={`ml-auto ${f.pnl >= 0 ? "text-up" : "text-down"}`}>
+                {usd(f.pnl)}
+              </span>
             </li>
           ))
         )}

@@ -1,3 +1,7 @@
+/** @SIMULATION_ONLY - Browser paper-trading, Supabase-backed, DOES NOT PLACE REAL ORDERS. Real orders only via bot/ worker. */
+export const IS_SIMULATION_ONLY = true;
+
+import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -65,6 +69,7 @@ export function AlertConfigPanel() {
 
   return (
     <Panel title="Alerting" hint="kill-switch & loss monitors">
+      <Badge variant="outline">Simulated • No real funds • Supabase only</Badge>
       <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label className="label-caps">Trigger</Label>
@@ -131,7 +136,9 @@ export function AlertConfigPanel() {
                 <div className="text-sm">
                   {c.type} <span className="text-muted-foreground">via {c.channel}</span>
                 </div>
-                <div className="tape text-[10px] text-muted-foreground">threshold {c.threshold}</div>
+                <div className="tape text-[10px] text-muted-foreground">
+                  threshold {c.threshold}
+                </div>
               </div>
               <div className="ml-auto flex gap-2">
                 <Button
@@ -152,7 +159,10 @@ export function AlertConfigPanel() {
                   size="sm"
                   variant="ghost"
                   onClick={async () => {
-                    await supabase.from("alert_config").update({ active: !c.active }).eq("id", c.id);
+                    await supabase
+                      .from("alert_config")
+                      .update({ active: !c.active })
+                      .eq("id", c.id);
                     void qc.invalidateQueries({ queryKey: ["alert-config"] });
                   }}
                 >

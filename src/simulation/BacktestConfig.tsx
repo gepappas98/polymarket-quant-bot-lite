@@ -1,3 +1,7 @@
+/** @SIMULATION_ONLY - Browser paper-trading, Supabase-backed, DOES NOT PLACE REAL ORDERS. Real orders only via bot/ worker. */
+export const IS_SIMULATION_ONLY = true;
+
+import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Line, LineChart, ResponsiveContainer, Tooltip, YAxis } from "recharts";
@@ -85,6 +89,7 @@ export function BacktestConfig() {
 
   return (
     <Panel title="Backtesting" hint="in-browser simulation" className="overflow-hidden">
+      <Badge variant="outline">Simulated • No real funds • Supabase only</Badge>
       <div className="grid gap-3 px-4 py-4 sm:grid-cols-4">
         <div className="space-y-1.5">
           <Label className="label-caps">Symbol</Label>
@@ -116,7 +121,12 @@ export function BacktestConfig() {
           <Label className="label-caps" htmlFor="bt-start">
             Start
           </Label>
-          <Input id="bt-start" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+          <Input
+            id="bt-start"
+            type="date"
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+          />
         </div>
         <div className="space-y-1.5">
           <Label className="label-caps" htmlFor="bt-end">
@@ -151,10 +161,19 @@ export function BacktestConfig() {
               <LineChart data={result.equityCurve}>
                 <YAxis hide domain={["auto", "auto"]} />
                 <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}
+                  contentStyle={{
+                    background: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                  }}
                   labelFormatter={(l) => new Date(Number(l)).toLocaleString()}
                 />
-                <Line type="monotone" dataKey="equity" dot={false} strokeWidth={1.5} stroke="currentColor" />
+                <Line
+                  type="monotone"
+                  dataKey="equity"
+                  dot={false}
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>

@@ -52,10 +52,10 @@ def kelly_size_usd(inp: KellyInput, fraction_of_kelly: float = 0.5) -> float:
     ΣΥΝΤΗΡΗΤΙΚΟ όταν το edge είναι αμφίβολο, ποτέ πιο επιθετικό από το
     υπάρχον hard cap.
     """
-    fraction_of_kelly = min(max(fraction_of_kelly, 0.0), 1.0)
+    fraction_of_kelly = min(max(fraction_of_kelly, 0.0), 0.25)
     f = kelly_fraction(inp.win_prob, inp.price) * fraction_of_kelly
     size = f * max(inp.bankroll_usd, 0.0)
-    return round(min(size, cfg.max_order_usd), 2)
+    return round(min(size, cfg.max_order_usd, 0.15 * max(inp.bankroll_usd, 0.0)), 2)
 
 
 def kelly_size_from_edge(edge: float, price: float, bankroll_usd: float,
