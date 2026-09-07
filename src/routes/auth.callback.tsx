@@ -17,7 +17,9 @@ function AuthCallbackPage() {
 
     async function completeSignIn() {
       const params = new URLSearchParams(window.location.search);
-      const errorDescription = params.get("error_description") || params.get("error");
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const errorDescription =
+        params.get("error_description") || params.get("error") || hash.get("error_description") || hash.get("error");
       const code = params.get("code");
 
       if (errorDescription) {
