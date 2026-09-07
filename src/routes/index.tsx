@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getBotStatus } from "@/lib/bot.functions";
+import { buildDemoStatus } from "@/lib/bot-demo";
 import { NavLinks } from "@/components/dashboard/NavLinks";
 import { SimulateTradeWidget } from "@/components/dashboard/SimulateTradeWidget";
 import { SwarmAgentsPanel } from "@/components/dashboard/SwarmAgentsPanel";
@@ -98,10 +99,10 @@ function Dashboard() {
             {config.mode === "live" ? "live money" : "paper mode"}
           </span>
           <span className="tape rounded border border-border bg-muted px-2 py-1 text-[10px] uppercase text-muted-foreground">
-            {data.source === "worker" ? "worker feed" : "demo feed"}
+            {status.source === "worker" ? "worker feed" : "demo feed"}
           </span>
           <span className="tape rounded border border-border bg-muted px-2 py-1 text-[10px] uppercase text-muted-foreground">
-            up {uptime(data.uptimeSeconds)}
+            up {uptime(status.uptimeSeconds)}
           </span>
           <Link
             to="/desk"
@@ -119,21 +120,21 @@ function Dashboard() {
 
 
       <div className="mt-3">
-        <SwarmAgentsPanel swarm={data.swarm} />
+        <SwarmAgentsPanel swarm={status.swarm} />
       </div>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-2">
-          <MarketsTable markets={data.markets} arbThreshold={config.arbThreshold} />
-          <PnlChart series={data.pnlSeries} />
+          <MarketsTable markets={status.markets} arbThreshold={config.arbThreshold} />
+          <PnlChart series={status.pnlSeries} />
           <GatesPanel
-            gates={data.gates}
+            gates={status.gates}
             extra={
               riskGates.data
                 ? {
-                    ...(riskGates.data.gates.find((gate) => gate.name === "time_window")
+                    ...(riskGates.status.gates.find((gate) => gate.name === "time_window")
                       ? {
-                          timeWindow: riskGates.data.gates.find(
+                          timeWindow: riskGates.status.gates.find(
                             (gate) => gate.name === "time_window",
                           ),
                         }
@@ -147,7 +148,7 @@ function Dashboard() {
           <SimulateTradeWidget />
         </div>
         <div className="space-y-3">
-          <LedgerFeed rows={data.ledger} />
+          <LedgerFeed rows={status.ledger} />
           <ConfigPanel config={config} />
         </div>
       </div>
