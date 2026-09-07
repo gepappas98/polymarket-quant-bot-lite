@@ -143,7 +143,6 @@ export function PaperDesk() {
       });
     },
     onSuccess: (result) => {
-      setLastReceipt(result);
       if (result.status === "blocked") {
         toast.error(
           `Blocked: ${result.gates
@@ -152,6 +151,7 @@ export function PaperDesk() {
             .join(", ")}`,
         );
       } else if ("filledShares" in result) {
+        setLastReceipt(result as PaperReceipt);
         toast.success(
           `Paper ${result.state} ${result.filledShares.toFixed(2)} shares @ ${(result.avgFillPrice ?? 0).toFixed(3)}`,
         );
