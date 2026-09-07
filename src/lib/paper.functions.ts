@@ -17,14 +17,14 @@ type Ctx = { supabase: any; userId: string };
 
 async function loadAccount(ctx: Ctx) {
   const { data: existing, error } = await ctx.supabase
-    .from("paper_accounts")
+    .from("paper_account")
     .select("*")
     .eq("user_id", ctx.userId)
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (existing) return existing;
   const { data: created, error: insertError } = await ctx.supabase
-    .from("paper_accounts")
+    .from("paper_account")
     .insert({ user_id: ctx.userId, starting_bankroll: DEFAULT_BANKROLL, cash: DEFAULT_BANKROLL })
     .select("*")
     .single();
@@ -193,7 +193,7 @@ export const executePaperOrder = createServerFn({ method: "POST" })
       if (writeResult.error) throw new Error(writeResult.error.message);
     }
     const cashAfter = Number(account.cash) + (data.action === "BUY" ? -proceedsOrCost : proceedsOrCost);
-    const accountWrite = await ctx.supabase.from("paper_accounts").update({ cash: cashAfter, realized_pnl: Number(account.realized_pnl) + realized, updated_at: new Date().toISOString() }).eq("user_id", ctx.userId);
+    const accountWrite = await ctx.supabase.from("paper_account").update({ cash: cashAfter, realized_pnl: Number(account.realized_pnl) + realized, updated_at: new Date().toISOString() }).eq("user_id", ctx.userId);
     if (accountWrite.error) throw new Error(accountWrite.error.message);
     const tradeWrite = await ctx.supabase.from("paper_trades").insert({ user_id: ctx.userId, market: data.market, side: data.side, action: data.action, price: avgFillPrice, shares: filledShares, size_usd: notional, realized_pnl: realized, cash_after: cashAfter, reason: data.reason, gates, client_order_id: data.clientOrderId, execution_mode: "paper" });
     if (tradeWrite.error) throw new Error(tradeWrite.error.message);
@@ -271,7 +271,7 @@ export const paperBuy = createServerFn({ method: "POST" })
 
     const cashAfter = Number(account.cash) - data.sizeUsd;
     const { error: accountError } = await ctx.supabase
-      .from("paper_accounts")
+      .from("paper_account")
       .update({ cash: cashAfter, updated_at: new Date().toISOString() })
       .eq("user_id", ctx.userId);
     if (accountError) throw new Error(accountError.message);
@@ -340,7 +340,7 @@ export const paperSell = createServerFn({ method: "POST" })
 
     const cashAfter = Number(account.cash) + proceeds;
     await ctx.supabase
-      .from("paper_accounts")
+      .from("paper_account")
       .update({
         cash: cashAfter,
         realized_pnl: Number(account.realized_pnl) + realized,
@@ -378,7 +378,7 @@ export const resetPaperAccount = createServerFn({ method: "POST" })
     await ctx.supabase.from("paper_positions").delete().eq("user_id", ctx.userId);
     await ctx.supabase.from("paper_trades").delete().eq("user_id", ctx.userId);
     const { error } = await ctx.supabase
-      .from("paper_accounts")
+      .from("paper_account")
       .update({
         starting_bankroll: data.startingBankroll,
         cash: data.startingBankroll,
