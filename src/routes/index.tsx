@@ -113,6 +113,16 @@ function Dashboard() {
         </div>
       </header>
 
+      {workerDown ? (
+        <div className="panel mb-3 border-down/50 bg-down/10 px-4 py-3">
+          <p className="text-sm font-semibold text-down">Worker status unavailable</p>
+          <p className="tape mt-1 text-[11px] text-muted-foreground">
+            Showing demo, read-only figures until <code className="rounded bg-muted px-1">BOT_STATUS_URL</code>{" "}
+            points at a running worker. Risk API panels below are unaffected.
+          </p>
+        </div>
+      ) : null}
+
       <SystemStatusBar summary={summary.data} fallbackMode={config.mode} />
       <MetricCards summary={summary.data} />
 
