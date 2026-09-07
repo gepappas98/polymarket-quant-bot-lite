@@ -65,7 +65,7 @@ export function PaperDesk() {
   const fetchStatus = useServerFn(getBotStatus);
   const runGates = useServerFn(checkPaperGates);
   const execute = useServerFn(executePaperOrder);
-  const [lastReceipt, setLastReceipt] = useState<unknown>(null);
+  const [lastReceipt, setLastReceipt] = useState<PaperReceipt | null>(null);
   const reset = useServerFn(resetPaperAccount);
   const qc = useQueryClient();
 
