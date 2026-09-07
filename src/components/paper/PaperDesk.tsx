@@ -185,9 +185,11 @@ export function PaperDesk() {
       });
     },
     onSuccess: (result) => {
-      setLastReceipt(result);
-      if ("realizedPnl" in result) {
-        toast.success(`Closed — realized ${money(result.realizedPnl)}`);
+      if ("filledShares" in result) {
+        setLastReceipt(result as PaperReceipt);
+        if ("realizedPnl" in result && result.realizedPnl != null) {
+          toast.success(`Closed — realized ${money(result.realizedPnl)}`);
+        }
       }
       invalidate();
     },
