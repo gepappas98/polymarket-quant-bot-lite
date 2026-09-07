@@ -9,6 +9,7 @@
 - [x] Label live market input, paper execution, demo data, and test mocks distinctly.
 - [x] Preserve legitimate unit-test mocks and document remaining simulation paths in `docs/DATA_BOUNDARY_AUDIT.md`.
 - [ ] Consolidate worker and Supabase paper ledgers behind one read-only status path.
+- [x] Build the production REAL Polymarket CLOB L2 historical recorder with WebSocket primary ingestion, REST snapshot/reconciliation, restart-safe SQLite persistence, deduplication, stale detection, reconnects, retention, and recorder metrics.
 
 ## 0.4.0 Architecture Clarification & Realism
 
@@ -19,6 +20,7 @@
 - [x] **[WORKER]** Add backtest slippage, copy-trading eligibility filters, and a consecutive-loss pause.
 - [x] **[WORKER]** Add validated dependency extras and keep paper mode as the default.
 - [x] **[WORKER]** WebSocket CLOB feed with heartbeat, reconnect, local books, and REST fallback.
+- [x] **[RECORDER]** Persist REAL CLOB L2 snapshots/events for multiple tokens without changing live order execution.
 - [ ] **[WORKER]** Hedged Kalshi execution.
 
 

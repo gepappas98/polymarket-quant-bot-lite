@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- **P0 REAL historical recorder** — added `bot.historical_recorder` and `bot.recorder_service`: the public Polymarket CLOB market WebSocket is the primary source, `/book` is used for initial/reconnect/stale reconciliation, exact event timestamps are preserved, L2 price changes/deletes are applied locally, duplicate/malformed events are dropped, and snapshots are persisted restart-safely with `source=polymarket_clob` and `data_source=REAL`. This path is market-data-only and does not modify live execution.
 - **P0 data boundary** — added explicit REAL/PAPER/DEMO/MOCK metadata, stopped configured worker failures from silently becoming demo status, blocked browser paper execution against demo/proxy quotes, and documented the full source inventory and remaining risks in `docs/DATA_BOUNDARY_AUDIT.md`.
 - **Live CLOB paper quotes** — added a public Polymarket market-channel WebSocket client with book snapshots, incremental price updates, ten-second heartbeats, reconnect backoff, stale-book protection, and REST fallback. Paper mode remains simulated and never places live orders.
 - **Worker status authentication bridge** — the dashboard now forwards `BOT_STATUS_API_TOKEN` as `X-API-Token` when reading an authenticated worker status endpoint.
