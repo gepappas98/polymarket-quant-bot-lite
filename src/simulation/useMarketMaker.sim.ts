@@ -1,5 +1,8 @@
 /** @SIMULATION_ONLY - Browser paper-trading, Supabase-backed, DOES NOT PLACE REAL ORDERS. Real orders only via bot/ worker. */
 export const IS_SIMULATION_ONLY = true;
+/** Binance is real external data, but it is not a Polymarket CLOB book. */
+export const MARKET_DATA_SOURCE = "DEMO" as const;
+export const AUXILIARY_DATA_SOURCE = "REAL_BINANCE" as const;
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -25,7 +28,8 @@ export interface MmOptions {
 const MIN_FILL_GAP_MS = 4000;
 
 /**
- * Client-side market-making loop: live WebSocket price feed, two-sided quotes
+ * Client-side market-making loop: Binance trade feed used as a DEMO proxy,
+ * not Polymarket market data, with two-sided quotes
  * around mid, simulated fills when the tape crosses a quote. Every fill is
  * persisted through the log_trade server function and arms the cooldown.
  */

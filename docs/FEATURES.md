@@ -23,8 +23,9 @@ runs client-side as requested.
 
 ## Priority 1 [SIM]
 
-1. **Market making** — `src/hooks/useMarketMaker.ts` opens a Binance trade
-   WebSocket, quotes both sides at `spreadBps/2` around mid, simulates fills
+1. **Market making** — `src/simulation/useMarketMaker.sim.ts` opens a Binance
+   trade WebSocket as a **DEMO proxy** (real Binance data, not a Polymarket
+   CLOB book), quotes both sides at `spreadBps/2` around mid, simulates fills
    when the tape crosses a quote, persists each fill through `logTrade` and
    arms the cooldown. UI: `MarketMakingPanel` (spread, inventory, realized /
    unrealized / stored P&L, equity curve, fill tape).

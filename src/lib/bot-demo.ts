@@ -67,7 +67,13 @@ function buildLedger(rand: () => number, now: number): LedgerRow[] {
           : rand() > 0.5
             ? "complete-set arb: up_ask+down_ask <= threshold"
             : "directional edge tilt + inventory pair",
-      status: blocked ? "blocked" : kind === "fill" ? "filled" : kind === "outcome" ? "closed" : "open",
+      status: blocked
+        ? "blocked"
+        : kind === "fill"
+          ? "filled"
+          : kind === "outcome"
+            ? "closed"
+            : "open",
       dryRun: true,
       pnlUsd: kind === "outcome" ? Number(((rand() - 0.42) * 9).toFixed(2)) : null,
     });
@@ -140,6 +146,11 @@ export function buildDemoStatus(now = Date.now()): BotStatus {
 
   return {
     source: "demo",
+    data_source: "DEMO",
+    execution_mode: "DEMO",
+    market_data_source: "DEMO",
+    market_data_provider: "Browser demo generator",
+    is_simulated: true,
     generatedAt: now,
     uptimeSeconds: 4 * 3600 + 812,
     liveTradingAllowed: false,
@@ -177,16 +188,27 @@ export function buildDemoStatus(now = Date.now()): BotStatus {
     pnlSeries,
     markets,
     gates: [
-      { name: "Live trading double opt-in", allowed: false, reason: "MODE is not live (paper/safe)" },
+      {
+        name: "Live trading double opt-in",
+        allowed: false,
+        reason: "MODE is not live (paper/safe)",
+      },
       { name: "Daily loss kill-switch", allowed: true, reason: "session pnl above -200 USD limit" },
       { name: "Order size limit", allowed: true, reason: "max 25 USD per order" },
       { name: "Market exposure cap", allowed: true, reason: "max 150 USD per market" },
       {
         name: "Track-record gate (directional)",
         allowed: outcomes.length >= 12,
-        reason: outcomes.length >= 12 ? "win-rate above 48%" : "sample size below 12 outcomes — fail closed",
+        reason:
+          outcomes.length >= 12
+            ? "win-rate above 48%"
+            : "sample size below 12 outcomes — fail closed",
       },
-      { name: "Per-market cooldown", allowed: true, reason: "3 min lock after each admitted intent" },
+      {
+        name: "Per-market cooldown",
+        allowed: true,
+        reason: "3 min lock after each admitted intent",
+      },
     ],
     ledger,
     swarm: buildDemoSwarm(rand),

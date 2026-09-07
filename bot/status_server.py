@@ -32,6 +32,7 @@ from .swarm import AGENT_NAMES, DEFAULT_WEIGHTS
 from .gates import cooldown, is_live_trading_allowed
 from .ledger import ledger
 from .portfolio_gates import max_drawdown_gate, pair_lock, session_pnl
+from .data_boundary import worker_boundary
 
 log = logging.getLogger(__name__)
 
@@ -163,6 +164,9 @@ def build_status() -> Dict[str, Any]:
 
     return {
         "source": "worker",
+        **worker_boundary(execution_mode=cfg.mode),
+        "market_data_provider": "Polymarket CLOB REST/WebSocket",
+        "auxiliary_data_sources": {"spot": "Binance via ccxt"},
         "generatedAt": int(time.time() * 1000),
         "uptimeSeconds": int(time.time() - _start_time),
         "liveTradingAllowed": live.allowed,
@@ -303,4 +307,3 @@ def _swarm_from_ledger(limit: int = 30) -> dict:
         "agents": agents,
         "weights": dict(DEFAULT_WEIGHTS),
     }
-

@@ -2,13 +2,16 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getBotStatus } from "@/lib/bot.functions";
-import { buildDemoStatus } from "@/lib/bot-demo";
 import { NavLinks } from "@/components/dashboard/NavLinks";
 import { SimulateTradeWidget } from "@/components/dashboard/SimulateTradeWidget";
 import { SwarmAgentsPanel } from "@/components/dashboard/SwarmAgentsPanel";
 import { getMarketsSnapshot, getRiskGates, riskQueryKeys, analyticsQueryKeys } from "@/lib/riskApi";
 import { MarketSnapshot } from "@/components/dashboard/AnalyticsPanels";
-import { MetricCards, SystemStatusBar, useMetricsSummary } from "@/components/dashboard/MetricCards";
+import {
+  MetricCards,
+  SystemStatusBar,
+  useMetricsSummary,
+} from "@/components/dashboard/MetricCards";
 
 import {
   ConfigPanel,
@@ -73,8 +76,26 @@ function Dashboard() {
     );
   }
 
-  const workerDown = isError || !data;
-  const status = data ?? buildDemoStatus();
+  if (!data) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-16">
+        <div className="panel border-down/50 bg-down/10 px-4 py-5">
+          <h1 className="text-lg font-semibold text-down">REAL worker data unavailable</h1>
+          <p className="tape mt-2 text-[11px] text-muted-foreground">
+            No synthetic values are rendered. Configure BOT_STATUS_URL and restore the worker
+            connection.
+          </p>
+          <p className="tape mt-2 text-[11px] text-muted-foreground">
+            {isError
+              ? "Worker status request failed."
+              : "Waiting for an explicit worker status response."}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  const status = data;
   const { config } = status;
 
   return (
@@ -99,7 +120,7 @@ function Dashboard() {
             {config.mode === "live" ? "live money" : "paper mode"}
           </span>
           <span className="tape rounded border border-border bg-muted px-2 py-1 text-[10px] uppercase text-muted-foreground">
-            {status.source === "worker" ? "worker feed" : "demo feed"}
+            {status.data_source === "REAL" ? "LIVE MARKET DATA" : `${status.data_source} DATA`}
           </span>
           <span className="tape rounded border border-border bg-muted px-2 py-1 text-[10px] uppercase text-muted-foreground">
             up {uptime(status.uptimeSeconds)}
@@ -113,12 +134,12 @@ function Dashboard() {
         </div>
       </header>
 
-      {workerDown ? (
+      {status.data_source === "DEMO" ? (
         <div className="panel mb-3 border-down/50 bg-down/10 px-4 py-3">
-          <p className="text-sm font-semibold text-down">Worker status unavailable</p>
+          <p className="text-sm font-semibold text-down">DEMO DATA</p>
           <p className="tape mt-1 text-[11px] text-muted-foreground">
-            Showing demo, read-only figures until <code className="rounded bg-muted px-1">BOT_STATUS_URL</code>{" "}
-            points at a running worker. Risk API panels below are unaffected.
+            These values are synthetic and read-only. They are not Polymarket observations or worker
+            results.
           </p>
         </div>
       ) : null}
@@ -126,8 +147,11 @@ function Dashboard() {
       <SystemStatusBar summary={summary.data} fallbackMode={config.mode} />
       <MetricCards summary={summary.data} />
 
-      {snapshot.data ? <div className="mt-3"><MarketSnapshot markets={snapshot.data} /></div> : null}
-
+      {snapshot.data ? (
+        <div className="mt-3">
+          <MarketSnapshot markets={snapshot.data} />
+        </div>
+      ) : null}
 
       <div className="mt-3">
         <SwarmAgentsPanel swarm={status.swarm} />
@@ -168,9 +192,8 @@ function Dashboard() {
       </div>
 
       <footer className="tape mt-6 text-[10px] leading-relaxed text-muted-foreground">
-        Educational software. Not financial advice — paper trade first. Set{" "}
-        <code className="rounded bg-muted px-1 py-0.5">BOT_STATUS_URL</code> to point this dashboard
-        at a running worker; otherwise a demo feed is shown.
+        Educational software. Not financial advice — paper trade first. Data provenance is shown
+        explicitly; demo values are never presented as live worker status.
       </footer>
     </main>
   );

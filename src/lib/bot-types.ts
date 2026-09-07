@@ -1,4 +1,5 @@
 export type Mode = "paper" | "live";
+export type DataSource = "REAL" | "PAPER" | "DEMO" | "MOCK";
 
 export interface BotConfig {
   mode: Mode;
@@ -78,6 +79,13 @@ export interface SwarmSnapshot {
 
 export interface BotStatus {
   source: "worker" | "demo";
+  data_source: DataSource;
+  execution_mode: "PAPER" | "LIVE" | "DEMO" | "MOCK";
+  market_data_source: DataSource;
+  is_simulated: boolean;
+  market_data_provider?: string;
+  auxiliary_data_sources?: Record<string, string>;
+  status_error?: string;
   generatedAt: number;
   uptimeSeconds: number;
   liveTradingAllowed: boolean;

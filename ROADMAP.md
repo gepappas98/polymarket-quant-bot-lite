@@ -1,5 +1,15 @@
 # Roadmap
 
+## P0 — REAL vs PAPER vs DEMO/MOCK boundary (2026-09-08)
+
+- [x] Inventory Polymarket REST/WebSocket, metadata, trader activity, historical, Binance, Supabase, browser, demo, and test-fixture sources.
+- [x] Add explicit `data_source`, `execution_mode`, `market_data_source`, and `is_simulated` runtime metadata.
+- [x] Reject malformed worker status and stop silently replacing worker failures with DEMO values.
+- [x] Block browser paper orders and marking when only DEMO/proxy data is available.
+- [x] Label live market input, paper execution, demo data, and test mocks distinctly.
+- [x] Preserve legitimate unit-test mocks and document remaining simulation paths in `docs/DATA_BOUNDARY_AUDIT.md`.
+- [ ] Consolidate worker and Supabase paper ledgers behind one read-only status path.
+
 ## 0.4.0 Architecture Clarification & Realism
 
 - [x] **[SIM]** Move market maker hook and dashboard panels under `src/simulation/` with explicit simulation-only markers.

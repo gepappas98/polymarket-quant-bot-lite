@@ -51,7 +51,7 @@ export function PaperDesk() {
   const fetchStatus = useServerFn(getBotStatus);
   const runGates = useServerFn(checkPaperGates);
   const execute = useServerFn(executePaperOrder);
-  const [lastReceipt, setLastReceipt] = useState<any>(null);
+  const [lastReceipt, setLastReceipt] = useState<unknown>(null);
   const reset = useServerFn(resetPaperAccount);
   const qc = useQueryClient();
 
@@ -63,7 +63,10 @@ export function PaperDesk() {
         return await Promise.race([
           fetchState(),
           new Promise<never>((_, reject) => {
-            timer = setTimeout(() => reject(new Error("Paper state request timed out after 8 seconds")), 8_000);
+            timer = setTimeout(
+              () => reject(new Error("Paper state request timed out after 8 seconds")),
+              8_000,
+            );
           }),
         ]);
       } finally {
@@ -79,6 +82,7 @@ export function PaperDesk() {
   });
 
   const markets = (status.data?.markets ?? []) as PaperMarket[];
+  const hasRealMarketData = status.data?.market_data_source === "REAL";
   const [market, setMarket] = useState<string>("");
   const [side, setSide] = useState<"UP" | "DOWN">("UP");
   const [sizeUsd, setSizeUsd] = useState(100);
@@ -90,6 +94,7 @@ export function PaperDesk() {
   const askPrice = selected ? (side === "UP" ? selected.upAsk : selected.downAsk) : 0;
 
   const quoteFor = (slug: string, positionSide: "UP" | "DOWN") => {
+    if (!hasRealMarketData) return null;
     const row = markets.find((m) => m.slug === slug);
     if (!row) return null;
     return positionSide === "UP" ? row.upBid : row.downBid;
@@ -108,14 +113,34 @@ export function PaperDesk() {
   };
 
   const buyMutation = useMutation({
-    mutationFn: () =>
-      execute({ data: { action: "BUY", market: selected!.slug, side, price: askPrice, sizeUsd, clientOrderId: crypto.randomUUID(), reason: "manual paper buy" } }),
+    mutationFn: () => {
+      if (!hasRealMarketData)
+        throw new Error("Paper orders require REAL Polymarket market data; DEMO data is blocked");
+      return execute({
+        data: {
+          action: "BUY",
+          market: selected!.slug,
+          side,
+          price: askPrice,
+          sizeUsd,
+          clientOrderId: crypto.randomUUID(),
+          reason: "manual paper buy",
+        },
+      });
+    },
     onSuccess: (result) => {
       setLastReceipt(result);
       if (result.status === "blocked") {
-        toast.error(`Blocked: ${result.gates.filter((g) => !g.allowed).map((g) => g.name).join(", ")}`);
+        toast.error(
+          `Blocked: ${result.gates
+            .filter((g) => !g.allowed)
+            .map((g) => g.name)
+            .join(", ")}`,
+        );
       } else if ("filledShares" in result) {
-        toast.success(`Paper ${result.state} ${result.filledShares.toFixed(2)} shares @ ${(result.avgFillPrice ?? 0).toFixed(3)}`);
+        toast.success(
+          `Paper ${result.state} ${result.filledShares.toFixed(2)} shares @ ${(result.avgFillPrice ?? 0).toFixed(3)}`,
+        );
       }
       invalidate();
     },
@@ -123,8 +148,28 @@ export function PaperDesk() {
   });
 
   const sellMutation = useMutation({
-    mutationFn: (vars: { positionId: string; price: number; market: string; side: "UP" | "DOWN"; shares: number }) =>
-      execute({ data: { action: "SELL", positionId: vars.positionId, market: vars.market, side: vars.side, price: vars.price, sizeUsd: vars.shares * vars.price, clientOrderId: crypto.randomUUID(), reason: "manual paper close" } }),
+    mutationFn: (vars: {
+      positionId: string;
+      price: number;
+      market: string;
+      side: "UP" | "DOWN";
+      shares: number;
+    }) => {
+      if (!hasRealMarketData)
+        throw new Error("Paper closes require REAL Polymarket market data; DEMO data is blocked");
+      return execute({
+        data: {
+          action: "SELL",
+          positionId: vars.positionId,
+          market: vars.market,
+          side: vars.side,
+          price: vars.price,
+          sizeUsd: vars.shares * vars.price,
+          clientOrderId: crypto.randomUUID(),
+          reason: "manual paper close",
+        },
+      });
+    },
     onSuccess: (result) => {
       setLastReceipt(result);
       if ("realizedPnl" in result) {
@@ -146,12 +191,17 @@ export function PaperDesk() {
   const account = state.data?.account;
   const positions = state.data?.positions ?? [];
 
-  const unrealized = (positions as PaperPosition[]).reduce((sum: number, p: PaperPosition) => {
-    const bid = quoteFor(p.market, p.side);
-    if (bid == null) return sum;
-    return sum + (p.shares * bid - p.costUsd);
-  }, 0);
-  const openCost = (positions as PaperPosition[]).reduce((sum: number, p: PaperPosition) => sum + p.costUsd, 0);
+  const unrealized = hasRealMarketData
+    ? (positions as PaperPosition[]).reduce((sum: number, p: PaperPosition) => {
+        const bid = quoteFor(p.market, p.side);
+        if (bid == null) return sum;
+        return sum + (p.shares * bid - p.costUsd);
+      }, 0)
+    : 0;
+  const openCost = (positions as PaperPosition[]).reduce(
+    (sum: number, p: PaperPosition) => sum + p.costUsd,
+    0,
+  );
   const equity = (account?.cash ?? 0) + openCost + unrealized;
   const dailyUsedPct = account
     ? Math.min(100, Math.max(0, (-Math.min(0, account.dailyPnl) / account.dailyLossLimit) * 100))
@@ -175,8 +225,13 @@ export function PaperDesk() {
             <AlertTriangle className="size-3" /> paper engine — simulated money only
           </span>
           <span className="tape text-[10px] uppercase text-muted-foreground">
-            engine {state.isError ? state.error.message : state.data ? "active" : "connecting"} · quotes{" "}
-            {status.data?.source === "worker" ? "worker feed" : "demo feed"}
+            engine {state.isError ? state.error.message : state.data ? "active" : "connecting"} ·{" "}
+            {status.data?.market_data_source === "REAL"
+              ? "LIVE MARKET DATA"
+              : `${status.data?.data_source ?? "UNKNOWN"} DATA`}
+          </span>
+          <span className="tape rounded border border-primary/40 bg-primary/10 px-2 py-1 text-[10px] uppercase text-primary">
+            PAPER / SIMULATED EXECUTION
           </span>
           <button
             onClick={() => resetMutation.mutate()}
@@ -188,7 +243,11 @@ export function PaperDesk() {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="bankroll (equity)" value={money(equity)} sub={`cash ${money(account?.cash ?? 0)}`} />
+          <Stat
+            label="bankroll (equity)"
+            value={money(equity)}
+            sub={`cash ${money(account?.cash ?? 0)}`}
+          />
           <Stat
             label="unrealized p&l"
             value={money(unrealized)}
@@ -243,7 +302,11 @@ export function PaperDesk() {
                       : "border-border text-muted-foreground"
                   }`}
                 >
-                  {s === "UP" ? <ArrowUpRight className="mr-1 inline size-3" /> : <ArrowDownRight className="mr-1 inline size-3" />}
+                  {s === "UP" ? (
+                    <ArrowUpRight className="mr-1 inline size-3" />
+                  ) : (
+                    <ArrowDownRight className="mr-1 inline size-3" />
+                  )}
                   {s}
                 </button>
               ))}
@@ -260,7 +323,8 @@ export function PaperDesk() {
               />
             </label>
             <p className="tape text-[11px] text-muted-foreground">
-              ask {askPrice.toFixed(3)} · {askPrice > 0 ? (sizeUsd / askPrice).toFixed(1) : "0"} shares
+              ask {askPrice.toFixed(3)} · {askPrice > 0 ? (sizeUsd / askPrice).toFixed(1) : "0"}{" "}
+              shares
             </p>
 
             <div className="space-y-1 rounded border border-border bg-muted/40 p-2">
@@ -269,19 +333,39 @@ export function PaperDesk() {
               </p>
               {(gates.data?.gates ?? []).map((g: PaperGate) => (
                 <p key={g.name} className="tape flex items-baseline gap-2 text-[10px]">
-                  <span className={g.allowed ? "text-up" : "text-down"}>{g.allowed ? "PASS" : "BLOCK"}</span>
+                  <span className={g.allowed ? "text-up" : "text-down"}>
+                    {g.allowed ? "PASS" : "BLOCK"}
+                  </span>
                   <span className="text-foreground">{g.name}</span>
                   <span className="truncate text-muted-foreground">{g.reason}</span>
                 </p>
               ))}
-              {gates.isError ? <p className="tape text-[10px] text-down">{gates.error.message}</p> : null}
-              {!gates.data && !gates.isError ? <p className="tape text-[10px] text-muted-foreground">evaluating…</p> : null}
+              {gates.isError ? (
+                <p className="tape text-[10px] text-down">{gates.error.message}</p>
+              ) : null}
+              {!gates.data && !gates.isError ? (
+                <p className="tape text-[10px] text-muted-foreground">evaluating…</p>
+              ) : null}
             </div>
 
-            {state.isError ? <p className="tape text-[10px] text-down">paper ledger unavailable — paper buy is disabled</p> : null}
+            {state.isError ? (
+              <p className="tape text-[10px] text-down">
+                paper ledger unavailable — paper buy is disabled
+              </p>
+            ) : null}
             <button
               onClick={() => buyMutation.mutate()}
-              disabled={state.isError || !state.data || !selected || askPrice <= 0 || sizeUsd <= 0 || buyMutation.isPending || gates.isError || gates.data?.allowed === false}
+              disabled={
+                !hasRealMarketData ||
+                state.isError ||
+                !state.data ||
+                !selected ||
+                askPrice <= 0 ||
+                sizeUsd <= 0 ||
+                buyMutation.isPending ||
+                gates.isError ||
+                gates.data?.allowed === false
+              }
               className="tape w-full rounded border border-primary/60 bg-primary/20 px-2 py-2 text-[11px] uppercase text-primary disabled:opacity-40"
             >
               {buyMutation.isPending ? "submitting…" : "paper buy"}
@@ -320,8 +404,16 @@ export function PaperDesk() {
                           <td className={`text-right ${pnlClass(upnl)}`}>{money(upnl)}</td>
                           <td className="text-right">
                             <button
-                              disabled={bid == null || sellMutation.isPending}
-                              onClick={() => sellMutation.mutate({ positionId: p.id, market: p.market, side: p.side, shares: p.shares, price: bid ?? 0.5 })}
+                              disabled={!hasRealMarketData || bid == null || sellMutation.isPending}
+                              onClick={() =>
+                                sellMutation.mutate({
+                                  positionId: p.id,
+                                  market: p.market,
+                                  side: p.side,
+                                  shares: p.shares,
+                                  price: bid ?? 0.5,
+                                })
+                              }
                               className="tape rounded border border-border px-2 py-0.5 text-[10px] uppercase hover:border-down/60 hover:text-down disabled:opacity-40"
                             >
                               close
@@ -347,9 +439,15 @@ export function PaperDesk() {
               <Receipt label="filled" value={lastReceipt.filledShares?.toFixed?.(2) ?? "—"} />
               <Receipt label="remaining" value={lastReceipt.remainingShares?.toFixed?.(2) ?? "—"} />
               <Receipt label="VWAP" value={lastReceipt.avgFillPrice?.toFixed?.(4) ?? "—"} />
-              <Receipt label="fees" value={lastReceipt.fees == null ? "—" : money(lastReceipt.fees)} />
+              <Receipt
+                label="fees"
+                value={lastReceipt.fees == null ? "—" : money(lastReceipt.fees)}
+              />
               <Receipt label="slippage" value={lastReceipt.slippage?.toFixed?.(5) ?? "—"} />
-              <Receipt label="realized P&L" value={lastReceipt.realizedPnl == null ? "—" : money(lastReceipt.realizedPnl)} />
+              <Receipt
+                label="realized P&L"
+                value={lastReceipt.realizedPnl == null ? "—" : money(lastReceipt.realizedPnl)}
+              />
               <Receipt label="reason" value={lastReceipt.reason ?? "—"} />
             </div>
           </div>
@@ -402,7 +500,12 @@ export function PaperDesk() {
 }
 
 function Receipt({ label, value }: { label: string; value: string }) {
-  return <div><span className="label-caps text-muted-foreground">{label}</span><p className="tape truncate text-foreground">{value}</p></div>;
+  return (
+    <div>
+      <span className="label-caps text-muted-foreground">{label}</span>
+      <p className="tape truncate text-foreground">{value}</p>
+    </div>
+  );
 }
 
 function Stat({
