@@ -1,6 +1,7 @@
 /** @SIMULATION_ONLY - Browser paper-trading, Supabase-backed, DOES NOT PLACE REAL ORDERS. Real orders only via bot/ worker. */
-export const IS_SIMULATION_ONLY = true;
-/** Binance is real external data, but it is not a Polymarket CLOB book. */
+export const IS_RESEARCH_SIMULATION_ONLY = true;
+export const RESEARCH_SIMULATION_NAME = "Research Simulation — Binance/Generic";
+/** This legacy research simulator is never used for Polymarket market making. */
 export const MARKET_DATA_SOURCE = "DEMO" as const;
 export const AUXILIARY_DATA_SOURCE = "REAL_BINANCE" as const;
 
@@ -8,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { getCooldown, logTrade } from "@/lib/trading.functions";
 
-export interface MmFill {
+export interface ResearchSimulationFill {
   ts: number;
   side: "BUY" | "SELL";
   price: number;
@@ -16,7 +17,7 @@ export interface MmFill {
   pnl: number;
 }
 
-export interface MmOptions {
+export interface ResearchSimulationOptions {
   symbol: string; // e.g. btcusdt
   market: string; // logical market label persisted with trades
   spreadBps: number;
@@ -28,19 +29,17 @@ export interface MmOptions {
 const MIN_FILL_GAP_MS = 4000;
 
 /**
- * Client-side market-making loop: Binance trade feed used as a DEMO proxy,
- * not Polymarket market data, with two-sided quotes
- * around mid, simulated fills when the tape crosses a quote. Every fill is
- * persisted through the log_trade server function and arms the cooldown.
+ * Legacy research-only Binance/generic simulation. It is not a Polymarket
+ * market-data or execution path.
  */
-export function useMarketMaker(opts: MmOptions) {
+export function useResearchSimulation(opts: ResearchSimulationOptions) {
   const { symbol, market, spreadBps, sizeUsd, running, cooldownSeconds } = opts;
   const log = useServerFn(logTrade);
   const cooldown = useServerFn(getCooldown);
 
   const [price, setPrice] = useState<number | null>(null);
   const [connected, setConnected] = useState(false);
-  const [fills, setFills] = useState<MmFill[]>([]);
+  const [fills, setFills] = useState<ResearchSimulationFill[]>([]);
   const [inventory, setInventory] = useState(0);
   const [realizedPnl, setRealizedPnl] = useState(0);
 

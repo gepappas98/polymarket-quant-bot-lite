@@ -4,6 +4,7 @@
 
 - [x] Inventory Polymarket REST/WebSocket, metadata, trader activity, historical, Binance, Supabase, browser, demo, and test-fixture sources.
 - [x] Add explicit `data_source`, `execution_mode`, `market_data_source`, and `is_simulated` runtime metadata.
+- [x] Replace browser Polymarket MM's Binance proxy with a public Polymarket CLOB L2 WebSocket keyed by `token_id`; fail closed as OFFLINE / NO DATA, and label all orders PAPER and fills SIMULATED.
 - [x] Reject malformed worker status and stop silently replacing worker failures with DEMO values.
 - [x] Block browser paper orders and marking when only DEMO/proxy data is available.
 - [x] Label live market input, paper execution, demo data, and test mocks distinctly.
@@ -14,7 +15,8 @@
 
 ## 0.4.0 Architecture Clarification & Realism
 
-- [x] **[SIM]** Move market maker hook and dashboard panels under `src/simulation/` with explicit simulation-only markers.
+- [x] **[SIM]** Keep the legacy Binance path as `Research Simulation — Binance/Generic`; it is not connected to production Polymarket MM.
+- [x] **[MM]** Browser paper market maker consumes real public Polymarket CLOB L2 by `token_id`, with live book metrics and stale/offline fail-closed behavior.
 - [x] **[WORKER]** Add market quality filters and configurable defaults.
 - [x] **[WORKER]** Make the arb threshold volatility-aware and cap fractional Kelly sizing.
 - [x] **[WORKER]** Protect the status API with optional `X-API-Token` authentication.
