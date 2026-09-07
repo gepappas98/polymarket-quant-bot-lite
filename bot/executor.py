@@ -47,14 +47,19 @@ class Fill:
 
 
 class PaperExecutor:
-    """Simulates fills at the requested price (optimistic)."""
+    """Executes paper intents only against the latest observed L2 book."""
 
     def __init__(self, strategy: Strategy):
         self.strategy = strategy
+        self._books = {}
         self.fills: List[Fill] = []
         self.realized_pnl = 0.0
         self.daily_pnl = 0.0
         self.fill_engine = PaperFillEngine(cfg.paper_fee_bps, cfg.paper_slippage_bps)
+
+    def observe(self, state, intents: List[Intent]) -> List[Fill]:
+        self._books[state.market.get("slug", "")] = state
+        return self.execute(intents)
 
     def execute(self, intents: List[Intent]) -> List[Fill]:
         results: List[Fill] = []
@@ -96,12 +101,21 @@ class PaperExecutor:
             execution_order = ExecutionOrder(
                 market=intent.market_slug,
                 side=intent.side.value,
-                action="BUY" if intent.side.value in {"UP", "DOWN"} else "SELL",
+                action=getattr(intent, "action", "BUY").upper(),
                 requested_usd=intent.size_usd,
                 limit_price=intent.price,
             )
-            level = {"price": intent.price, "shares": intent.size_usd / intent.price}
-            execution_book = ExecutionBook.from_levels([], [level])
+            observed = self._books.get(intent.market_slug)
+            if observed is None:
+                ledger.record_intent(intent, dry_run=True, blocked=True, block_reason="no observed L2 book")
+                continue
+            raw_book = observed.up_book if intent.side.value == "UP" else observed.down_book
+            bids = getattr(raw_book, "_bids", [])
+            asks = getattr(raw_book, "_asks", [])
+            execution_book = ExecutionBook.from_levels(
+                [{"price": float(level.get("price", 0)), "shares": float(level.get("size", 0))} for level in bids],
+                [{"price": float(level.get("price", 0)), "shares": float(level.get("size", 0))} for level in asks],
+            )
             report = self.fill_engine.execute(execution_order, execution_book)
             if not report.fills:
                 ledger.record_intent(intent, dry_run=True, blocked=True, block_reason="no paper liquidity")

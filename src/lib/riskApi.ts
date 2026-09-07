@@ -1,5 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 const API_TOKEN = import.meta.env.VITE_API_TOKEN;
+const API_CONFIGURATION_ERROR = "Risk API URL is not configured. Set VITE_API_URL to the public FastAPI sidecar URL.";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -19,11 +20,13 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
 
+  if (!API_BASE) throw new ApiError(0, API_CONFIGURATION_ERROR);
+
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, { ...init, headers });
   } catch {
-    throw new ApiError(0, "Risk API offline");
+    throw new ApiError(0, `Risk API offline at ${API_BASE}`);
   }
 
   const text = await response.text();
