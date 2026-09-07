@@ -45,6 +45,8 @@ from .config import cfg
 from .feeds import OrderBook
 from .strategy import Intent, Side, Strategy
 from .strategies.loader import load_all
+from .execution import Order as PaperOrder, OrderBook as PaperOrderBook, PaperFillEngine
+from .historical_data import HistoricalDataUnavailable, HistoricalMarketData, HistoricalL2Snapshot, REAL_HISTORICAL_SOURCE
 
 log = logging.getLogger(__name__)
 
@@ -145,6 +147,13 @@ class BacktestResult:
     outcomes: int
     wins: int
     gross_pnl_usd: float = 0.0
+    data_source: str = "LEGACY_SNAPSHOT_INPUT"
+    execution_mode: str = "PAPER_SIMULATION"
+    data_coverage: Dict[str, Any] = field(default_factory=dict)
+    data_quality_warnings: List[str] = field(default_factory=list)
+    peak_exposure_usd: float = 0.0
+    turnover_usd: float = 0.0
+    requested_usd: float = 0.0
 
     @property
     def fees_usd(self) -> float:
@@ -164,12 +173,32 @@ class BacktestResult:
 
     def summary(self) -> str:
         return (
-            "SIMULATED — not live expectancy | "
+            f"Historical market data is {'real' if self.data_source == REAL_HISTORICAL_SOURCE else 'legacy/mock'}; executions are simulated. | "
             f"fills={len(self.fills)} outcomes={self.outcomes} "
             f"win_rate={self.win_rate_pct}% gross_pnl=${self.gross_pnl_usd:+.2f} "
             f"fees=${self.fees_usd:.4f} slippage=${self.slippage_usd:.4f} "
             f"net_pnl=${self.net_pnl_usd:+.2f}"
         )
+
+    @property
+    def fill_ratio(self) -> float:
+        return self.filled_usd / self.requested_usd if self.requested_usd else 0.0
+
+    @property
+    def filled_usd(self) -> float:
+        return sum(fill.size_usd for fill in self.fills)
+
+    @property
+    def drawdown_usd(self) -> float:
+        return max(0.0, -self.net_pnl_usd)
+
+    @property
+    def trades(self) -> List[BacktestFill]:
+        return self.fills
+
+    @property
+    def partial_fills(self) -> List[BacktestFill]:
+        return [fill for fill in self.fills if fill.size_usd + 1e-9 < fill.requested_usd]
 
 
 def _simple_exposure_gate(strategy: Strategy, intent: Intent) -> bool:
@@ -306,15 +335,28 @@ def run_backtest(snapshots: Iterable[Snapshot]) -> BacktestResult:
 def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="Backtest bot strategies over historical snapshots")
-    parser.add_argument("snapshots_path", help="Path to a JSONL snapshot file (see bot/backtest.py docstring)")
+    parser.add_argument("snapshots_path", nargs="?", help="Legacy JSONL fixture path; use --real-db for REAL recorder data")
+    parser.add_argument("--real-db", help="SQLite database created by the REAL Polymarket recorder")
+    parser.add_argument("--start-ms", type=int)
+    parser.add_argument("--end-ms", type=int)
+    parser.add_argument("--market-id")
+    parser.add_argument("--token-id")
     args = parser.parse_args()
 
-    snapshots = load_snapshots(args.snapshots_path)
-    if not snapshots:
-        print("No snapshots loaded — check the file path/format.")
-        return
-    result = run_backtest(snapshots)
+    if args.real_db:
+        source = __import__("bot.historical_data", fromlist=["PolymarketHistoricalL2DataSource"]).PolymarketHistoricalL2DataSource(args.real_db)
+        result = run_real_backtest(source, start_ms=args.start_ms, end_ms=args.end_ms, market_id=args.market_id, token_id=args.token_id)
+    else:
+        if not args.snapshots_path:
+            parser.error("provide snapshots_path for legacy fixtures or --real-db for REAL Polymarket history")
+        snapshots = load_snapshots(args.snapshots_path)
+        if not snapshots:
+            raise SystemExit("No snapshots loaded — check the file path/format.")
+        result = run_backtest(snapshots)
     print(result.summary())
+    print(f"data_source={result.data_source} execution_mode={result.execution_mode} fill_ratio={result.fill_ratio:.4f} turnover=${result.turnover_usd:.2f} peak_exposure=${result.peak_exposure_usd:.2f}")
+    if result.data_quality_warnings:
+        print("data_quality_warnings=" + "; ".join(result.data_quality_warnings))
     for f in result.fills[:20]:
         print(f"  {f.side:5s} {f.market_slug:30s} @ {f.price:.3f}  ${f.size_usd:.1f}  {f.reason}")
     if len(result.fills) > 20:
@@ -323,3 +365,88 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# --- REAL Polymarket recorder replay --------------------------------------
+def _real_snapshots(source: HistoricalMarketData, *, start_ms: int | None = None, end_ms: int | None = None, market_id: str | None = None, token_id: str | None = None) -> list[Snapshot]:
+    """Convert recorder rows into strategy-compatible states without inventing levels."""
+    rows = source.require_snapshots(start_ms=start_ms, end_ms=end_ms, market_id=market_id, token_id=token_id)
+    latest: dict[str, dict[str, Any]] = {}
+    snapshots: list[Snapshot] = []
+    for row in rows:
+        item = latest.setdefault(row.market_id, {"slug": row.market_id, "market_id": row.market_id, "condition_id": row.condition_id, "token_ids": {}})
+        outcome = (row.outcome or "").upper()
+        side = "up" if outcome in {"UP", "YES"} else "down" if outcome in {"DOWN", "NO"} else ("up" if row.token_id not in item["token_ids" ] and not any(item["token_ids"].values()) else "down")
+        item["token_ids"][side] = row.token_id
+        item[f"{side}_bids"] = list(row.bids)
+        item[f"{side}_asks"] = list(row.asks)
+        item[f"{side}_token_id"] = row.token_id
+        snapshots.append(Snapshot(
+            ts=row.timestamp,
+            market=item,
+            up_bids=item.get("up_bids", []), up_asks=item.get("up_asks", []),
+            down_bids=item.get("down_bids", []), down_asks=item.get("down_asks", []),
+        ))
+    return snapshots
+
+
+def _real_paper_fill(intent: Intent, snap: Snapshot, engine: PaperFillEngine) -> list[BacktestFill]:
+    levels_bid = snap.up_bids if intent.side == Side.UP else snap.down_bids
+    levels_ask = snap.up_asks if intent.side == Side.UP else snap.down_asks
+    book = PaperOrderBook.from_levels(
+        [{"price": float(level["price"]), "shares": float(level["size"])} for level in levels_bid],
+        [{"price": float(level["price"]), "shares": float(level["size"])} for level in levels_ask],
+    )
+    order = PaperOrder(intent.market_slug, intent.side.value, intent.action, intent.size_usd, intent.price)
+    report = engine.execute(order, book)
+    return [BacktestFill(
+        ts=fill.ts, market_slug=intent.market_slug, side=intent.side.value,
+        price=fill.price, size_usd=fill.shares * fill.price, reason="SIMULATED_FILL",
+        requested_usd=intent.size_usd, fee_usd=fill.fee_usd,
+        slippage_usd=fill.shares * abs(fill.price - intent.price) + fill.shares * fill.price * engine.slippage_bps / 10_000,
+        fill_price=fill.price,
+    ) for fill in report.fills]
+
+
+def run_real_backtest(
+    data_source: HistoricalMarketData,
+    *,
+    start_ms: int | None = None,
+    end_ms: int | None = None,
+    market_id: str | None = None,
+    token_id: str | None = None,
+    strategy: Strategy | None = None,
+) -> BacktestResult:
+    """Replay REAL recorder snapshots chronologically through the paper fill engine.
+
+    This function is intentionally separate from ``run_backtest``: legacy fixture
+    snapshots remain valid for unit tests, while REAL mode has no synthetic fallback.
+    """
+    snapshots = _real_snapshots(data_source, start_ms=start_ms, end_ms=end_ms, market_id=market_id, token_id=token_id)
+    strategy = strategy or Strategy()
+    registry = load_all(strategy)
+    engine = PaperFillEngine(cfg.paper_fee_bps, cfg.paper_slippage_bps)
+    fills: list[BacktestFill] = []
+    requested_usd = 0.0
+    turnover_usd = 0.0
+    peak_exposure = 0.0
+    for snap in snapshots:
+        state = BacktestMarketState(snap)
+        for intent in registry.evaluate_all(state):
+            if not _simple_exposure_gate(strategy, intent):
+                continue
+            requested_usd += intent.size_usd
+            new_fills = _real_paper_fill(intent, snap, engine)
+            fills.extend(new_fills)
+            turnover_usd += sum(fill.size_usd for fill in new_fills)
+            for fill in new_fills:
+                strategy.update_inventory(intent.market_slug, intent.side, fill.size_usd / fill.price, fill.size_usd)
+            inv = strategy.get_inv(intent.market_slug)
+            peak_exposure = max(peak_exposure, inv.total_cost)
+    coverage = data_source.coverage(start_ms=start_ms, end_ms=end_ms, market_id=market_id, token_id=token_id)  # type: ignore[attr-defined]
+    return BacktestResult(
+        fills=fills, realized_pnl_usd=0.0, outcomes=0, wins=0, gross_pnl_usd=0.0,
+        data_source=REAL_HISTORICAL_SOURCE, execution_mode="PAPER_SIMULATION",
+        data_coverage=coverage, data_quality_warnings=coverage["quality_warnings"],
+        peak_exposure_usd=peak_exposure, turnover_usd=turnover_usd, requested_usd=requested_usd,
+    )

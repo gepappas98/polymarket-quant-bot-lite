@@ -10,6 +10,7 @@
 - [x] Preserve legitimate unit-test mocks and document remaining simulation paths in `docs/DATA_BOUNDARY_AUDIT.md`.
 - [ ] Consolidate worker and Supabase paper ledgers behind one read-only status path.
 - [x] Build the production REAL Polymarket CLOB L2 historical recorder with WebSocket primary ingestion, REST snapshot/reconciliation, restart-safe SQLite persistence, deduplication, stale detection, reconnects, retention, and recorder metrics.
+- [x] Replace production backtest historical input with fail-closed REAL recorder replay; retain legacy fixture inputs only for unit-test mocks.
 
 ## 0.4.0 Architecture Clarification & Realism
 
