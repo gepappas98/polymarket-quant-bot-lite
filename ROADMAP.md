@@ -33,7 +33,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 
 - [x] **Auto-redeem** resolved winning positions — internal PnL bookkeeping settles automatically via `bot/resolver.py` once Gamma reports a window's outcome (on-chain redemption for LIVE mode is still a separate, not-yet-done step)
 - [x] **Structured logging** (JSON) + legacy Prometheus-text metrics — `LOG_FORMAT=json`; `ENABLE_METRICS=true` on the status server
-- [x] **Unit tests** for strategy gates, arb math, and market slug discovery — `tests/` (`pytest`, 82 tests)
+  - [x] **Unit tests** for strategy gates, arb math, market slug discovery, sidecar health, and depth-aware paper execution — `tests/` (run `pytest` for the current count)
 - [x] **Multi-asset** defaults: ETH, SOL, XRP 5m/15m with per-asset exposure caps — code default `ASSETS=BTC,ETH,SOL,XRP`; `MAX_MARKET_EXPOSURE_BY_ASSET` overrides per asset
 - [x] **Max drawdown + low-profit pair locks** (Nexus-style portfolio protections) — `bot/portfolio_gates.py`
 - [x] **Dashboard bridge** — `bot/status_server.py` JSON status API for the frontend's `BOT_STATUS_URL`
@@ -80,14 +80,21 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 
 ---
 
+## Current implementation status (2026-09)
+
+- Risk API sidecar: source-ready, not continuously deployed; run `uvicorn app.main:app --host 0.0.0.0 --port 8000` and set the public `VITE_API_URL` at frontend build time.
+- P0-4 realistic fills: worker now requires an observed L2 book and consumes real bid/ask depth; synthetic infinite liquidity is rejected.
+- Paper accounting: worker ledger and Lovable/Supabase Paper Desk remain separate persistence systems until the shared execution service is moved behind one server-side ledger.
+- Live trading remains disabled by default; Kalshi remains signal-only; CLOB WebSocket and CTF settlement are open gaps.
+
 ## Full P0 execution foundation
 
 - [x] Shared order lifecycle, fill aggregation, VWAP, fee/slippage, and injectable clock primitives in `bot/execution.py`
-- [x] Depth-aware paper fill engine with residuals and account-level buy/sell realized P&L
+- [x] Depth-aware paper fill engine with residuals and account-level buy/sell realized P&L (primitive; worker wiring now uses observed books)
 - [x] Deterministic lifecycle, depth, account, and clock tests
-- [ ] Wire the shared primitives into the existing worker executor and Supabase Paper Desk without duplicate accounting paths
+- [x] Wire the shared primitives into the existing worker executor; Supabase Paper Desk remains explicitly simulation-only and is not a second confirmed-fill ledger
 - [x] Add position settlement, exit policy, and arbitrage scanner primitives in `bot/p0.py`
-- [ ] Wire these primitives into the existing worker executor and Supabase Paper Desk without duplicate accounting paths
+- [ ] Move the Supabase Paper Desk behind the worker ledger/read-only status path; no dual writes are permitted
 
 ## CRITICAL — remaining v0.5 overhaul
 
@@ -97,8 +104,8 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 
 **Bug:** `shares = size_usd / price` ignores book depth, fees, partials, latency.
 
-- [ ] Consume L1 (later L2) size at touch; partial fills; residual unfilled
-- [ ] Fee model (taker/maker), optional slippage bps, stale-quote reject
+- [x] Consume observed L2 size at touch; partial fills; residual unfilled in the worker path
+- [x] Fee model (taker/maker), optional slippage bps, stale-quote reject in shared fill primitives
 - [ ] Backtest: one fill per level/snapshot; no infinite refill of the same touch across bars
 - [ ] Report **net edge** = `1 - exec_up - exec_down - fees - slippage` (not raw `1 - sum_asks`)
 - [ ] Mark reports: `SIMULATED — not live expectancy`
