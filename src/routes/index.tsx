@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getBotStatus } from "@/lib/bot.functions";
+import { buildDemoStatus } from "@/lib/bot-demo";
 import { NavLinks } from "@/components/dashboard/NavLinks";
 import { SimulateTradeWidget } from "@/components/dashboard/SimulateTradeWidget";
 import { SwarmAgentsPanel } from "@/components/dashboard/SwarmAgentsPanel";
@@ -45,10 +46,11 @@ function uptime(seconds: number) {
 
 function Dashboard() {
   const fetchStatus = useServerFn(getBotStatus);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["bot-status"],
     queryFn: () => fetchStatus(),
     refetchInterval: 10_000,
+    retry: 1,
   });
   const summary = useMetricsSummary();
   const snapshot = useQuery({
@@ -63,7 +65,7 @@ function Dashboard() {
     refetchInterval: 10_000,
   });
 
-  if (isLoading || !data) {
+  if (isLoading && !data && !isError) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <p className="label-caps">Connecting to worker…</p>
@@ -71,7 +73,10 @@ function Dashboard() {
     );
   }
 
-  const { config } = data;
+  const workerDown = isError || !data;
+  const status = data ?? buildDemoStatus();
+  const { config } = status;
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-10">
       <header className="panel mb-6 flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-4">
@@ -94,10 +99,10 @@ function Dashboard() {
             {config.mode === "live" ? "live money" : "paper mode"}
           </span>
           <span className="tape rounded border border-border bg-muted px-2 py-1 text-[10px] uppercase text-muted-foreground">
-            {data.source === "worker" ? "worker feed" : "demo feed"}
+            {status.source === "worker" ? "worker feed" : "demo feed"}
           </span>
           <span className="tape rounded border border-border bg-muted px-2 py-1 text-[10px] uppercase text-muted-foreground">
-            up {uptime(data.uptimeSeconds)}
+            up {uptime(status.uptimeSeconds)}
           </span>
           <Link
             to="/desk"
@@ -108,6 +113,16 @@ function Dashboard() {
         </div>
       </header>
 
+      {workerDown ? (
+        <div className="panel mb-3 border-down/50 bg-down/10 px-4 py-3">
+          <p className="text-sm font-semibold text-down">Worker status unavailable</p>
+          <p className="tape mt-1 text-[11px] text-muted-foreground">
+            Showing demo, read-only figures until <code className="rounded bg-muted px-1">BOT_STATUS_URL</code>{" "}
+            points at a running worker. Risk API panels below are unaffected.
+          </p>
+        </div>
+      ) : null}
+
       <SystemStatusBar summary={summary.data} fallbackMode={config.mode} />
       <MetricCards summary={summary.data} />
 
@@ -115,15 +130,15 @@ function Dashboard() {
 
 
       <div className="mt-3">
-        <SwarmAgentsPanel swarm={data.swarm} />
+        <SwarmAgentsPanel swarm={status.swarm} />
       </div>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-2">
-          <MarketsTable markets={data.markets} arbThreshold={config.arbThreshold} />
-          <PnlChart series={data.pnlSeries} />
+          <MarketsTable markets={status.markets} arbThreshold={config.arbThreshold} />
+          <PnlChart series={status.pnlSeries} />
           <GatesPanel
-            gates={data.gates}
+            gates={status.gates}
             extra={
               riskGates.data
                 ? {
@@ -143,7 +158,7 @@ function Dashboard() {
           <SimulateTradeWidget />
         </div>
         <div className="space-y-3">
-          <LedgerFeed rows={data.ledger} />
+          <LedgerFeed rows={status.ledger} />
           <ConfigPanel config={config} />
         </div>
       </div>
