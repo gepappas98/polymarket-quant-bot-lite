@@ -45,10 +45,11 @@ function uptime(seconds: number) {
 
 function Dashboard() {
   const fetchStatus = useServerFn(getBotStatus);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["bot-status"],
     queryFn: () => fetchStatus(),
     refetchInterval: 10_000,
+    retry: 1,
   });
   const summary = useMetricsSummary();
   const snapshot = useQuery({
@@ -63,7 +64,7 @@ function Dashboard() {
     refetchInterval: 10_000,
   });
 
-  if (isLoading || !data) {
+  if (isLoading && !data && !isError) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <p className="label-caps">Connecting to worker…</p>
@@ -71,7 +72,10 @@ function Dashboard() {
     );
   }
 
-  const { config } = data;
+  const workerDown = isError || !data;
+  const status = data ?? buildDemoStatus();
+  const { config } = status;
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-10">
       <header className="panel mb-6 flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-4">
