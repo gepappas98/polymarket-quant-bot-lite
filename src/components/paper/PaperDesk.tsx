@@ -46,12 +46,26 @@ type PaperTrade = {
   cashAfter: number;
 };
 
+type PaperReceipt = {
+  orderId: string;
+  state: string;
+  status?: string;
+  requestedShares: number;
+  filledShares: number;
+  remainingShares: number;
+  avgFillPrice?: number;
+  fees: number;
+  slippage?: number;
+  realizedPnl?: number;
+  reason?: string;
+};
+
 export function PaperDesk() {
   const fetchState = useServerFn(getPaperState);
   const fetchStatus = useServerFn(getBotStatus);
   const runGates = useServerFn(checkPaperGates);
   const execute = useServerFn(executePaperOrder);
-  const [lastReceipt, setLastReceipt] = useState<unknown>(null);
+  const [lastReceipt, setLastReceipt] = useState<PaperReceipt | null>(null);
   const reset = useServerFn(resetPaperAccount);
   const qc = useQueryClient();
 
@@ -129,7 +143,6 @@ export function PaperDesk() {
       });
     },
     onSuccess: (result) => {
-      setLastReceipt(result);
       if (result.status === "blocked") {
         toast.error(
           `Blocked: ${result.gates
@@ -138,6 +151,7 @@ export function PaperDesk() {
             .join(", ")}`,
         );
       } else if ("filledShares" in result) {
+        setLastReceipt(result as PaperReceipt);
         toast.success(
           `Paper ${result.state} ${result.filledShares.toFixed(2)} shares @ ${(result.avgFillPrice ?? 0).toFixed(3)}`,
         );
@@ -171,9 +185,11 @@ export function PaperDesk() {
       });
     },
     onSuccess: (result) => {
-      setLastReceipt(result);
-      if ("realizedPnl" in result) {
-        toast.success(`Closed — realized ${money(result.realizedPnl)}`);
+      if ("filledShares" in result) {
+        setLastReceipt(result as PaperReceipt);
+        if ("realizedPnl" in result && result.realizedPnl != null) {
+          toast.success(`Closed — realized ${money(result.realizedPnl)}`);
+        }
       }
       invalidate();
     },
