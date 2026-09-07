@@ -504,6 +504,107 @@ export type Database = {
         }
         Relationships: []
       }
+      paper_order_fills: {
+        Row: {
+          created_at: string
+          fee: number
+          filled_at: string
+          id: string
+          order_id: string
+          price: number
+          shares: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fee?: number
+          filled_at?: string
+          id?: string
+          order_id: string
+          price: number
+          shares: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fee?: number
+          filled_at?: string
+          id?: string
+          order_id?: string
+          price?: number
+          shares?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_order_fills_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "paper_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paper_orders: {
+        Row: {
+          action: string
+          avg_fill_price: number
+          client_order_id: string
+          created_at: string
+          fees: number
+          filled_shares: number
+          id: string
+          market: string
+          order_type: string
+          reason: string | null
+          remaining_shares: number
+          requested_shares: number
+          side: string
+          slippage: number
+          state: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          avg_fill_price?: number
+          client_order_id: string
+          created_at?: string
+          fees?: number
+          filled_shares?: number
+          id?: string
+          market: string
+          order_type?: string
+          reason?: string | null
+          remaining_shares?: number
+          requested_shares?: number
+          side: string
+          slippage?: number
+          state?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          avg_fill_price?: number
+          client_order_id?: string
+          created_at?: string
+          fees?: number
+          filled_shares?: number
+          id?: string
+          market?: string
+          order_type?: string
+          reason?: string | null
+          remaining_shares?: number
+          requested_shares?: number
+          side?: string
+          slippage?: number
+          state?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       paper_positions: {
         Row: {
           avg_price: number
@@ -544,7 +645,9 @@ export type Database = {
         Row: {
           action: string
           cash_after: number
+          client_order_id: string | null
           created_at: string
+          execution_mode: string
           gates: Json | null
           id: string
           market: string
@@ -559,7 +662,9 @@ export type Database = {
         Insert: {
           action: string
           cash_after?: number
+          client_order_id?: string | null
           created_at?: string
+          execution_mode?: string
           gates?: Json | null
           id?: string
           market: string
@@ -574,7 +679,9 @@ export type Database = {
         Update: {
           action?: string
           cash_after?: number
+          client_order_id?: string | null
           created_at?: string
+          execution_mode?: string
           gates?: Json | null
           id?: string
           market?: string
