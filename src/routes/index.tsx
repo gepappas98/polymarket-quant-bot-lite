@@ -132,9 +132,9 @@ function Dashboard() {
             extra={
               riskGates.data
                 ? {
-                    ...(riskGates.status.gates.find((gate) => gate.name === "time_window")
+                    ...(riskGates.data.gates.find((gate) => gate.name === "time_window")
                       ? {
-                          timeWindow: riskGates.status.gates.find(
+                          timeWindow: riskGates.data.gates.find(
                             (gate) => gate.name === "time_window",
                           ),
                         }
