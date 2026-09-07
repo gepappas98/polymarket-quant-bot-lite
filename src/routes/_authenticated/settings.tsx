@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { NavLinks } from "@/components/dashboard/NavLinks";
+import { PolymarketStatus } from "@/components/polymarket/PolymarketStatus";
 import { Panel } from "@/components/dashboard/Panels";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -107,6 +108,9 @@ function SettingsPage() {
       </header>
 
       {config.isError ? <OfflineNotice /> : null}
+      <div className="mb-6">
+        <PolymarketStatus />
+      </div>
       <Panel title="Risk configuration" hint="advanced engine">
         <form onSubmit={submit} className="grid gap-5 px-4 py-5 md:grid-cols-2">
           <NumberField
