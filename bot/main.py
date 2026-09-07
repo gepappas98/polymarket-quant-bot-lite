@@ -23,6 +23,7 @@ from .config import cfg
 from .logging_setup import configure_logging
 from .market_finder import find_all_active
 from .feeds import PriceFeed, MarketState
+from .clob_ws import ClobWebSocketFeed
 from .strategy import Strategy
 from .executor import create_executor
 from .gates import cooldown, is_live_trading_allowed
@@ -143,6 +144,10 @@ def main():
     ))
 
     feed = PriceFeed()
+    ws_feed = ClobWebSocketFeed(url=cfg.clob_ws_url) if cfg.clob_ws_enabled else None
+    if ws_feed:
+        ws_feed.start()
+        console.print(f"[dim]Public CLOB WebSocket enabled: {cfg.clob_ws_url}[/dim]")
     strategy = Strategy()
     executor = create_executor(strategy)
     install_risk_engine()
@@ -169,9 +174,16 @@ def main():
                 time.sleep(8)
                 continue
 
+            if ws_feed:
+                ws_feed.set_assets(
+                    token_id
+                    for market in markets
+                    for token_id in (market.get("up_token_id"), market.get("down_token_id"))
+                )
+
             states = []
             for m in markets:
-                st = MarketState(m, feed)
+                st = MarketState(m, feed, book_feed=ws_feed)
                 st.refresh()
                 states.append(st)
 
@@ -217,6 +229,8 @@ def main():
             time.sleep(5)
 
     console.print("[bold]Bot stopped.[/bold]")
+    if ws_feed:
+        ws_feed.stop()
     summary = ledger.session_summary()
     console.print(
         f"Session ledger: intents={summary['intents']} blocked={summary['blocked']} "

@@ -180,6 +180,7 @@ class MarketState:
     # Optional adapters may provide fair_up_prob; strategy reads it safely.
     market: Dict[str, Any]
     feed: Optional[PriceFeed] = None
+    book_feed: Optional[Any] = None
     up_book: OrderBook = field(default_factory=OrderBook.empty)
     down_book: OrderBook = field(default_factory=OrderBook.empty)
 
@@ -187,8 +188,17 @@ class MarketState:
         """Pull fresh order books for both outcome tokens. Call once per cycle."""
         up_id = self.market.get("up_token_id")
         down_id = self.market.get("down_token_id")
-        self.up_book = fetch_order_book(up_id) if up_id else OrderBook.empty()
-        self.down_book = fetch_order_book(down_id) if down_id else OrderBook.empty()
+        self.up_book = self._book_for(up_id)
+        self.down_book = self._book_for(down_id)
+
+    def _book_for(self, token_id: Optional[str]) -> OrderBook:
+        if not token_id:
+            return OrderBook.empty()
+        if self.book_feed is not None:
+            book = self.book_feed.get_book(token_id)
+            if book is not None:
+                return book
+        return fetch_order_book(token_id)
 
     @property
     def up_ask(self) -> Optional[float]:

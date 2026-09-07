@@ -8,7 +8,13 @@ export async function fetchWorkerStatus(): Promise<BotStatus> {
   const url = process.env["BOT_STATUS_URL"];
   if (!url) return buildDemoStatus();
   try {
-    const res = await fetch(url, { headers: { accept: "application/json" } });
+    const token = process.env["BOT_STATUS_API_TOKEN"];
+    const res = await fetch(url, {
+      headers: {
+        accept: "application/json",
+        ...(token ? { "X-API-Token": token } : {}),
+      },
+    });
     if (!res.ok) throw new Error(`worker responded ${res.status}`);
     const data = (await res.json()) as Partial<BotStatus>;
     const demo = buildDemoStatus();

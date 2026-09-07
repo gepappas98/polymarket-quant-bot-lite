@@ -107,6 +107,8 @@ class Config:
 
     # Network
     clob_host: str = "https://clob.polymarket.com"
+    clob_ws_url: str = os.getenv("CLOB_WS_URL", "wss://ws-subscriptions-clob.polymarket.com/ws/market")
+    clob_ws_enabled: bool = os.getenv("CLOB_WS_ENABLED", "true").lower() == "true"
     gamma_host: str = "https://gamma-api.polymarket.com"
     chain_id: int = 137
     http_timeout: float = float(os.getenv("HTTP_TIMEOUT", "6"))

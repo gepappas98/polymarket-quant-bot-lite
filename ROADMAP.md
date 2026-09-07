@@ -8,7 +8,7 @@
 - [x] **[WORKER]** Protect the status API with optional `X-API-Token` authentication.
 - [x] **[WORKER]** Add backtest slippage, copy-trading eligibility filters, and a consecutive-loss pause.
 - [x] **[WORKER]** Add validated dependency extras and keep paper mode as the default.
-- [ ] **[WORKER]** WebSocket CLOB feed.
+- [x] **[WORKER]** WebSocket CLOB feed with heartbeat, reconnect, local books, and REST fallback.
 - [ ] **[WORKER]** Hedged Kalshi execution.
 
 
@@ -36,7 +36,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [ ] **Decide the relationship between `bot/strategies/*` and the dashboard's Supabase equivalents** (`useMarketMaker`, copy-trading panel, in-browser backtester) — today they're fully independent implementations of the same ideas; either connect them (dashboard reads the worker's real ledger) or explicitly document the dashboard versions as simulation/monitoring-only
 - [ ] **Exercise the PostgreSQL ledger against a real database** — implemented and unit-tested for its fallback path, but not yet run against live Postgres
 - [ ] **Injectable clock for gates** — `bot/gates.py`/`bot/portfolio_gates.py` cooldown and drawdown checks use wall-clock time, which is why `bot/backtest.py` has to fall back to a simplified, time-independent risk model; making the clock injectable would let backtests replay the real gates faithfully
-- [ ] **WebSocket CLOB market channel** — lower-latency books than REST polling
+- [x] **WebSocket CLOB market channel** — lower-latency books than REST polling
 - [ ] **Window open-price delta** — `bot/feeds.py::PriceFeed` (ccxt/Binance) already exists as a hook point but isn't consumed by the strategy yet; wire it in to replace the lightweight imbalance-only signal
 - [x] **Order lifecycle** — partial fills remain open, timed-out remainders are canceled and cancellation is confirmed before accounting
 - [ ] **Verified live fill pricing** — consume exchange VWAP/average only; no intent-price fallback
@@ -97,7 +97,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - Risk API sidecar: deployed at https://polymarket-quant-bot-lite-1.onrender.com; the frontend uses the public `VITE_API_URL` at build time.
 - P0-4 realistic fills: worker requires an observed L2 book and consumes real bid/ask depth; synthetic infinite liquidity is rejected. This remains complete only while the focused paper-execution tests pass.
 - Paper accounting: worker ledger and Lovable/Supabase Paper Desk remain separate persistence systems until the shared execution service is moved behind one server-side ledger.
-- Live trading remains disabled by default; Kalshi remains signal-only; CLOB WebSocket and CTF settlement are open gaps.
+- Live trading remains disabled by default; Kalshi remains signal-only; CTF settlement remains an open gap.
 
 ## Full P0 execution foundation
 

@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- **Live CLOB paper quotes** — added a public Polymarket market-channel WebSocket client with book snapshots, incremental price updates, ten-second heartbeats, reconnect backoff, stale-book protection, and REST fallback. Paper mode remains simulated and never places live orders.
+- **Worker status authentication bridge** — the dashboard now forwards `BOT_STATUS_API_TOKEN` as `X-API-Token` when reading an authenticated worker status endpoint.
 - **Paper Desk schema alignment** — corrected migration ordering for `paper_orders` and `paper_order_fills` while retaining the singular `paper_account` schema.
 - **Control Room demo fallback** — retained the demo fallback and surfaced Supabase paper-state errors instead of leaving the UI in an indefinite connecting state.
 - **Public Risk API** — documented the deployed sidecar URL at `https://polymarket-quant-bot-lite-1.onrender.com`.

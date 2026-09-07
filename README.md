@@ -168,8 +168,9 @@ its own module's docstring.
 | `MIN_TRACK_RECORD_WIN_PCT` / `_SAMPLES` | `48` / `12` | Directional gate floor and minimum sample size |
 | `PAIR_LOCK_LOOKBACK` / `_LOSS_THRESHOLD_USD` / `_MINUTES` | `5` / `0` / `30` | Low-profit pair lock (Nexus-style) |
 | `HTTP_TIMEOUT` / `HTTP_RETRIES` | `6` / `3` | Network resilience for Gamma/CLOB calls |
+| `CLOB_WS_ENABLED` / `CLOB_WS_URL` | `true` / Polymarket market channel | Public real-time order books; market data only, no order placement |
 | `LOG_LEVEL` / `LOG_FORMAT` | `INFO` / `text` | `LOG_FORMAT=json` for structured logs |
-| `STATUS_PORT` | — | Enables `bot/status_server.py` (JSON status API for the dashboard) |
+| `STATUS_PORT` / `API_TOKEN` | — / empty | Enables the JSON status API; optionally protects it with `X-API-Token` |
 | `ENABLE_METRICS` | `false` | Legacy hand-rolled `GET /metrics` on the status server (no dependency) |
 
 **Also in `.env.example`** — every plugin above (market making, copy
@@ -236,6 +237,23 @@ browser against Supabase — they do not read or write `bot/`'s ledger. If
 you're deciding where to add a new trading feature, `bot/` is the one place
 that can place real orders; `src/` is presentation and a separate in-browser
 simulation.
+
+### Live CLOB books for paper mode
+
+The worker subscribes to Polymarket's public market channel at
+`wss://ws-subscriptions-clob.polymarket.com/ws/market`, maintains UP/DOWN
+token books, sends the required ten-second `PING` heartbeat, and reconnects
+with backoff. It uses those books for paper and shadow pricing only; it never
+places orders through the market WebSocket. If the WebSocket is unavailable,
+the worker falls back to the existing CLOB REST book fetch.
+
+To show the live worker books in the hosted dashboard, set these server-side
+variables on the dashboard host:
+
+```text
+BOT_STATUS_URL=https://<worker-host>/status
+BOT_STATUS_API_TOKEN=<same-value-as-worker-API_TOKEN>  # only when API_TOKEN is set
+```
 
 ---
 
