@@ -14,7 +14,8 @@ and alerting.
 > substantial risk of loss. Past performance does not guarantee future results.
 > Always paper trade first and never risk money you cannot afford to lose.
 
-Repository: [github.com/gepappas98/polymarket-quant-bot](https://github.com/gepappas98/polymarket-quant-bot)
+Live dashboard: [polymarket-quant-bot-lite.lovable.app](https://polymarket-quant-bot-lite.lovable.app)
+Repository: [github.com/gepappas98/polymarket-quant-bot-lite](https://github.com/gepappas98/polymarket-quant-bot-lite)
 
 ---
 
@@ -84,8 +85,8 @@ Feature ownership is explicit: **[SIM]** browser/Supabase paper simulations; **[
 ## Quick start
 
 ```bash
-git clone https://github.com/gepappas98/polymarket-quant-bot.git
-cd polymarket-quant-bot
+git clone https://github.com/gepappas98/polymarket-quant-bot-lite.git
+cd polymarket-quant-bot-lite
 
 python -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
