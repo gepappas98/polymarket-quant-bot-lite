@@ -20,6 +20,7 @@ export function PolymarketStatus() {
       </div>
     );
 
+  if (!query.data) return null;
   const { config, capabilities } = query.data;
   return (
     <section className="panel px-4 py-4" aria-labelledby="polymarket-connectivity-title">

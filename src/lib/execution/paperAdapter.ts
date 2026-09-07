@@ -33,7 +33,7 @@ type StoredOrder = {
 };
 
 export class PaperAdapter implements ExchangeAdapter {
-  readonly name = "paper";
+  readonly name: string = "paper";
   private orders = new Map<string, StoredOrder>();
   private seq = 0;
 
