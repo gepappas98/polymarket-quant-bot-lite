@@ -5,7 +5,7 @@ import type { Clock } from "./clock";
 import { systemClock } from "./clock";
 
 export class BacktestAdapter extends PaperAdapter {
-  readonly name = "backtest";
+  override readonly name: string = "backtest";
 
   constructor(quotes: Record<string, PaperQuote>, clock: Clock = systemClock) {
     super(quotes, clock);

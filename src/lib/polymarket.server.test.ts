@@ -70,6 +70,6 @@ describe("Polymarket server adapters", () => {
       slug: "btc-up",
       question: "Will BTC be up?",
     });
-    expect(markets[0].tokens).toHaveLength(2);
+    expect(markets[0]!.tokens).toHaveLength(2);
   });
 });

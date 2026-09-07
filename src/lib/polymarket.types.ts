@@ -9,19 +9,19 @@ export type PolymarketL2Book = {
   bids: PolymarketBookLevel[];
   asks: PolymarketBookLevel[];
   timestamp: string;
-  hash?: string;
+  hash?: string | undefined;
 };
 
 export type PolymarketMarket = {
   id: string;
   slug: string;
   question: string;
-  conditionId?: string;
-  tokens: Array<{ tokenId: string; outcome: string; price?: number }>;
+  conditionId?: string | undefined;
+  tokens: Array<{ tokenId: string; outcome: string; price?: number | undefined }>;
   active: boolean;
   closed: boolean;
-  acceptingOrders?: boolean;
-  endDate?: string;
+  acceptingOrders?: boolean | undefined;
+  endDate?: string | undefined;
   source: "gamma";
 };
 
@@ -33,7 +33,7 @@ export type PolymarketActivity = {
   market?: string;
   asset?: string;
   side?: string;
-  price?: number;
+  price?: number | undefined;
   size?: number;
   usdcSize?: number;
   transactionHash?: string;
@@ -41,7 +41,7 @@ export type PolymarketActivity = {
 
 export type PolymarketPosition = {
   asset?: string;
-  conditionId?: string;
+  conditionId?: string | undefined;
   size?: number;
   avgPrice?: number;
   currentValue?: number;
@@ -54,8 +54,8 @@ export type PolymarketExecutionConfig = {
   clobBaseUrl: string;
   dataBaseUrl: string;
   wsUrl: string;
-  relayerBaseUrl?: string;
-  bridgeBaseUrl?: string;
+  relayerBaseUrl?: string | undefined;
+  bridgeBaseUrl?: string | undefined;
   liveTradingEnabled: boolean;
   liveTradingConfigured: boolean;
 };

@@ -103,7 +103,7 @@ export function PaperDesk() {
       if (result.status === "blocked") {
         toast.error(`Blocked: ${result.gates.filter((g) => !g.allowed).map((g) => g.name).join(", ")}`);
       } else if ("filledShares" in result) {
-        toast.success(`Paper ${result.state} ${result.filledShares.toFixed(2)} shares @ ${result.avgFillPrice.toFixed(3)}`);
+        toast.success(`Paper ${result.state} ${result.filledShares.toFixed(2)} shares @ ${(result.avgFillPrice ?? 0).toFixed(3)}`);
       }
       invalidate();
     },
