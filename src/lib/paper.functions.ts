@@ -106,10 +106,14 @@ export const getPaperState = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const ctx = context as unknown as Ctx;
     const account = await loadAccount(ctx);
-    const [{ data: positions }, { data: trades }] = await Promise.all([
+    const [positionsResult, tradesResult] = await Promise.all([
       ctx.supabase.from("paper_positions").select("*").eq("user_id", ctx.userId).order("opened_at", { ascending: false }),
       ctx.supabase.from("paper_trades").select("*").eq("user_id", ctx.userId).order("created_at", { ascending: false }).limit(100),
     ]);
+    if (positionsResult.error) throw new Error(positionsResult.error.message);
+    if (tradesResult.error) throw new Error(tradesResult.error.message);
+    const positions = positionsResult.data;
+    const trades = tradesResult.data;
     const dailyPnl = await todayRealized(ctx);
     return {
       engine: "paper" as const,

@@ -82,8 +82,8 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 
 ## Current implementation status (2026-09)
 
-- Risk API sidecar: source-ready, not continuously deployed; run `uvicorn app.main:app --host 0.0.0.0 --port 8000` and set the public `VITE_API_URL` at frontend build time.
-- P0-4 realistic fills: worker now requires an observed L2 book and consumes real bid/ask depth; synthetic infinite liquidity is rejected.
+- Risk API sidecar: deployed at https://polymarket-quant-bot-lite-1.onrender.com; the frontend uses the public `VITE_API_URL` at build time.
+- P0-4 realistic fills: worker requires an observed L2 book and consumes real bid/ask depth; synthetic infinite liquidity is rejected. This remains complete only while the focused paper-execution tests pass.
 - Paper accounting: worker ledger and Lovable/Supabase Paper Desk remain separate persistence systems until the shared execution service is moved behind one server-side ledger.
 - Live trading remains disabled by default; Kalshi remains signal-only; CLOB WebSocket and CTF settlement are open gaps.
 

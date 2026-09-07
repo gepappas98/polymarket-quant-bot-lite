@@ -10,7 +10,7 @@ import time
 import uuid
 from collections import defaultdict
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 from dataclasses import dataclass
 
 from .config import cfg
@@ -23,6 +23,29 @@ from . import metrics
 from .execution import Order as ExecutionOrder, OrderBook as ExecutionBook, PaperFillEngine
 
 log = logging.getLogger(__name__)
+
+
+def _execution_book(book: Any) -> ExecutionBook:
+    """Normalize feed-shaped or execution-shaped books for paper fills."""
+    def levels(name: str, fallback: str) -> List[dict]:
+        raw = getattr(book, name, None)
+        if raw is None:
+            raw = getattr(book, fallback, [])
+        normalized: List[dict] = []
+        for level in raw or []:
+            if isinstance(level, Mapping):
+                price = level.get("price")
+                shares = level.get("shares", level.get("size"))
+            else:
+                price = getattr(level, "price", None)
+                shares = getattr(level, "shares", getattr(level, "size", None))
+            try:
+                normalized.append({"price": float(price), "shares": float(shares)})
+            except (TypeError, ValueError):
+                continue
+        return normalized
+
+    return ExecutionBook.from_levels(levels("bids", "_bids"), levels("asks", "_asks"))
 
 
 class OrderState(str, Enum):
@@ -110,12 +133,7 @@ class PaperExecutor:
                 ledger.record_intent(intent, dry_run=True, blocked=True, block_reason="no observed L2 book")
                 continue
             raw_book = observed.up_book if intent.side.value == "UP" else observed.down_book
-            bids = getattr(raw_book, "_bids", [])
-            asks = getattr(raw_book, "_asks", [])
-            execution_book = ExecutionBook.from_levels(
-                [{"price": float(level.get("price", 0)), "shares": float(level.get("size", 0))} for level in bids],
-                [{"price": float(level.get("price", 0)), "shares": float(level.get("size", 0))} for level in asks],
-            )
+            execution_book = _execution_book(raw_book)
             report = self.fill_engine.execute(execution_order, execution_book)
             if not report.fills:
                 ledger.record_intent(intent, dry_run=True, blocked=True, block_reason="no paper liquidity")

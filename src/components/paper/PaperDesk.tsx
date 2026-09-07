@@ -57,7 +57,19 @@ export function PaperDesk() {
 
   const state = useQuery({
     queryKey: ["paper-state"],
-    queryFn: () => fetchState(),
+    queryFn: async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          fetchState(),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error("Paper state request timed out after 8 seconds")), 8_000);
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    },
     refetchInterval: 10_000,
   });
   const status = useQuery({

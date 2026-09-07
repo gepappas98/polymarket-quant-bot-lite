@@ -1,6 +1,7 @@
 import pytest
 
 from bot.executor import LiveExecutor, PaperExecutor, ShadowExecutor
+from bot.feeds import OrderBook
 from bot.ledger import ledger
 from bot.strategy import Intent, Side
 from bot.config import cfg
@@ -37,6 +38,11 @@ def test_paper_fill_is_explicitly_marked_simulated(monkeypatch):
     monkeypatch.setattr("bot.executor.pair_lock.check", lambda slug: type("Gate", (), {"allowed": True, "reason": ""})())
     monkeypatch.setattr("bot.executor.gate_intent", lambda *args, **kwargs: type("Gate", (), {"allowed": True, "reason": ""})())
 
+    state = type("State", (), {})()
+    state.market = {"slug": "market"}
+    state.up_book = OrderBook([], [{"price": "0.4", "size": "25"}])
+    state.down_book = OrderBook([], [])
+    executor.observe(state, [])
     fills = executor.execute([intent])
 
     assert fills[0].simulated is True

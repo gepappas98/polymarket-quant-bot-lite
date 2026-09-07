@@ -12,9 +12,23 @@ from app.services.sizing_service import calculate_kelly_size, odds_from_price
 from app.services.websocket_manager import manager
 from app.utils.categories import category_for_slug
 from bot.config import cfg
+from bot.feeds import MarketState, fetch_order_book
 from bot.strategy import Intent, Side
 
 _trade_lock = threading.Lock()
+
+
+def _observe_paper_book(executor, market_slug: str, token_id: str, side: Side) -> None:
+    """Attach real CLOB depth before a paper execution; never synthesize liquidity."""
+    if not hasattr(executor, "observe"):
+        return
+    state = MarketState({"slug": market_slug})
+    book = fetch_order_book(token_id)
+    if side is Side.UP:
+        state.up_book = book
+    else:
+        state.down_book = book
+    executor.observe(state, [])
 
 
 @dataclass
@@ -62,7 +76,9 @@ def place_order(*, market_slug, token_id, side, price, confidence, balance, user
             return PlaceOrderResult("blocked", market_slug, category, sizing.suggested_amount, sizing.f_value, gated.blocks, None, None, cfg.mode != "live")
         outcome_side = Side(normalized_side)
         intent = Intent(market_slug, str(token_id), outcome_side, "BUY", float(price), sizing.suggested_amount, f"{reason} kelly f={sizing.f_value:.2f}%")
-        fills = (executor or get_executor()).execute([intent])
+        active_executor = executor or get_executor()
+        _observe_paper_book(active_executor, market_slug, str(token_id), outcome_side)
+        fills = active_executor.execute([intent])
         if not fills:
             return PlaceOrderResult("no_fill", market_slug, category, sizing.suggested_amount, sizing.f_value, ["executor returned no fill"], None, None, cfg.mode != "live")
         fill = fills[0]
@@ -95,8 +111,11 @@ def close_trailing_stop(trade_id: int, current_price: float, *, db, executor=Non
         token_id = trade.token_id or ""
         shares = float(trade.size_usd) / max(float(trade.entry_price), 1e-9)
         close_notional = shares * current
-        intent = Intent(trade.market_slug, token_id, Side(str(trade.side).upper()), "SELL", current, close_notional, "trailing stop")
-        fills = (executor or get_executor()).execute([intent])
+        outcome_side = Side(str(trade.side).upper())
+        intent = Intent(trade.market_slug, token_id, outcome_side, "SELL", current, close_notional, "trailing stop")
+        active_executor = executor or get_executor()
+        _observe_paper_book(active_executor, trade.market_slug, token_id, outcome_side)
+        fills = active_executor.execute([intent])
         if not fills:
             db.commit()
             return CloseTradeResult("no_fill", trade.id, close_notional, None, "executor returned no fill", None, trade.dry_run)

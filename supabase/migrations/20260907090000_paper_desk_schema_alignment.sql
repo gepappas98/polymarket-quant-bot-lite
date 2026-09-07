@@ -2,8 +2,6 @@ ALTER TABLE public.paper_trades
   ADD COLUMN IF NOT EXISTS client_order_id text,
   ADD COLUMN IF NOT EXISTS execution_mode text NOT NULL DEFAULT 'paper';
 
-CREATE UNIQUE INDEX IF NOT EXISTS paper_orders_user_client_order_id_uidx
-  ON public.paper_orders (user_id, client_order_id);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.paper_trades TO authenticated;
 GRANT ALL ON public.paper_trades TO service_role;

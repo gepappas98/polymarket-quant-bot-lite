@@ -13,6 +13,7 @@ from app.services.trading_service import place_order
 from bot import gates
 from bot.config import cfg
 from bot.executor import Fill
+from bot.feeds import OrderBook
 from bot.ledger import LedgerEntry, ledger
 
 
@@ -134,7 +135,8 @@ def test_concurrent_category_ceiling_allows_only_one_fill():
     assert [result.status for result in results].count("filled") == 1
 
 
-def test_settlement_reconciliation_closes_trade_and_exposure():
+def test_settlement_reconciliation_closes_trade_and_exposure(monkeypatch):
+    monkeypatch.setattr("app.services.trading_service.fetch_order_book", lambda token_id: OrderBook([], [{"price": "0.5", "size": "1000"}]))
     slug = "election-settlement"
     risk_service.advanced_cooldown.clear(slug)
     with database.SessionLocal() as db:
