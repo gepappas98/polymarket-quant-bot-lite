@@ -11,6 +11,7 @@
 - [ ] Consolidate worker and Supabase paper ledgers behind one read-only status path.
 - [x] Build the production REAL Polymarket CLOB L2 historical recorder with WebSocket primary ingestion, REST snapshot/reconciliation, restart-safe SQLite persistence, deduplication, stale detection, reconnects, retention, and recorder metrics.
 - [x] Replace production backtest historical input with fail-closed REAL recorder replay; retain legacy fixture inputs only for unit-test mocks.
+- [x] Replace browser Polymarket Market Maker Binance proxy with REAL CLOB WebSocket L2, paper depth fills, explicit offline/stale handling, and non-blocking five-second Paper Desk price refresh.
 
 ## 0.4.0 Architecture Clarification & Realism
 

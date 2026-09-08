@@ -1,8 +1,8 @@
-/** @SIMULATION_ONLY - Browser paper-trading, Supabase-backed, DOES NOT PLACE REAL ORDERS. Real orders only via bot/ worker. */
+/** @RESEARCH_SIMULATION_ONLY - Generic Binance research simulator. Not a Polymarket market-data source. */
 export const IS_SIMULATION_ONLY = true;
-/** Binance is real external data, but it is not a Polymarket CLOB book. */
-export const MARKET_DATA_SOURCE = "DEMO" as const;
-export const AUXILIARY_DATA_SOURCE = "REAL_BINANCE" as const;
+export const RESEARCH_SIMULATION_LABEL = "Research Simulation — Binance/Generic" as const;
+export const MARKET_DATA_SOURCE = "RESEARCH_SIMULATION" as const;
+export const AUXILIARY_DATA_SOURCE = "BINANCE_GENERIC_RESEARCH" as const;
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -28,8 +28,9 @@ export interface MmOptions {
 const MIN_FILL_GAP_MS = 4000;
 
 /**
- * Client-side market-making loop: Binance trade feed used as a DEMO proxy,
- * not Polymarket market data, with two-sided quotes
+ * Research-only generic market-making loop: Binance trade feed is not
+ * Polymarket market data and must not be used by the production Polymarket MM,
+ * with two-sided quotes
  * around mid, simulated fills when the tape crosses a quote. Every fill is
  * persisted through the log_trade server function and arms the cooldown.
  */

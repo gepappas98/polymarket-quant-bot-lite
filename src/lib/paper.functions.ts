@@ -4,6 +4,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { PaperAdapter } from "@/lib/execution/paperAdapter";
 import { applyPlaceResult, createOrder } from "@/lib/execution/orderExecutor";
 import { systemClock } from "@/lib/execution/clock";
+import { fetchWorkerStatus } from "@/lib/bot.server";
+import type { MarketRow } from "@/lib/bot-types";
 
 export interface PaperGate {
   name: string;
@@ -14,6 +16,18 @@ export interface PaperGate {
 const DEFAULT_BANKROLL = 10_000;
 
 type Ctx = { supabase: any; userId: string };
+
+/** Dedicated non-blocking market-price payload for the Paper Desk. */
+export const getPaperMarketPrices = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const status = await fetchWorkerStatus();
+    return {
+      generatedAt: status.generatedAt,
+      dataSource: status.market_data_source,
+      markets: status.markets as MarketRow[],
+    };
+  });
 
 async function loadAccount(ctx: Ctx) {
   const { data: existing, error } = await ctx.supabase
