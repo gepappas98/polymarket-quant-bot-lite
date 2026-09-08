@@ -61,6 +61,8 @@ class Snapshot:
     down_asks: List[dict] = field(default_factory=list)
     resolved: bool = False
     winner: Optional[str] = None
+    data_source: str = "LEGACY_SNAPSHOT_INPUT"
+    label_source: Optional[str] = None
 
 
 class BacktestMarketState:
@@ -112,6 +114,8 @@ def load_snapshots(path: str) -> List[Snapshot]:
                 down_asks=raw.get("down_asks", []),
                 resolved=bool(raw.get("resolved", False)),
                 winner=raw.get("winner"),
+                data_source=str(raw.get("data_source", "LEGACY_SNAPSHOT_INPUT")),
+                label_source=raw.get("label_source"),
             ))
     snapshots.sort(key=lambda s: s.ts)
     return snapshots

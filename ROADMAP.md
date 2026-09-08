@@ -12,6 +12,7 @@
 - [ ] Consolidate worker and Supabase paper ledgers behind one read-only status path.
 - [x] Build the production REAL Polymarket CLOB L2 historical recorder with WebSocket primary ingestion, REST snapshot/reconciliation, restart-safe SQLite persistence, deduplication, stale detection, reconnects, retention, and recorder metrics.
 - [x] Replace production backtest historical input with fail-closed REAL recorder replay; retain legacy fixture inputs only for unit-test mocks.
+- [x] Make ML retraining fail closed on anything except provenance-bearing REAL Polymarket observations joined to Polymarket resolution labels; use chronological market-grouped train/validation/test splits and persist dataset provenance in model artifacts.
 
 ## 0.4.0 Architecture Clarification & Realism
 
@@ -38,7 +39,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [x] **Daily kill switch persisted across restarts** — `bot/daily_limit.py`
 - [x] **Backtest harness** against historical order-book snapshots — `bot/backtest.py` (see near-term note below on its risk-model simplification)
 - [x] **PostgreSQL ledger option** — `bot/ledger_pg.py`, `LEDGER_BACKEND=postgres`
-- [x] **ML ensemble (XGBoost)** for win-probability prediction — `bot/ml_model.py`, `bot/strategies/ml_directional.py`
+- [x] **ML ensemble (XGBoost)** for win-probability prediction — `bot/ml_model.py`, `bot/strategies/ml_directional.py` (production training requires validated REAL Polymarket datasets)
 - [x] **Cross-venue signal (Polymarket ↔ Kalshi)** — `bot/strategies/cross_platform_arbitrage.py` — directional only, see near-term item below for the hedged version
 - [x] **Prometheus/Grafana monitoring stack** — `bot/metrics.py` + `deploy/`
 - [x] **Dashboard trading panels** (Supabase-backed, in-browser) — market making, copy trading, Kelly slider, cooldown timer, strategy manager, backtester, alerting — see `docs/FEATURES.md`
@@ -223,7 +224,7 @@ Still open:
 ## Medium term (v0.6)
 
 - [ ] Event-driven backtest + walk-forward validation for ML
-- [ ] ML: calibration, Brier / log-loss, PnL-after-fees at threshold (not accuracy alone)
+- [x] ML: chronological train/validation/test validation with Brier/log-loss provenance; calibration and PnL-after-fees remain follow-up metrics
 - [ ] Shadow mode: live signals, paper size; parity report
 - [ ] Injectable clock for gates/backtest
 - [ ] Historical book snapshot worker (stop synthetic-only training)

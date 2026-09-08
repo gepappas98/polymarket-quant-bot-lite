@@ -29,7 +29,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 log = logging.getLogger(__name__)
 
@@ -83,6 +83,7 @@ class ProbabilityModel:
     def __init__(self):
         self._model = None
         self._available = False
+        self.metadata: dict[str, Any] | None = None
         try:
             import xgboost  # noqa: F401 — μόνο έλεγχος διαθεσιμότητας εδώ
             self._xgboost = xgboost
@@ -95,20 +96,26 @@ class ProbabilityModel:
     def available(self) -> bool:
         return self._available and self._model is not None
 
-    def train(self, X: List[List[float]], y: List[int], **xgb_params) -> None:
+    def train(self, X: List[List[float]], y: List[int], *, metadata: dict[str, Any], **xgb_params) -> None:
         if not self._available:
             raise RuntimeError("xgboost δεν είναι εγκατεστημένο — pip install xgboost")
+        if not X or len(X) != len(y) or set(y) != {0, 1}:
+            raise ValueError("ML training requires non-empty samples with both UP and DOWN labels")
+        if metadata.get("source") != "REAL_HISTORICAL_POLYMARKET" or metadata.get("label_source") != "POLYMARKET_RESOLUTION":
+            raise ValueError("ML model artifacts require REAL Polymarket observations and resolution labels")
         params = {
             "n_estimators": 150,
             "max_depth": 3,
             "learning_rate": 0.05,
             "objective": "binary:logistic",
             "eval_metric": "logloss",
+            "random_state": 0,
             **xgb_params,
         }
         model = self._xgboost.XGBClassifier(**params)
         model.fit(X, y)
         self._model = model
+        self.metadata = {"feature_names": FEATURE_NAMES, **metadata, "sample_count": len(X)}
         log.info(f"ProbabilityModel: trained on {len(X)} samples")
 
     def predict_win_prob_up(self, state) -> Optional[float]:
@@ -120,17 +127,21 @@ class ProbabilityModel:
         if feats is None:
             return None
         proba = self._model.predict_proba([feats.to_list()])[0]
-        # class 1 = "UP wins", βλ. build_training_set()
-        return float(proba[1])
+        classes = list(getattr(self._model, "classes_", []))
+        if 1 not in classes:
+            return None
+        return float(proba[classes.index(1)])
 
     def save(self, path: Optional[Path] = None) -> None:
         if self._model is None:
             raise RuntimeError("Δεν υπάρχει trained model να αποθηκευτεί")
+        if self.metadata is None:
+            raise RuntimeError("Δεν υπάρχει provenance metadata για το trained model")
         path = path or MODEL_PATH
         path.parent.mkdir(parents=True, exist_ok=True)
         self._model.save_model(str(path))
-        with open(str(path) + ".meta.json", "w") as f:
-            json.dump({"feature_names": FEATURE_NAMES}, f)
+        with open(str(path) + ".meta.json", "w", encoding="utf-8") as f:
+            json.dump(self.metadata, f, sort_keys=True)
         log.info(f"ProbabilityModel: saved to {path}")
 
     @classmethod
@@ -140,9 +151,19 @@ class ProbabilityModel:
         if not inst._available or not path.exists():
             return inst  # available=False -> callers κάνουν fallback στο heuristic
         try:
+            metadata_path = Path(str(path) + ".meta.json")
+            if not metadata_path.is_file():
+                raise ValueError("model provenance metadata is missing")
+            with metadata_path.open(encoding="utf-8") as f:
+                metadata = json.load(f)
+            if metadata.get("feature_names") != FEATURE_NAMES:
+                raise ValueError("model feature schema does not match current feature schema")
+            if metadata.get("source") != "REAL_HISTORICAL_POLYMARKET" or metadata.get("label_source") != "POLYMARKET_RESOLUTION":
+                raise ValueError("model provenance is not REAL Polymarket")
             model = inst._xgboost.XGBClassifier()
             model.load_model(str(path))
             inst._model = model
+            inst.metadata = metadata
             log.info(f"ProbabilityModel: loaded from {path}")
         except Exception as e:
             log.error(f"ProbabilityModel: failed to load {path}: {e} — ML signal disabled")
@@ -151,10 +172,8 @@ class ProbabilityModel:
 
 def build_training_set(snapshots) -> Tuple[List[List[float]], List[int]]:
     """
-    snapshots: Iterable[bot.backtest.Snapshot], ταξινομημένα κατά ts.
-    Για κάθε market: παίρνει τα features απ' το ΤΕΛΕΥΤΑΙΟ pre-resolution
-    snapshot του, με label = 1 αν winner=="UP" αλλιώς 0. Markets χωρίς
-    resolution event αγνοούνται (δεν έχουμε label).
+    snapshots: legacy-compatible snapshots. Production training must use
+    bot.ml_dataset.load_real_dataset; unprovenanced snapshots are rejected here.
     """
     from .backtest import BacktestMarketState  # local import: αποφυγή κυκλικού import
 
@@ -163,6 +182,8 @@ def build_training_set(snapshots) -> Tuple[List[List[float]], List[int]]:
     y: List[int] = []
 
     for snap in snapshots:
+        if getattr(snap, "data_source", None) != "REAL_HISTORICAL_POLYMARKET" or getattr(snap, "label_source", None) != "POLYMARKET_RESOLUTION":
+            raise ValueError("ML training requires REAL_HISTORICAL_POLYMARKET snapshots with POLYMARKET_RESOLUTION labels")
         slug = snap.market.get("slug")
         if not slug:
             continue
