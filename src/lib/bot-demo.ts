@@ -1,9 +1,6 @@
 import type { BotStatus, LedgerRow, MarketRow, SwarmSnapshot } from "./bot-types";
 
-/**
- * Deterministic-ish demo status generator. Used when no BOT_STATUS_URL worker
- * endpoint is configured, so the dashboard is always readable.
- */
+/** Synthetic status generator; production status never calls this path. */
 function seeded(seed: number) {
   let s = seed % 2147483647;
   if (s <= 0) s += 2147483646;

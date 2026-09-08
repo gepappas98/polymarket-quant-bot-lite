@@ -268,21 +268,17 @@ with a simplified, time-independent risk model (cooldown and the drawdown
 kill switch are wall-clock based in production and are not faithfully
 reproduced in a fast-forwarded backtest — see the module docstring).
 
-To train the ML model:
+Production ML training requires a provenance-bearing JSON dataset created from
+REAL Polymarket CLOB observations joined to REAL Polymarket resolution labels.
+It rejects legacy/synthetic snapshots, simulated-fill labels, Binance data, and
+missing data rather than generating replacements. Configure `ML_DATASET_PATH`
+and run the authenticated `/api/ml/retrain?sync=true` path; the trainer performs
+chronological market-grouped train/validation/test splits and writes provenance
+and out-of-sample metrics beside `ML_MODEL_PATH`. Legacy JSONL backtests remain
+available for unit tests and research only, not supervised production training.
 
-```python
-from bot.backtest import load_snapshots
-from bot.ml_model import build_training_set, ProbabilityModel
-
-snapshots = load_snapshots("data/historical_snapshots.jsonl")
-X, y = build_training_set(snapshots)
-model = ProbabilityModel()
-model.train(X, y)
-model.save()  # -> data/ml_model.json (ML_MODEL_PATH)
-```
-
-Model quality depends entirely on how many real settled markets you feed it —
-treat anything trained on fewer than a few hundred samples as unproven.
+A model without valid dataset provenance or the current feature schema is refused
+by `bot/strategies/ml_directional.py`.
 
 ---
 

@@ -53,6 +53,14 @@ export interface LedgerRow {
   setId?: string | null;
   consensus?: number | null;
   consensusOk?: boolean | null;
+  eventId?: string;
+  eventType?: string | null;
+  eventVersion?: number;
+  tokenId?: string | null;
+  quantity?: number | null;
+  executionMode?: "PAPER" | "LIVE";
+  dataSource?: string;
+  orderId?: string | null;
 }
 
 /** One module in the non-LLM swarm pipeline (from worker GET /status). */
@@ -103,6 +111,19 @@ export interface BotStatus {
   markets: MarketRow[];
   gates: GateRow[];
   ledger: LedgerRow[];
-  /** Present when worker runs v0.5+ swarm; demo feed synthesizes a snapshot. */
+  /** Present when worker runs v0.5+ swarm; explicit DEMO mode may synthesize a snapshot. */
   swarm?: SwarmSnapshot | null;
+  executionAuthority?: "worker" | "demo";
+  executionLedger?: {
+    backend: string;
+    writable: boolean;
+    lastEventId: string | null;
+    lastEventAt: number | null;
+    lastEventType: string | null;
+    stale: boolean;
+    ageSeconds: number | null;
+    unresolvedOrders: number;
+    reconciliationHealthy: boolean;
+    lastReconciliationAt: number | null;
+  };
 }

@@ -94,6 +94,8 @@ def metrics_summary(db) -> dict:
     return {
         "system_status": system_status(db),
         "mode": cfg.mode,
+        "data_source": "REAL",
+        "execution_mode": "LIVE" if cfg.mode == "live" else "PAPER",
         "top_market": slug,
         "current_price": price,
         "weekly_trades": len(weekly),

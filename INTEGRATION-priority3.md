@@ -7,7 +7,7 @@ bot/kelly.py, bot/backtest.py κ.λπ. ήδη μέσα στο repo σου).
 
 **Νέα αρχεία:**
 ```
-bot/ml_model.py                          # XGBoost probability model, training από backtest snapshots
+bot/ml_model.py                          # XGBoost model; production training requires REAL Polymarket dataset
 bot/strategies/ml_directional.py         # χρησιμοποιεί το ML model + Kelly sizing
 bot/venues/__init__.py
 bot/venues/kalshi_client.py              # Kalshi REST client, RSA-PSS request signing
@@ -39,30 +39,22 @@ bot/main.py         # metrics.start_metrics_server()
 pip install xgboost
 ```
 
-Training pipeline (batch, εκτός του live loop):
-```python
-from bot.backtest import load_snapshots
-from bot.ml_model import build_training_set, ProbabilityModel
-
-snapshots = load_snapshots("data/historical_snapshots.jsonl")
-X, y = build_training_set(snapshots)
-model = ProbabilityModel()
-model.train(X, y)
-model.save()  # -> data/ml_model.json (ML_MODEL_PATH)
-```
+Production training is batch-only and fail-closed. Set `ML_DATASET_PATH` to a
+provenance-bearing dataset with `source=REAL_HISTORICAL_POLYMARKET` and
+`label_source=POLYMARKET_RESOLUTION`, then call the authenticated
+`POST /api/ml/retrain?sync=true` endpoint. The pipeline performs chronological,
+market-grouped train/validation/test splits and stores dataset provenance and
+validation/test metrics in the model sidecar. Missing, synthetic, Binance, or
+simulated-fill data is rejected; no fake data is generated.
 
 Μετά, `ML_STRATEGY_ENABLED=true` στο `.env` κάνει το
 `bot/strategies/ml_directional.py` να φορτώσει το saved model και να παράγει
 directional intents με Kelly sizing όποτε η confidence ξεπερνά
 `ML_MIN_CONFIDENCE_EDGE` (default 0.08).
 
-**Δοκιμάστηκε πλήρως end-to-end** με 300 συνθετικά resolved markets (imbalance
-→ outcome με τεχνητό sigmoid pattern + θόρυβο): training, save, load,
-inference όλα δούλεψαν, και το μοντέλο έμαθε σωστά το pattern (P(UP)=0.84 σε
-ισχυρά UP-imbalanced book). **ΔΕΝ έχω πραγματικά ιστορικά δεδομένα Polymarket
-markets** — η ΠΟΙΟΤΗΤΑ ενός πραγματικού μοντέλου εξαρτάται 100% από το πόσα
-πραγματικά resolved markets θα του δώσεις. Με λίγα δείγματα (<200), μην
-περιμένεις να ξεπεράσει το heuristic.
+Synthetic markets remain test-only fixtures and are not accepted by the
+production retraining path. Model quality must be evaluated from the recorded
+REAL Polymarket validation and test periods.
 
 ## 2. Cross-platform arbitrage — Polymarket ↔ Kalshi (πειραματικό, ΜΗΝ το θεωρήσεις risk-free)
 

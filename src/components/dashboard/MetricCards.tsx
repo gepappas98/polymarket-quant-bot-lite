@@ -16,6 +16,11 @@ const STATUS = {
     className: "border-warn/50 bg-warn/15 text-warn",
     Icon: Layers,
   },
+  demo: {
+    label: "DEMO MODE",
+    className: "border-down/50 bg-down/15 text-down",
+    Icon: ShieldAlert,
+  },
   paused: {
     label: "SYSTEM PAUSED",
     className: "border-down/50 bg-down/15 text-down",
@@ -46,13 +51,18 @@ export function useMetricsSummary() {
 export function SystemStatusBar({
   summary,
   fallbackMode,
+  dataSource,
 }: {
   summary?: MetricsSummary | undefined;
   fallbackMode?: string | undefined;
+  dataSource?: string | undefined;
 }) {
   const clock = useUtcClock();
-  const key = (summary?.system_status ??
-    (fallbackMode === "live" ? "active" : "paper")) as keyof typeof STATUS;
+  const key = (
+    dataSource === "DEMO"
+      ? "demo"
+      : (summary?.system_status ?? (fallbackMode === "live" ? "active" : "paper"))
+  ) as keyof typeof STATUS;
   const state = STATUS[key] ?? STATUS.paper;
   const { Icon } = state;
   return (
@@ -104,47 +114,66 @@ function Card({
 }
 
 export function MetricCards({ summary }: { summary?: MetricsSummary | undefined }) {
+  const source = summary?.data_source ?? "UNAVAILABLE";
+  const hasData = Boolean(summary);
   const lossUsed = summary?.daily_loss_used ?? 0;
   const lossLimit = summary?.daily_loss_limit ?? 0;
   const usedPct = lossLimit > 0 ? Math.min(100, (100 * lossUsed) / lossLimit) : 0;
   const change = summary?.daily_pnl_change ?? 0;
+  const provenance = `source: ${source}`;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <Card
         label="Price / Stock"
-        value={summary?.current_price != null ? `$${summary.current_price.toFixed(3)}` : "—"}
-        sub={summary?.top_market ? `top volume · ${summary.top_market}` : "no fills yet"}
+        value={
+          hasData && summary?.current_price != null
+            ? `$${summary.current_price.toFixed(3)}`
+            : "NO DATA"
+        }
+        sub={
+          summary?.top_market ? `top volume · ${summary.top_market} · ${provenance}` : provenance
+        }
       />
       <Card
         label="Trades / wk"
-        value={String(summary?.weekly_trades ?? 0)}
-        sub={`${usd(summary?.weekly_volume ?? 0)} USDC notional`}
+        value={hasData ? String(summary?.weekly_trades) : "NO DATA"}
+        sub={
+          hasData ? `${usd(summary?.weekly_volume ?? 0)} USDC notional · ${provenance}` : provenance
+        }
       />
       <Card
         label="STL / day"
-        value={`${usd(lossUsed)} / ${usd(lossLimit)}`}
-        sub={`${usedPct.toFixed(0)}% of daily stop-loss used`}
+        value={hasData ? `${usd(lossUsed)} / ${usd(lossLimit)}` : "NO DATA"}
+        sub={
+          hasData ? `${usedPct.toFixed(0)}% of daily stop-loss used · ${provenance}` : provenance
+        }
         tone={usedPct > 75 ? "down" : usedPct > 40 ? "warn" : "default"}
       >
-        <Progress className="mt-3 h-1.5" value={usedPct} />
+        {hasData ? <Progress className="mt-3 h-1.5" value={usedPct} /> : null}
       </Card>
       <Card
         label="Change in value"
-        value={`${change >= 0 ? "+" : ""}${usd(change)}`}
-        sub={`${summary?.daily_pnl_percent?.toFixed(2) ?? "0.00"}% today · ${summary?.closed_today ?? 0} closed`}
-        tone={change >= 0 ? "up" : "down"}
+        value={hasData ? `${change >= 0 ? "+" : ""}${usd(change)}` : "NO DATA"}
+        sub={
+          hasData
+            ? `${summary?.daily_pnl_percent.toFixed(2)}% today · ${summary?.closed_today} closed · ${provenance}`
+            : provenance
+        }
+        tone={hasData && change < 0 ? "down" : "up"}
       >
-        <div className="tape mt-2 flex items-center gap-1 text-[10px]">
-          {change >= 0 ? (
-            <ArrowUpRight className="size-3 text-up" aria-hidden />
-          ) : (
-            <ArrowDownRight className="size-3 text-down" aria-hidden />
-          )}
-          <span className="text-muted-foreground">
-            {summary?.open_positions ?? 0} open positions
-          </span>
-        </div>
+        {hasData ? (
+          <div className="tape mt-2 flex items-center gap-1 text-[10px]">
+            {change >= 0 ? (
+              <ArrowUpRight className="size-3 text-up" aria-hidden />
+            ) : (
+              <ArrowDownRight className="size-3 text-down" aria-hidden />
+            )}
+            <span className="text-muted-foreground">
+              {summary?.open_positions ?? 0} open positions
+            </span>
+          </div>
+        ) : null}
       </Card>
     </div>
   );

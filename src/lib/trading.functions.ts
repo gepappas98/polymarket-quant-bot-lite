@@ -52,57 +52,36 @@ export const getMmStats = createServerFn({ method: "POST" })
     };
   });
 
-/** log_trade — idempotent-ish insert into mm_trades or copy_trades. */
+/** Record a market-maker paper fill; observed copy activity uses its own immutable event path. */
 export const logTrade = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z
       .object({
-        table: z.enum(["mm_trades", "copy_trades"]),
+        table: z.literal("mm_trades"),
         market: z.string().min(1),
         side: z.string().min(1),
         price: z.number().nonnegative().optional(),
         size: z.number().positive(),
         pnl: z.number().default(0),
-        wallet: z.string().optional(),
         strategy: z.string().optional(),
-        status: z.enum(["pending", "mirrored", "skipped", "closed"]).optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    if (data.table === "mm_trades") {
-      const side = data.side.toUpperCase() === "SELL" ? "SELL" : "BUY";
-      const { data: row, error } = await supabase
-        .from("mm_trades")
-        .insert({
-          user_id: userId,
-          market: data.market,
-          side,
-          price: data.price ?? 0,
-          size: data.size,
-          pnl: data.pnl,
-          strategy: data.strategy ?? null,
-        })
-        .select("id")
-        .single();
-      if (error) throw new Error(error.message);
-      return { id: row.id };
-    }
-
+    const side = data.side.toUpperCase() === "SELL" ? "SELL" : "BUY";
     const { data: row, error } = await supabase
-      .from("copy_trades")
+      .from("mm_trades")
       .insert({
         user_id: userId,
-        wallet: data.wallet ?? "unknown",
         market: data.market,
-        side: data.side,
+        side,
+        price: data.price ?? 0,
         size: data.size,
-        price: data.price ?? null,
         pnl: data.pnl,
-        status: data.status ?? "pending",
+        strategy: data.strategy ?? null,
       })
       .select("id")
       .single();

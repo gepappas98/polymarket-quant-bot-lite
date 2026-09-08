@@ -47,6 +47,7 @@ from .strategy import Intent, Side, Strategy
 from .strategies.loader import load_all
 from .execution import Order as PaperOrder, OrderBook as PaperOrderBook, PaperFillEngine
 from .historical_data import HistoricalDataUnavailable, HistoricalMarketData, HistoricalL2Snapshot, REAL_HISTORICAL_SOURCE
+from .execution_calibration import calibrate_real_l2
 
 log = logging.getLogger(__name__)
 
@@ -61,6 +62,8 @@ class Snapshot:
     down_asks: List[dict] = field(default_factory=list)
     resolved: bool = False
     winner: Optional[str] = None
+    data_source: str = "LEGACY_SNAPSHOT_INPUT"
+    label_source: Optional[str] = None
 
 
 class BacktestMarketState:
@@ -112,6 +115,8 @@ def load_snapshots(path: str) -> List[Snapshot]:
                 down_asks=raw.get("down_asks", []),
                 resolved=bool(raw.get("resolved", False)),
                 winner=raw.get("winner"),
+                data_source=str(raw.get("data_source", "LEGACY_SNAPSHOT_INPUT")),
+                label_source=raw.get("label_source"),
             ))
     snapshots.sort(key=lambda s: s.ts)
     return snapshots
@@ -154,6 +159,7 @@ class BacktestResult:
     peak_exposure_usd: float = 0.0
     turnover_usd: float = 0.0
     requested_usd: float = 0.0
+    calibration: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def fees_usd(self) -> float:
@@ -177,7 +183,9 @@ class BacktestResult:
             f"fills={len(self.fills)} outcomes={self.outcomes} "
             f"win_rate={self.win_rate_pct}% gross_pnl=${self.gross_pnl_usd:+.2f} "
             f"fees=${self.fees_usd:.4f} slippage=${self.slippage_usd:.4f} "
-            f"net_pnl=${self.net_pnl_usd:+.2f}"
+            f"net_pnl=${self.net_pnl_usd:+.2f} "
+            f"fill_model_version={self.calibration.get('fill_model_version', 'UNSPECIFIED')} "
+            f"calibration_dataset={self.calibration.get('calibration_dataset', 'UNSPECIFIED')}"
         )
 
     @property
@@ -251,25 +259,35 @@ def _simulate_taker(intent: Intent, snap: Snapshot, consumed: Dict[tuple, float]
     )
 
 
-def _simulate_maker(intent: Intent, snap: Snapshot, rng: random.Random) -> Optional[BacktestFill]:
-    probability = max(0.0, min(1.0, cfg.maker_fill_probability))
+def _simulate_maker(
+    intent: Intent,
+    snap: Snapshot,
+    rng: random.Random,
+    *,
+    probability: Optional[float] = None,
+    queue_ahead: Optional[float] = None,
+    latency_sec: Optional[float] = None,
+) -> Optional[BacktestFill]:
+    probability = max(0.0, min(1.0, cfg.maker_fill_probability if probability is None else probability))
+    queue_ahead = cfg.maker_queue_ahead if queue_ahead is None else max(0.0, queue_ahead)
+    latency_sec = cfg.maker_latency_sec if latency_sec is None else max(0.0, latency_sec)
     if rng.random() > probability:
         return None
     levels = snap.up_bids if intent.side == Side.UP else snap.down_bids
     touch = next((level for level in levels if abs(float(level.get("price", 0.0)) - intent.price) < 1e-9), None)
     if touch is None:
         return None
-    available = max(0.0, float(touch.get("size", 0.0)) - cfg.maker_queue_ahead)
+    available = max(0.0, float(touch.get("size", 0.0)) - queue_ahead)
     filled_usd = min(intent.size_usd, available * intent.price)
     if filled_usd <= 0:
         return None
     fee = filled_usd * max(0.0, cfg.paper_fee_bps) / 10_000
     return BacktestFill(
-        ts=snap.ts + max(0.0, cfg.maker_latency_sec), market_slug=intent.market_slug,
+        ts=snap.ts + latency_sec, market_slug=intent.market_slug,
         side=intent.side.value, price=intent.price, size_usd=filled_usd,
         reason="SIMULATED_MAKER_FILL", requested_usd=intent.size_usd,
         fee_usd=fee, fill_probability=probability,
-        queue_ahead=cfg.maker_queue_ahead, latency_sec=cfg.maker_latency_sec,
+        queue_ahead=queue_ahead, latency_sec=latency_sec,
     )
 
 
@@ -329,6 +347,15 @@ def run_backtest(snapshots: Iterable[Snapshot]) -> BacktestResult:
         outcomes=outcomes,
         wins=wins,
         gross_pnl_usd=round(realized_pnl, 2),
+        calibration={
+            "fill_model_version": "legacy-config-v1",
+            "calibration_dataset": "LEGACY_SNAPSHOT_INPUT",
+            "assumptions": ["Legacy fixture path is not an empirical REAL calibration."],
+            "maker_fill_assumption": cfg.maker_fill_probability,
+            "latency_assumption": cfg.maker_latency_sec,
+            "fee_model": f"configured_paper_fee_bps:{cfg.paper_fee_bps:g}",
+            "slippage_model": f"configured_paper_slippage_bps:{cfg.paper_slippage_bps:g}",
+        },
     )
 
 
@@ -355,6 +382,7 @@ def main() -> None:
         result = run_backtest(snapshots)
     print(result.summary())
     print(f"data_source={result.data_source} execution_mode={result.execution_mode} fill_ratio={result.fill_ratio:.4f} turnover=${result.turnover_usd:.2f} peak_exposure=${result.peak_exposure_usd:.2f}")
+    print("calibration=" + json.dumps(result.calibration, sort_keys=True))
     if result.data_quality_warnings:
         print("data_quality_warnings=" + "; ".join(result.data_quality_warnings))
     for f in result.fills[:20]:
@@ -368,9 +396,8 @@ if __name__ == "__main__":
 
 
 # --- REAL Polymarket recorder replay --------------------------------------
-def _real_snapshots(source: HistoricalMarketData, *, start_ms: int | None = None, end_ms: int | None = None, market_id: str | None = None, token_id: str | None = None) -> list[Snapshot]:
-    """Convert recorder rows into strategy-compatible states without inventing levels."""
-    rows = source.require_snapshots(start_ms=start_ms, end_ms=end_ms, market_id=market_id, token_id=token_id)
+def _real_snapshots_from_rows(rows: list[HistoricalL2Snapshot]) -> list[Snapshot]:
+    """Convert REAL recorder rows into strategy-compatible states without inventing levels."""
     latest: dict[str, dict[str, Any]] = {}
     snapshots: list[Snapshot] = []
     for row in rows:
@@ -388,6 +415,11 @@ def _real_snapshots(source: HistoricalMarketData, *, start_ms: int | None = None
             down_bids=item.get("down_bids", []), down_asks=item.get("down_asks", []),
         ))
     return snapshots
+
+
+def _real_snapshots(source: HistoricalMarketData, *, start_ms: int | None = None, end_ms: int | None = None, market_id: str | None = None, token_id: str | None = None) -> list[Snapshot]:
+    rows = source.require_snapshots(start_ms=start_ms, end_ms=end_ms, market_id=market_id, token_id=token_id)
+    return _real_snapshots_from_rows(rows)
 
 
 def _real_paper_fill(intent: Intent, snap: Snapshot, engine: PaperFillEngine) -> list[BacktestFill]:
@@ -422,7 +454,13 @@ def run_real_backtest(
     This function is intentionally separate from ``run_backtest``: legacy fixture
     snapshots remain valid for unit tests, while REAL mode has no synthetic fallback.
     """
-    snapshots = _real_snapshots(data_source, start_ms=start_ms, end_ms=end_ms, market_id=market_id, token_id=token_id)
+    rows = data_source.require_snapshots(start_ms=start_ms, end_ms=end_ms, market_id=market_id, token_id=token_id)
+    snapshots = _real_snapshots_from_rows(rows)
+    calibration = calibrate_real_l2(
+        rows,
+        fee_bps=cfg.paper_fee_bps,
+        slippage_bps=cfg.paper_slippage_bps,
+    ).as_dict()
     strategy = strategy or Strategy()
     registry = load_all(strategy)
     engine = PaperFillEngine(cfg.paper_fee_bps, cfg.paper_slippage_bps)
@@ -430,13 +468,26 @@ def run_real_backtest(
     requested_usd = 0.0
     turnover_usd = 0.0
     peak_exposure = 0.0
+    rng = random.Random(0)
     for snap in snapshots:
         state = BacktestMarketState(snap)
         for intent in registry.evaluate_all(state):
             if not _simple_exposure_gate(strategy, intent):
                 continue
             requested_usd += intent.size_usd
-            new_fills = _real_paper_fill(intent, snap, engine)
+            calibrated_maker = (
+                _simulate_maker(
+                    intent,
+                    snap,
+                    rng,
+                    probability=float(calibration["maker_fill_assumption"]),
+                    queue_ahead=0.0,
+                    latency_sec=float(calibration["latency_assumption"]),
+                )
+                if cfg.prefer_maker
+                else None
+            )
+            new_fills = [calibrated_maker] if calibrated_maker is not None else _real_paper_fill(intent, snap, engine)
             fills.extend(new_fills)
             turnover_usd += sum(fill.size_usd for fill in new_fills)
             for fill in new_fills:
@@ -449,4 +500,5 @@ def run_real_backtest(
         data_source=REAL_HISTORICAL_SOURCE, execution_mode="PAPER_SIMULATION",
         data_coverage=coverage, data_quality_warnings=coverage["quality_warnings"],
         peak_exposure_usd=peak_exposure, turnover_usd=turnover_usd, requested_usd=requested_usd,
+        calibration=calibration,
     )

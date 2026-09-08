@@ -3,18 +3,25 @@
 ## P0 — REAL vs PAPER vs DEMO/MOCK boundary (2026-09-08)
 
 - [x] Inventory Polymarket REST/WebSocket, metadata, trader activity, historical, Binance, Supabase, browser, demo, and test-fixture sources.
+- [x] Make app mode explicit: `APP_MODE=PRODUCTION` is the default fail-closed behavior, while synthetic status requires explicit `APP_MODE=DEMO`; dashboard metrics expose provenance and unavailable values remain `NO DATA`.
 - [x] Add explicit `data_source`, `execution_mode`, `market_data_source`, and `is_simulated` runtime metadata.
+- [x] Replace browser Polymarket MM's Binance proxy with a public Polymarket CLOB L2 WebSocket keyed by `token_id`; fail closed as OFFLINE / NO DATA, and label all orders PAPER and fills SIMULATED.
 - [x] Reject malformed worker status and stop silently replacing worker failures with DEMO values.
 - [x] Block browser paper orders and marking when only DEMO/proxy data is available.
+- [x] Replace browser copy-position simulation with normalized REAL Polymarket Data API activity; deduplicate source events, reject stale/invalid/risky signals, show NO DATA on failure, and keep LIVE copy disabled.
 - [x] Label live market input, paper execution, demo data, and test mocks distinctly.
 - [x] Preserve legitimate unit-test mocks and document remaining simulation paths in `docs/DATA_BOUNDARY_AUDIT.md`.
-- [ ] Consolidate worker and Supabase paper ledgers behind one read-only status path.
+- [x] Establish the worker execution ledger as the authoritative execution/event source with stable event IDs, lifecycle metadata, idempotent appends, health/stale/reconciliation endpoints, and worker-authority markers; browser PaperDesk execution is blocked when worker authority is present.
 - [x] Build the production REAL Polymarket CLOB L2 historical recorder with WebSocket primary ingestion, REST snapshot/reconciliation, restart-safe SQLite persistence, deduplication, stale detection, reconnects, retention, and recorder metrics.
 - [x] Replace production backtest historical input with fail-closed REAL recorder replay; retain legacy fixture inputs only for unit-test mocks.
+- [x] Make ML retraining fail closed on anything except provenance-bearing REAL Polymarket observations joined to Polymarket resolution labels; use chronological market-grouped train/validation/test splits and persist dataset provenance in model artifacts.
+- [x] Calibrate REAL paper execution from chronological Polymarket L2 observations with conservative maker-fill ranges, observed snapshot latency, spread/depth/mid-move metrics, explicit assumptions, and out-of-sample reporting; exact queue position and unobserved fills remain unclaimed.
+- [x] Complete final P0 data-integrity audit: production has no automatic DEMO/synthetic fallback, hardcoded market-price substitution was removed from sizing, and REAL/PAPER/DEMO/MOCK/research sources are explicitly classified and labeled.
 
 ## 0.4.0 Architecture Clarification & Realism
 
-- [x] **[SIM]** Move market maker hook and dashboard panels under `src/simulation/` with explicit simulation-only markers.
+- [x] **[SIM]** Keep the legacy Binance path as `Research Simulation — Binance/Generic`; it is not connected to production Polymarket MM.
+- [x] **[MM]** Browser paper market maker consumes real public Polymarket CLOB L2 by `token_id`, with live book metrics and stale/offline fail-closed behavior.
 - [x] **[WORKER]** Add market quality filters and configurable defaults.
 - [x] **[WORKER]** Make the arb threshold volatility-aware and cap fractional Kelly sizing.
 - [x] **[WORKER]** Protect the status API with optional `X-API-Token` authentication.
@@ -36,7 +43,7 @@ Prioritized plan for the Polymarket Quant Bot. Order may change based on usage a
 - [x] **Daily kill switch persisted across restarts** — `bot/daily_limit.py`
 - [x] **Backtest harness** against historical order-book snapshots — `bot/backtest.py` (see near-term note below on its risk-model simplification)
 - [x] **PostgreSQL ledger option** — `bot/ledger_pg.py`, `LEDGER_BACKEND=postgres`
-- [x] **ML ensemble (XGBoost)** for win-probability prediction — `bot/ml_model.py`, `bot/strategies/ml_directional.py`
+- [x] **ML ensemble (XGBoost)** for win-probability prediction — `bot/ml_model.py`, `bot/strategies/ml_directional.py` (production training requires validated REAL Polymarket datasets)
 - [x] **Cross-venue signal (Polymarket ↔ Kalshi)** — `bot/strategies/cross_platform_arbitrage.py` — directional only, see near-term item below for the hedged version
 - [x] **Prometheus/Grafana monitoring stack** — `bot/metrics.py` + `deploy/`
 - [x] **Dashboard trading panels** (Supabase-backed, in-browser) — market making, copy trading, Kelly slider, cooldown timer, strategy manager, backtester, alerting — see `docs/FEATURES.md`
@@ -221,7 +228,7 @@ Still open:
 ## Medium term (v0.6)
 
 - [ ] Event-driven backtest + walk-forward validation for ML
-- [ ] ML: calibration, Brier / log-loss, PnL-after-fees at threshold (not accuracy alone)
+- [x] ML: chronological train/validation/test validation with Brier/log-loss provenance; calibration and PnL-after-fees remain follow-up metrics
 - [ ] Shadow mode: live signals, paper size; parity report
 - [ ] Injectable clock for gates/backtest
 - [ ] Historical book snapshot worker (stop synthetic-only training)

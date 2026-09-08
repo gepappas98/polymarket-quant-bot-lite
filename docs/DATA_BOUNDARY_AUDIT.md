@@ -34,7 +34,7 @@
 
 The worker now emits `data_source`, `execution_mode`, `market_data_source`, `is_simulated`, `market_data_provider`, and `auxiliary_data_sources` in `/status`. A paper worker reports REAL Polymarket market input plus `execution_mode=PAPER` and `is_simulated=true`.
 
-The dashboard demo generator reports `DEMO` for both data and execution. If `BOT_STATUS_URL` is configured, failed or malformed worker responses now raise an error instead of silently being merged with synthetic demo values. The dashboard renders an explicit unavailable state and never substitutes demo values for a failed worker.
+The dashboard demo generator reports `DEMO` for both data and execution and is reachable only with explicit `APP_MODE=DEMO`; production defaults to `APP_MODE=PRODUCTION`. Missing, failed, or malformed worker responses raise an error instead of silently being merged with synthetic demo values. The dashboard renders an explicit unavailable state and never substitutes demo values for a failed worker.
 
 The browser Paper Desk disables buys, closes, and unrealized marking unless the current status declares `market_data_source=REAL`. Its UI labels real input as **LIVE MARKET DATA** and execution as **PAPER / SIMULATED EXECUTION**. Demo input is labeled **DEMO DATA**.
 
@@ -57,7 +57,7 @@ The browser Paper Desk disables buys, closes, and unrealized marking unless the 
 
 ## Remaining simulated or demo sources
 
-1. `src/lib/bot-demo.ts` intentionally generates synthetic dashboard values when no worker URL is configured. It is explicit DEMO and read-only.
+1. `src/lib/bot-demo.ts` intentionally generates synthetic dashboard values only when `APP_MODE=DEMO`. It is explicit DEMO and read-only; production does not call it.
 2. `src/simulation/useMarketMaker.sim.ts` uses real Binance trades as a DEMO proxy for a browser simulation; it is not a Polymarket feed.
 3. Supabase `paper_*`, `mm_trades`, `copy_trades`, and `backtest_results` remain browser/paper persistence and do not constitute real fills.
 4. Worker paper execution models fills, fees, slippage, and P&L against observed books.
@@ -70,3 +70,13 @@ The browser Paper Desk disables buys, closes, and unrealized marking unless the 
 - Auxiliary Binance spot data can influence worker fair-value logic, but it is not evidence of Polymarket liquidity or execution.
 - Live order placement remains a separate, explicitly gated path and was not enabled by this audit.
 - Historical datasets need operational provenance and freshness checks before being used for production decisions.
+
+## Final P0 repository audit
+
+- **REAL sources:** Polymarket Gamma metadata, CLOB REST/WebSocket books, REAL recorder SQLite snapshots, Data API trader activity, public leaderboard/closed-position enrichment, and confirmed live CLOB execution when independently enabled.
+- **PAPER sources:** Worker `PaperFillEngine`, browser PaperDesk paper account, browser Polymarket market-maker simulated fills, paper ledger/accounting, fees, slippage, and P&L. These are explicitly labeled and never counted as live fills.
+- **DEMO sources:** `src/lib/bot-demo.ts` and the Binance/generic browser research simulator. Both require/declare explicit DEMO or research-only boundaries and are disconnected from production Polymarket MM.
+- **MOCK sources:** Python tests, Vitest tests, fake HTTP clients/books/responses, fixtures, seeded test data, and monkeypatched network calls. No production module defines the audited fake client classes.
+- **Fixed during audit:** removed the dashboard Kelly-sizing `0.5` price fallback, removed the PaperDesk close-order `0.5` price fallback, changed incomplete paper valuation from zero P&L to `NO DATA`, and removed random sidebar skeleton widths.
+- **Remaining risks:** Binance/ccxt remains an auxiliary fair-value input in the worker; Supabase paper tables remain a compatibility/read-model path; browser and worker paper projections are not a single durable position projection in every legacy panel; exact maker queue position, observed fills, order cancellations, and exchange latency are not available in the recorder-only dataset.
+- **Live-trading blockers:** live execution remains behind `MODE=live` plus `LIVE_TRADING_CONFIRM=I_UNDERSTAND_THE_RISK`; worker ledger authority, confirmed CLOB status/VWAP, API authentication, and explicit production configuration remain required. No audit finding enables live trading.

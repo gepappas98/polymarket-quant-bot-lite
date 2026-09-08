@@ -65,9 +65,9 @@ export function SwarmAgentsPanel({ swarm }: { swarm?: SwarmSnapshot | null | und
     return (
       <Panel title="Swarm agents" hint="module pipeline">
         <p className="tape px-4 py-6 text-[11px] text-muted-foreground">
-          No swarm payload. Point{" "}
+          No verified swarm payload. Point{" "}
           <code className="rounded bg-muted px-1">BOT_STATUS_URL</code> at a worker with{" "}
-          <code className="rounded bg-muted px-1">SWARM_ENABLED=true</code>, or use the demo feed.
+          <code className="rounded bg-muted px-1">SWARM_ENABLED=true</code>.
         </p>
       </Panel>
     );
