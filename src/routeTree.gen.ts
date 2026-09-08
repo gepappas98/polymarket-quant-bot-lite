@@ -20,6 +20,7 @@ import { Route as AuthenticatedPaperRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedStrategiesRouteImport } from './routes/_authenticated/strategies'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as AuthenticatedPaperIndexRouteImport } from './routes/_authenticated/paper.index'
 import { Route as ApiPublicHooksMonitorAlertsRouteImport } from './routes/api/public/hooks/monitor-alerts'
 
 const IndexRoute = IndexRouteImport.update({
@@ -76,6 +77,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/callback',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthenticatedPaperIndexRoute = AuthenticatedPaperIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedPaperRoute,
+} as any)
 const ApiPublicHooksMonitorAlertsRoute =
   ApiPublicHooksMonitorAlertsRouteImport.update({
     id: '/api/public/hooks/monitor-alerts',
@@ -90,10 +96,11 @@ export interface FileRoutesByFullPath {
   '/leaders': typeof LeadersRoute
   '/sizing': typeof SizingRoute
   '/desk': typeof AuthenticatedDeskRoute
-  '/paper': typeof AuthenticatedPaperRoute
+  '/paper': typeof AuthenticatedPaperRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/strategies': typeof AuthenticatedStrategiesRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/paper/': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRoutesByTo {
@@ -103,10 +110,10 @@ export interface FileRoutesByTo {
   '/leaders': typeof LeadersRoute
   '/sizing': typeof SizingRoute
   '/desk': typeof AuthenticatedDeskRoute
-  '/paper': typeof AuthenticatedPaperRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/strategies': typeof AuthenticatedStrategiesRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/paper': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRoutesById {
@@ -118,10 +125,11 @@ export interface FileRoutesById {
   '/leaders': typeof LeadersRoute
   '/sizing': typeof SizingRoute
   '/_authenticated/desk': typeof AuthenticatedDeskRoute
-  '/_authenticated/paper': typeof AuthenticatedPaperRoute
+  '/_authenticated/paper': typeof AuthenticatedPaperRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/strategies': typeof AuthenticatedStrategiesRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/_authenticated/paper/': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRouteTypes {
@@ -137,6 +145,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/strategies'
     | '/auth/callback'
+    | '/paper/'
     | '/api/public/hooks/monitor-alerts'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -146,10 +155,10 @@ export interface FileRouteTypes {
     | '/leaders'
     | '/sizing'
     | '/desk'
-    | '/paper'
     | '/settings'
     | '/strategies'
     | '/auth/callback'
+    | '/paper'
     | '/api/public/hooks/monitor-alerts'
   id:
     | '__root__'
@@ -164,6 +173,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/strategies'
     | '/auth/callback'
+    | '/_authenticated/paper/'
     | '/api/public/hooks/monitor-alerts'
   fileRoutesById: FileRoutesById
 }
@@ -256,6 +266,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_authenticated/paper/': {
+      id: '/_authenticated/paper/'
+      path: '/'
+      fullPath: '/paper/'
+      preLoaderRoute: typeof AuthenticatedPaperIndexRouteImport
+      parentRoute: typeof AuthenticatedPaperRoute
+    }
     '/api/public/hooks/monitor-alerts': {
       id: '/api/public/hooks/monitor-alerts'
       path: '/api/public/hooks/monitor-alerts'
@@ -266,16 +283,27 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedPaperRouteChildren {
+  AuthenticatedPaperIndexRoute: typeof AuthenticatedPaperIndexRoute
+}
+
+const AuthenticatedPaperRouteChildren: AuthenticatedPaperRouteChildren = {
+  AuthenticatedPaperIndexRoute: AuthenticatedPaperIndexRoute,
+}
+
+const AuthenticatedPaperRouteWithChildren =
+  AuthenticatedPaperRoute._addFileChildren(AuthenticatedPaperRouteChildren)
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDeskRoute: typeof AuthenticatedDeskRoute
-  AuthenticatedPaperRoute: typeof AuthenticatedPaperRoute
+  AuthenticatedPaperRoute: typeof AuthenticatedPaperRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStrategiesRoute: typeof AuthenticatedStrategiesRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDeskRoute: AuthenticatedDeskRoute,
-  AuthenticatedPaperRoute: AuthenticatedPaperRoute,
+  AuthenticatedPaperRoute: AuthenticatedPaperRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStrategiesRoute: AuthenticatedStrategiesRoute,
 }
