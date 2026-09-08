@@ -566,7 +566,7 @@ export const reconcilePaperAccount = createServerFn({ method: "POST" })
       account: { cash: Number(account.cash), realizedPnl: Number(account.realized_pnl), startingBankroll: Number(account.starting_bankroll) },
       computed: { cash: Math.round(cash * 100) / 100, realizedPnl: Math.round(realized * 100) / 100, positionCost: Math.round(positionCost * 100) / 100, equity: Math.round((cash + positionCost) * 100) / 100 },
       drift: { cash: cashDrift, realizedPnl: realizedDrift },
-      orphanOrders: orphanOrders.map((o: any) => ({ id: o.id, clientOrderId: o.client_order_id, market: o.market, state: o.state, createdAt: o.created_at })),
+      orphanOrders: orphanOrders.map((o: any) => ({ id: o.id, clientOrderId: o.client_order_id, market: o.market, state: o.state, createdAt: o.created_at })) as Array<{ id: string; clientOrderId: string; market: string; state: string; createdAt: string }>,
       inSync: Math.abs(cashDrift) <= 0.005 && Math.abs(realizedDrift) <= 0.005 && orphanOrders.length === 0,
       applied,
     };
