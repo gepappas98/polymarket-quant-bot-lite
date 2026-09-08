@@ -97,6 +97,7 @@ export function PaperDesk() {
 
   const markets = (status.data?.markets ?? []) as PaperMarket[];
   const hasRealMarketData = status.data?.market_data_source === "REAL";
+  const workerAuthoritative = status.data?.source === "worker" && status.data.executionAuthority === "worker";
   const [market, setMarket] = useState<string>("");
   const [side, setSide] = useState<"UP" | "DOWN">("UP");
   const [sizeUsd, setSizeUsd] = useState(100);
@@ -128,6 +129,8 @@ export function PaperDesk() {
 
   const buyMutation = useMutation({
     mutationFn: () => {
+      if (workerAuthoritative)
+        throw new Error("Worker execution ledger is authoritative; browser PaperDesk execution is disabled");
       if (!hasRealMarketData)
         throw new Error("Paper orders require REAL Polymarket market data; DEMO data is blocked");
       return execute({
@@ -169,6 +172,8 @@ export function PaperDesk() {
       side: "UP" | "DOWN";
       shares: number;
     }) => {
+      if (workerAuthoritative)
+        throw new Error("Worker execution ledger is authoritative; browser PaperDesk execution is disabled");
       if (!hasRealMarketData)
         throw new Error("Paper closes require REAL Polymarket market data; DEMO data is blocked");
       return execute({
@@ -197,7 +202,11 @@ export function PaperDesk() {
   });
 
   const resetMutation = useMutation({
-    mutationFn: () => reset({ data: { startingBankroll: 10_000 } }),
+    mutationFn: () => {
+      if (workerAuthoritative)
+        throw new Error("Worker execution ledger is authoritative; browser PaperDesk reset is disabled");
+      return reset({ data: { startingBankroll: 10_000 } });
+    },
     onSuccess: () => {
       toast.success("Paper account reset to $10,000");
       invalidate();
@@ -238,7 +247,7 @@ export function PaperDesk() {
       <div className="relative z-20 space-y-3">
         <div className="panel flex flex-wrap items-center gap-x-4 gap-y-2 border-warning/40 bg-warning/10 px-3 py-2">
           <span className="tape flex items-center gap-2 rounded border border-warning/60 px-2 py-1 text-[10px] uppercase text-warning">
-            <AlertTriangle className="size-3" /> paper engine — simulated money only
+            <AlertTriangle className="size-3" /> {workerAuthoritative ? "worker ledger authoritative" : "paper engine — simulated money only"}
           </span>
           <span className="tape text-[10px] uppercase text-muted-foreground">
             engine {state.isError ? state.error.message : state.data ? "active" : "connecting"} ·{" "}
@@ -249,9 +258,14 @@ export function PaperDesk() {
           <span className="tape rounded border border-primary/40 bg-primary/10 px-2 py-1 text-[10px] uppercase text-primary">
             PAPER / SIMULATED EXECUTION
           </span>
+          {workerAuthoritative && status.data?.executionLedger ? (
+            <span className="tape text-[10px] uppercase text-muted-foreground">
+              worker ledger {status.data.executionLedger.stale ? "STALE" : "HEALTHY"} · {status.data.executionLedger.unresolvedOrders} unresolved · last event {status.data.executionLedger.lastEventType ?? "NONE"}
+            </span>
+          ) : null}
           <button
             onClick={() => resetMutation.mutate()}
-            disabled={resetMutation.isPending}
+            disabled={resetMutation.isPending || workerAuthoritative}
             className="tape ml-auto flex items-center gap-1 rounded border border-border px-2 py-1 text-[10px] uppercase text-muted-foreground hover:text-foreground"
           >
             <RotateCcw className="size-3" /> reset paper account

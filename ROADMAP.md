@@ -10,7 +10,7 @@
 - [x] Replace browser copy-position simulation with normalized REAL Polymarket Data API activity; deduplicate source events, reject stale/invalid/risky signals, show NO DATA on failure, and keep LIVE copy disabled.
 - [x] Label live market input, paper execution, demo data, and test mocks distinctly.
 - [x] Preserve legitimate unit-test mocks and document remaining simulation paths in `docs/DATA_BOUNDARY_AUDIT.md`.
-- [ ] Consolidate worker and Supabase paper ledgers behind one read-only status path.
+- [x] Establish the worker execution ledger as the authoritative execution/event source with stable event IDs, lifecycle metadata, idempotent appends, health/stale/reconciliation endpoints, and worker-authority markers; browser PaperDesk execution is blocked when worker authority is present.
 - [x] Build the production REAL Polymarket CLOB L2 historical recorder with WebSocket primary ingestion, REST snapshot/reconciliation, restart-safe SQLite persistence, deduplication, stale detection, reconnects, retention, and recorder metrics.
 - [x] Replace production backtest historical input with fail-closed REAL recorder replay; retain legacy fixture inputs only for unit-test mocks.
 - [x] Make ML retraining fail closed on anything except provenance-bearing REAL Polymarket observations joined to Polymarket resolution labels; use chronological market-grouped train/validation/test splits and persist dataset provenance in model artifacts.

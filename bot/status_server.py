@@ -131,6 +131,13 @@ def _ledger_rows(limit: int = 50) -> List[Dict[str, Any]]:
             "status": e.status,
             "dryRun": e.dry_run,
             "pnlUsd": e.pnl_usd,
+            "eventId": e.event_id,
+            "eventType": e.event_type,
+            "eventVersion": e.event_version,
+            "tokenId": e.token_id,
+            "quantity": e.quantity,
+            "executionMode": e.execution_mode,
+            "dataSource": e.data_source,
             "orderId": e.order_id,
             "setId": meta.get("set_id"),
             "isArbLeg": bool(meta.get("is_arb_leg")),
@@ -141,6 +148,17 @@ def _ledger_rows(limit: int = 50) -> List[Dict[str, Any]]:
         })
     rows.sort(key=lambda r: r["ts"], reverse=True)
     return rows
+
+
+def _execution_health() -> Dict[str, Any]:
+    health = ledger.health(stale_after_seconds=float(os.getenv("LEDGER_STALE_AFTER_SECONDS", "120")))
+    health.update({
+        "authority": "worker",
+        "executionMode": "LIVE" if cfg.mode == "live" else "PAPER",
+        "reconciliationHealthy": health["unresolvedOrders"] == 0 or not health["stale"],
+        "lastReconciliationAt": health["lastEventAt"],
+    })
+    return health
 
 
 def build_status() -> Dict[str, Any]:
@@ -189,6 +207,8 @@ def build_status() -> Dict[str, Any]:
         "gates": _gates_list(),
         "swarm": _swarm_from_ledger(),
         "ledger": _ledger_rows(),
+        "executionLedger": _execution_health(),
+        "executionAuthority": "worker",
     }
 
 
@@ -235,7 +255,29 @@ class _Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'{"error":"unauthorized"}')
             return
-        if self.path in ("/", "/status", "/health", "/healthz"):
+        if self.path == "/healthz":
+            body = json.dumps({"ok": True, "source": "worker", "executionAuthority": "worker"}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        elif self.path in ("/execution/health", "/execution/stale", "/execution/reconcile"):
+            try:
+                health = _execution_health()
+                if self.path == "/execution/stale":
+                    health = {**health, "staleOrders": health["unresolvedOrders"], "status": "stale" if health["stale"] else "fresh"}
+                body = json.dumps(health).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception as e:
+                log.exception(f"execution health error: {e}")
+                self.send_response(500)
+                self.end_headers()
+        elif self.path in ("/", "/status", "/health"):
             try:
                 body = json.dumps(build_status()).encode("utf-8")
                 self.send_response(200)

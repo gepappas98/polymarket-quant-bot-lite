@@ -18,27 +18,41 @@ import logging
 import os
 import threading
 import time
+import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 log = logging.getLogger(__name__)
 
+EXECUTION_EVENT_TYPES = {
+    "ORDER_INTENT", "ORDER_SUBMITTED", "ORDER_ACK", "ORDER_PARTIAL", "ORDER_FILLED",
+    "ORDER_CANCELLED", "ORDER_REJECTED", "PAPER_FILL", "LIVE_FILL", "FEE", "PNL_UPDATE",
+}
+
 
 @dataclass
 class LedgerEntry:
     ts: float
-    kind: str                       # "intent" | "fill" | "outcome" | "kill"
+    kind: str
     market_slug: str
-    side: Optional[str] = None      # "UP" | "DOWN" | winner label for outcomes
+    side: Optional[str] = None
     price: Optional[float] = None
     size_usd: Optional[float] = None
     reason: Optional[str] = None
-    status: str = "open"            # "open" | "blocked" | "filled" | "closed" | "killed"
+    status: str = "open"
     dry_run: bool = True
     pnl_usd: Optional[float] = None
     order_id: Optional[str] = None
     meta: Optional[Dict[str, Any]] = field(default=None)
+    event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    event_type: Optional[str] = None
+    token_id: Optional[str] = None
+    quantity: Optional[float] = None
+    execution_mode: str = "PAPER"
+    data_source: str = "REAL"
+    event_version: int = 1
+    idempotency_key: Optional[str] = None
 
 
 class Ledger:
@@ -49,22 +63,55 @@ class Ledger:
 
     # -- low-level -----------------------------------------------------
 
-    def append(self, entry: LedgerEntry) -> None:
+    def append(self, entry: LedgerEntry) -> bool:
         with self._lock:
+            if any(existing.event_id == entry.event_id or (entry.idempotency_key and existing.idempotency_key == entry.idempotency_key) for existing in self._entries):
+                return False
+            self._write(entry)
             self._entries.append(entry)
-        self._write(entry)
+            return True
 
     def _write(self, entry: LedgerEntry) -> None:
-        """Best-effort disk persistence — a write failure must never break
-        trading logic, so this only logs and continues."""
+        """Persist before exposing an event to worker projections."""
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with self.path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(asdict(entry)) + "\n")
         except Exception as e:
-            log.warning(f"ledger: failed to persist entry to {self.path}: {e}")
+            log.error(f"ledger: failed to persist entry to {self.path}: {e}")
+            raise RuntimeError(f"execution ledger write failed: {self.path}") from e
 
     # -- recording helpers, called from bot/executor.py -----------------
+
+    def record_execution_event(
+        self,
+        event_type: str,
+        market_slug: str,
+        *,
+        token_id: Optional[str] = None,
+        side: Optional[str] = None,
+        quantity: Optional[float] = None,
+        price: Optional[float] = None,
+        size_usd: Optional[float] = None,
+        execution_mode: str = "PAPER",
+        data_source: str = "REAL",
+        order_id: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
+        reason: Optional[str] = None,
+        status: str = "open",
+        pnl_usd: Optional[float] = None,
+        meta: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        if event_type not in EXECUTION_EVENT_TYPES:
+            raise ValueError(f"unsupported execution event type: {event_type}")
+        return self.append(LedgerEntry(
+            ts=time.time(), kind=event_type.lower(), event_type=event_type,
+            market_slug=market_slug, token_id=token_id, side=side, quantity=quantity,
+            price=price, size_usd=size_usd, execution_mode=execution_mode,
+            data_source=data_source, order_id=order_id, idempotency_key=idempotency_key,
+            reason=reason, status=status, pnl_usd=pnl_usd, dry_run=execution_mode == "PAPER",
+            meta=meta,
+        ))
 
     def record_intent(
         self,
@@ -84,6 +131,7 @@ class Ledger:
         self.append(LedgerEntry(
             ts=time.time(),
             kind="intent",
+            event_type="ORDER_INTENT",
             market_slug=intent.market_slug,
             side=side,
             price=intent.price,
@@ -91,6 +139,9 @@ class Ledger:
             reason=block_reason or intent.reason,
             status="blocked" if blocked else "open",
             dry_run=dry_run,
+            execution_mode="PAPER" if dry_run else "LIVE",
+            data_source="REAL",
+            token_id=getattr(intent, "token_id", None),
             meta=meta or None,
         ))
 
@@ -113,6 +164,7 @@ class Ledger:
         self.append(LedgerEntry(
             ts=time.time(),
             kind="fill",
+            event_type="PAPER_FILL" if dry_run else "LIVE_FILL",
             market_slug=intent.market_slug,
             side=side,
             price=intent.price,
@@ -120,7 +172,12 @@ class Ledger:
             reason="SIMULATED_FILL" if dry_run else intent.reason,
             status="filled",
             dry_run=dry_run,
+            execution_mode="PAPER" if dry_run else "LIVE",
+            data_source="REAL",
             order_id=order_id,
+            token_id=getattr(intent, "token_id", None),
+            quantity=shares,
+            idempotency_key=f"fill:{order_id}:{shares}:{cost}",
             meta=meta,
         ))
 
@@ -135,13 +192,39 @@ class Ledger:
         self.append(LedgerEntry(
             ts=time.time(),
             kind="outcome",
+            event_type="PNL_UPDATE",
             market_slug=market_slug,
             side=winner,
             pnl_usd=pnl_usd,
             status="closed",
             dry_run=dry_run,
+            execution_mode="PAPER" if dry_run else "LIVE",
+            data_source="REAL",
             meta=meta,
         ))
+
+    def health(self, stale_after_seconds: float = 120.0) -> Dict[str, Any]:
+        now = time.time()
+        with self._lock:
+            entries = list(self._entries)
+        last = max(entries, key=lambda entry: entry.ts, default=None)
+        order_states: Dict[str, str] = {}
+        for entry in entries:
+            if entry.order_id:
+                order_states[entry.order_id] = entry.status
+        unresolved = sum(status not in {"filled", "cancelled", "rejected", "closed"} for status in order_states.values())
+        age = None if last is None else max(0.0, now - last.ts)
+        return {
+            "backend": "jsonl",
+            "writable": True,
+            "lastEventId": last.event_id if last else None,
+            "lastEventAt": int(last.ts * 1000) if last else None,
+            "lastEventType": last.event_type if last else None,
+            "stale": age is None or age > stale_after_seconds,
+            "ageSeconds": age,
+            "unresolvedOrders": unresolved,
+            "eventCount": len(entries),
+        }
 
     # -- read-side, used by strategy.py / status_server.py / portfolio_gates.py --
 
