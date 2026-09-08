@@ -3,6 +3,7 @@
 ## P0 — REAL vs PAPER vs DEMO/MOCK boundary (2026-09-08)
 
 - [x] Inventory Polymarket REST/WebSocket, metadata, trader activity, historical, Binance, Supabase, browser, demo, and test-fixture sources.
+- [x] Make app mode explicit: `APP_MODE=PRODUCTION` is the default fail-closed behavior, while synthetic status requires explicit `APP_MODE=DEMO`; dashboard metrics expose provenance and unavailable values remain `NO DATA`.
 - [x] Add explicit `data_source`, `execution_mode`, `market_data_source`, and `is_simulated` runtime metadata.
 - [x] Replace browser Polymarket MM's Binance proxy with a public Polymarket CLOB L2 WebSocket keyed by `token_id`; fail closed as OFFLINE / NO DATA, and label all orders PAPER and fills SIMULATED.
 - [x] Reject malformed worker status and stop silently replacing worker failures with DEMO values.

@@ -292,6 +292,8 @@ export function placeOrder(request: PlaceOrderRequest) {
 export interface MetricsSummary {
   system_status: "active" | "paper" | "paused" | string;
   mode: string;
+  data_source: "REAL" | "PAPER" | "DEMO" | "MOCK" | string;
+  execution_mode: "PAPER" | "LIVE" | "DEMO" | "MOCK" | string;
   top_market: string | null;
   current_price: number | null;
   weekly_trades: number;

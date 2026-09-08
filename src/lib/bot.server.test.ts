@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildDemoStatus } from "./bot-demo";
-import { fetchWorkerStatus } from "./bot.server";
+import { configuredAppMode, fetchWorkerStatus } from "./bot.server";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -8,6 +8,28 @@ afterEach(() => {
 });
 
 describe("REAL/PAPER/DEMO boundary", () => {
+  it("defaults to PRODUCTION", () => {
+    vi.stubEnv("APP_MODE", "");
+    expect(configuredAppMode()).toBe("PRODUCTION");
+  });
+
+  it("allows synthetic status only with explicit DEMO mode", async () => {
+    vi.stubEnv("APP_MODE", "DEMO");
+    expect(configuredAppMode()).toBe("DEMO");
+    expect((await fetchWorkerStatus()).data_source).toBe("DEMO");
+  });
+
+  it("rejects invalid app modes", () => {
+    vi.stubEnv("APP_MODE", "demo-ish");
+    expect(() => configuredAppMode()).toThrow("expected DEMO or PRODUCTION");
+  });
+
+  it("fails closed in PRODUCTION when the worker is not configured", async () => {
+    vi.stubEnv("APP_MODE", "PRODUCTION");
+    vi.stubEnv("BOT_STATUS_URL", "");
+    await expect(fetchWorkerStatus()).rejects.toThrow("BOT_STATUS_URL is not configured");
+  });
+
   it("classifies browser-generated values as DEMO, never LIVE", () => {
     const status = buildDemoStatus(1_700_000_000_000);
     expect(status.data_source).toBe("DEMO");

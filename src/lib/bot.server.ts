@@ -3,10 +3,19 @@ import { buildDemoStatus } from "./bot-demo";
 
 export { buildDemoStatus };
 
-/** Fetch status from a running worker, if one is configured. */
+export function configuredAppMode(): "DEMO" | "PRODUCTION" {
+  const mode = process.env["APP_MODE"]?.trim().toUpperCase() || "PRODUCTION";
+  if (mode !== "DEMO" && mode !== "PRODUCTION") {
+    throw new Error(`invalid APP_MODE=${mode}; expected DEMO or PRODUCTION`);
+  }
+  return mode;
+}
+
+/** Fetch status from a running worker, or an explicitly configured demo feed. */
 export async function fetchWorkerStatus(): Promise<BotStatus> {
+  if (configuredAppMode() === "DEMO") return buildDemoStatus();
   const url = process.env["BOT_STATUS_URL"];
-  if (!url) return buildDemoStatus();
+  if (!url) throw new Error("REAL worker status unavailable: BOT_STATUS_URL is not configured");
   const token = process.env["BOT_STATUS_API_TOKEN"];
   const res = await fetch(url, {
     headers: {

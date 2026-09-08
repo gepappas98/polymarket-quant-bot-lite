@@ -111,16 +111,22 @@ function Dashboard() {
           <NavLinks />
           <span
             className={`tape flex items-center gap-2 rounded border px-2 py-1 text-[10px] uppercase ${
-              config.mode === "live"
+              status.data_source === "DEMO"
                 ? "border-down/50 bg-down/15 text-down"
-                : "border-up/50 bg-up/15 text-up"
+                : config.mode === "live"
+                  ? "border-down/50 bg-down/15 text-down"
+                  : "border-warn/50 bg-warn/15 text-warn"
             }`}
           >
             <span className="live-dot size-1.5 rounded-full bg-current" />
-            {config.mode === "live" ? "live money" : "paper mode"}
+            {status.data_source === "DEMO"
+              ? "DEMO MODE"
+              : config.mode === "live"
+                ? "LIVE MODE"
+                : "PAPER MODE"}
           </span>
           <span className="tape rounded border border-border bg-muted px-2 py-1 text-[10px] uppercase text-muted-foreground">
-            {status.data_source === "REAL" ? "LIVE MARKET DATA" : `${status.data_source} DATA`}
+            source: {status.data_source}
           </span>
           <span className="tape rounded border border-border bg-muted px-2 py-1 text-[10px] uppercase text-muted-foreground">
             up {uptime(status.uptimeSeconds)}
@@ -144,7 +150,11 @@ function Dashboard() {
         </div>
       ) : null}
 
-      <SystemStatusBar summary={summary.data} fallbackMode={config.mode} />
+      <SystemStatusBar
+        summary={summary.data}
+        fallbackMode={config.mode}
+        dataSource={status.data_source}
+      />
       <MetricCards summary={summary.data} />
 
       {snapshot.data ? (
