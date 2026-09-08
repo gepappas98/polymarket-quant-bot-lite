@@ -15,6 +15,7 @@
 - [x] Build the production REAL Polymarket CLOB L2 historical recorder with WebSocket primary ingestion, REST snapshot/reconciliation, restart-safe SQLite persistence, deduplication, stale detection, reconnects, retention, and recorder metrics.
 - [x] Replace production backtest historical input with fail-closed REAL recorder replay; retain legacy fixture inputs only for unit-test mocks.
 - [x] Make ML retraining fail closed on anything except provenance-bearing REAL Polymarket observations joined to Polymarket resolution labels; use chronological market-grouped train/validation/test splits and persist dataset provenance in model artifacts.
+- [x] Calibrate REAL paper execution from chronological Polymarket L2 observations with conservative maker-fill ranges, observed snapshot latency, spread/depth/mid-move metrics, explicit assumptions, and out-of-sample reporting; exact queue position and unobserved fills remain unclaimed.
 
 ## 0.4.0 Architecture Clarification & Realism
 
