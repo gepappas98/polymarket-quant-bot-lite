@@ -457,7 +457,20 @@ export const getPaperHistory = createServerFn({ method: "POST" })
     if (data.action) query = query.eq("action", data.action);
     const { data: rows, error } = await query;
     if (error) throw new Error(error.message);
-    const trades = (rows ?? []).map((t: any) => ({
+    type HistoryTrade = {
+      id: string;
+      market: string;
+      side: string;
+      action: string;
+      price: number;
+      shares: number;
+      sizeUsd: number;
+      realizedPnl: number;
+      cashAfter: number;
+      reason: string;
+      createdAt: string;
+    };
+    const trades: HistoryTrade[] = (rows ?? []).map((t: any) => ({
       id: t.id,
       market: t.market,
       side: t.side,
