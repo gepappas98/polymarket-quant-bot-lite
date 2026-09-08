@@ -394,11 +394,30 @@ export const resetPaperAccount = createServerFn({ method: "POST" })
     return { status: "reset" as const, startingBankroll: data.startingBankroll };
   });
 
+export type PaperOrderFillRow = { id: string; price: number; shares: number; fee: number; filledAt: string };
+export type PaperOrderRow = {
+  id: string;
+  clientOrderId: string;
+  market: string;
+  side: string;
+  action: string;
+  state: string;
+  requestedShares: number;
+  filledShares: number;
+  remainingShares: number;
+  avgFillPrice: number;
+  fees: number;
+  slippage: number;
+  reason: string;
+  createdAt: string;
+  fills: PaperOrderFillRow[];
+};
+
 /** Order blotter: every paper order with its fills. */
 export const listPaperOrders = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ limit: z.number().int().min(1).max(500).default(100) }).parse(input ?? {}))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<PaperOrderRow[]> => {
     const ctx = context as unknown as Ctx;
     const orders = await ctx.supabase
       .from("paper_orders")
