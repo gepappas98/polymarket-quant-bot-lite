@@ -7,6 +7,7 @@
 - [x] Replace browser Polymarket MM's Binance proxy with a public Polymarket CLOB L2 WebSocket keyed by `token_id`; fail closed as OFFLINE / NO DATA, and label all orders PAPER and fills SIMULATED.
 - [x] Reject malformed worker status and stop silently replacing worker failures with DEMO values.
 - [x] Block browser paper orders and marking when only DEMO/proxy data is available.
+- [x] Replace browser copy-position simulation with normalized REAL Polymarket Data API activity; deduplicate source events, reject stale/invalid/risky signals, show NO DATA on failure, and keep LIVE copy disabled.
 - [x] Label live market input, paper execution, demo data, and test mocks distinctly.
 - [x] Preserve legitimate unit-test mocks and document remaining simulation paths in `docs/DATA_BOUNDARY_AUDIT.md`.
 - [ ] Consolidate worker and Supabase paper ledgers behind one read-only status path.
