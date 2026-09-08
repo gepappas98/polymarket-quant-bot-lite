@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/paper")({
       },
     ],
   }),
-  component: PaperLayout;
+  component: PaperLayout,
 });
 
 const tabs = [
