@@ -23,6 +23,7 @@ import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthenticatedPaperIndexRouteImport } from './routes/_authenticated/paper.index'
 import { Route as AuthenticatedPaperHistoryRouteImport } from './routes/_authenticated/paper.history'
 import { Route as AuthenticatedPaperOrdersRouteImport } from './routes/_authenticated/paper.orders'
+import { Route as AuthenticatedPaperReconcileRouteImport } from './routes/_authenticated/paper.reconcile'
 import { Route as ApiPublicHooksMonitorAlertsRouteImport } from './routes/api/public/hooks/monitor-alerts'
 
 const IndexRoute = IndexRouteImport.update({
@@ -96,6 +97,12 @@ const AuthenticatedPaperOrdersRoute =
     path: '/orders',
     getParentRoute: () => AuthenticatedPaperRoute,
   } as any)
+const AuthenticatedPaperReconcileRoute =
+  AuthenticatedPaperReconcileRouteImport.update({
+    id: '/reconcile',
+    path: '/reconcile',
+    getParentRoute: () => AuthenticatedPaperRoute,
+  } as any)
 const ApiPublicHooksMonitorAlertsRoute =
   ApiPublicHooksMonitorAlertsRouteImport.update({
     id: '/api/public/hooks/monitor-alerts',
@@ -116,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/paper/history': typeof AuthenticatedPaperHistoryRoute
   '/paper/orders': typeof AuthenticatedPaperOrdersRoute
+  '/paper/reconcile': typeof AuthenticatedPaperReconcileRoute
   '/paper/': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
@@ -131,6 +139,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/paper/history': typeof AuthenticatedPaperHistoryRoute
   '/paper/orders': typeof AuthenticatedPaperOrdersRoute
+  '/paper/reconcile': typeof AuthenticatedPaperReconcileRoute
   '/paper': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
@@ -149,6 +158,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/_authenticated/paper/history': typeof AuthenticatedPaperHistoryRoute
   '/_authenticated/paper/orders': typeof AuthenticatedPaperOrdersRoute
+  '/_authenticated/paper/reconcile': typeof AuthenticatedPaperReconcileRoute
   '/_authenticated/paper/': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/paper/history'
     | '/paper/orders'
+    | '/paper/reconcile'
     | '/paper/'
     | '/api/public/hooks/monitor-alerts'
   fileRoutesByTo: FileRoutesByTo
@@ -182,6 +193,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/paper/history'
     | '/paper/orders'
+    | '/paper/reconcile'
     | '/paper'
     | '/api/public/hooks/monitor-alerts'
   id:
@@ -199,6 +211,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/_authenticated/paper/history'
     | '/_authenticated/paper/orders'
+    | '/_authenticated/paper/reconcile'
     | '/_authenticated/paper/'
     | '/api/public/hooks/monitor-alerts'
   fileRoutesById: FileRoutesById
@@ -313,6 +326,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPaperOrdersRouteImport
       parentRoute: typeof AuthenticatedPaperRoute
     }
+    '/_authenticated/paper/reconcile': {
+      id: '/_authenticated/paper/reconcile'
+      path: '/reconcile'
+      fullPath: '/paper/reconcile'
+      preLoaderRoute: typeof AuthenticatedPaperReconcileRouteImport
+      parentRoute: typeof AuthenticatedPaperRoute
+    }
     '/api/public/hooks/monitor-alerts': {
       id: '/api/public/hooks/monitor-alerts'
       path: '/api/public/hooks/monitor-alerts'
@@ -326,12 +346,14 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedPaperRouteChildren {
   AuthenticatedPaperHistoryRoute: typeof AuthenticatedPaperHistoryRoute
   AuthenticatedPaperOrdersRoute: typeof AuthenticatedPaperOrdersRoute
+  AuthenticatedPaperReconcileRoute: typeof AuthenticatedPaperReconcileRoute
   AuthenticatedPaperIndexRoute: typeof AuthenticatedPaperIndexRoute
 }
 
 const AuthenticatedPaperRouteChildren: AuthenticatedPaperRouteChildren = {
   AuthenticatedPaperHistoryRoute: AuthenticatedPaperHistoryRoute,
   AuthenticatedPaperOrdersRoute: AuthenticatedPaperOrdersRoute,
+  AuthenticatedPaperReconcileRoute: AuthenticatedPaperReconcileRoute,
   AuthenticatedPaperIndexRoute: AuthenticatedPaperIndexRoute,
 }
 
