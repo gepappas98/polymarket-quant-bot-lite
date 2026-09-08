@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- **Paper Desk live bot status** — Paper Desk market prices now use a strict authenticated `BOT_STATUS_URL` worker-status fetch and consume the worker's current `markets` rows. Missing or invalid live status fails closed instead of falling back to demo prices.
 - **P0/P1 REAL browser Market Maker** — removed Binance from the production Polymarket MM panel; it now consumes token_id/market_id CLOB WebSocket L2, displays bid/ask/mid/spread/depth/timestamp/stale state, fails closed as `OFFLINE / NO DATA`, and executes only explicit `PAPER` / `SIMULATED` depth-based fills. The retained Binance hook is labeled `Research Simulation — Binance/Generic` and is not used by Polymarket MM.
 - **Paper Desk price refresh** — added a dedicated authenticated market-price request with five-second background refresh and five-second Paper Desk state refresh, so live prices update independently without blocking dashboard rendering.
 - **P0 REAL historical backtesting** — added a formal `HistoricalMarketData` interface and `PolymarketHistoricalL2DataSource`; REAL backtests now replay recorder SQLite snapshots chronologically through the existing strategy and `PaperFillEngine`, preserve partial fills/fees/slippage, expose coverage and quality warnings, and fail clearly when data is unavailable instead of falling back to synthetic/demo data. Results declare `data_source=REAL_HISTORICAL_POLYMARKET` and `execution_mode=PAPER_SIMULATION`.

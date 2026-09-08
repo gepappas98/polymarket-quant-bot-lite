@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildDemoStatus } from "./bot-demo";
-import { fetchWorkerStatus } from "./bot.server";
+import { fetchLiveWorkerStatus, fetchWorkerStatus } from "./bot.server";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -33,6 +33,10 @@ describe("REAL/PAPER/DEMO boundary", () => {
       vi.fn(async () => new Response("offline", { status: 503 })),
     );
     await expect(fetchWorkerStatus()).rejects.toThrow("worker status unavailable");
+  });
+
+  it("strict live status never falls back to demo when BOT_STATUS_URL is missing", async () => {
+    await expect(fetchLiveWorkerStatus()).rejects.toThrow("BOT_STATUS_URL is missing");
   });
 
   it("keeps fake clients in test code rather than production modules", async () => {

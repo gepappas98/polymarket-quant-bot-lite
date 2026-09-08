@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { PaperAdapter } from "@/lib/execution/paperAdapter";
 import { applyPlaceResult, createOrder } from "@/lib/execution/orderExecutor";
 import { systemClock } from "@/lib/execution/clock";
-import { fetchWorkerStatus } from "@/lib/bot.server";
+import { fetchLiveWorkerStatus } from "@/lib/bot.server";
 import type { MarketRow } from "@/lib/bot-types";
 
 export interface PaperGate {
@@ -21,7 +21,7 @@ type Ctx = { supabase: any; userId: string };
 export const getPaperMarketPrices = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
-    const status = await fetchWorkerStatus();
+    const status = await fetchLiveWorkerStatus();
     return {
       generatedAt: status.generatedAt,
       dataSource: status.market_data_source,

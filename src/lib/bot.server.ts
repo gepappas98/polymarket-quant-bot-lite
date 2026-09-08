@@ -3,10 +3,9 @@ import { buildDemoStatus } from "./bot-demo";
 
 export { buildDemoStatus };
 
-/** Fetch status from a running worker, if one is configured. */
-export async function fetchWorkerStatus(): Promise<BotStatus> {
+async function fetchConfiguredWorkerStatus(): Promise<BotStatus> {
   const url = process.env["BOT_STATUS_URL"];
-  if (!url) return buildDemoStatus();
+  if (!url) throw new Error("live worker status is not configured: BOT_STATUS_URL is missing");
   const token = process.env["BOT_STATUS_API_TOKEN"];
   const res = await fetch(url, {
     headers: {
@@ -25,4 +24,15 @@ export async function fetchWorkerStatus(): Promise<BotStatus> {
     throw new Error("worker status rejected: missing or invalid REAL/PAPER boundary metadata");
   }
   return data as BotStatus;
+}
+
+/** Fetch status from a running worker, preserving the legacy demo fallback. */
+export async function fetchWorkerStatus(): Promise<BotStatus> {
+  if (!process.env["BOT_STATUS_URL"]) return buildDemoStatus();
+  return fetchConfiguredWorkerStatus();
+}
+
+/** Strict live status for production Paper Desk market prices; never returns demo data. */
+export async function fetchLiveWorkerStatus(): Promise<BotStatus> {
+  return fetchConfiguredWorkerStatus();
 }
