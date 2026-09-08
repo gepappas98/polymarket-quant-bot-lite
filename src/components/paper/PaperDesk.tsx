@@ -131,6 +131,16 @@ export function PaperDesk() {
     enabled: Boolean(selected) && sizeUsd > 0,
     refetchInterval: 10_000,
   });
+  const paperBuyEnabled = Boolean(
+    hasRealMarketData &&
+      !state.isError &&
+      state.data &&
+      selected &&
+      askPrice > 0 &&
+      sizeUsd > 0 &&
+      !gates.isError &&
+      gates.data?.allowed !== false,
+  );
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["paper-state"] });
@@ -384,19 +394,11 @@ export function PaperDesk() {
             <button
               onClick={() => buyMutation.mutate()}
               disabled={
-                !hasRealMarketData ||
-                state.isError ||
-                !state.data ||
-                !selected ||
-                askPrice <= 0 ||
-                sizeUsd <= 0 ||
-                buyMutation.isPending ||
-                gates.isError ||
-                gates.data?.allowed === false
+                !paperBuyEnabled || buyMutation.isPending
               }
               className="tape w-full rounded border border-primary/60 bg-primary/20 px-2 py-2 text-[11px] uppercase text-primary disabled:opacity-40"
             >
-              {buyMutation.isPending ? "submitting…" : "paper buy"}
+              {buyMutation.isPending ? "submitting…" : paperBuyEnabled ? "paper buy — enabled" : "paper buy — waiting for REAL data/gates"}
             </button>
           </div>
 
