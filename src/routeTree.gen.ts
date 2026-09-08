@@ -20,10 +20,6 @@ import { Route as AuthenticatedPaperRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedStrategiesRouteImport } from './routes/_authenticated/strategies'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
-import { Route as AuthenticatedPaperIndexRouteImport } from './routes/_authenticated/paper.index'
-import { Route as AuthenticatedPaperHistoryRouteImport } from './routes/_authenticated/paper.history'
-import { Route as AuthenticatedPaperOrdersRouteImport } from './routes/_authenticated/paper.orders'
-import { Route as AuthenticatedPaperReconcileRouteImport } from './routes/_authenticated/paper.reconcile'
 import { Route as ApiPublicHooksMonitorAlertsRouteImport } from './routes/api/public/hooks/monitor-alerts'
 
 const IndexRoute = IndexRouteImport.update({
@@ -80,29 +76,6 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/callback',
   getParentRoute: () => AuthRoute,
 } as any)
-const AuthenticatedPaperIndexRoute = AuthenticatedPaperIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedPaperRoute,
-} as any)
-const AuthenticatedPaperHistoryRoute =
-  AuthenticatedPaperHistoryRouteImport.update({
-    id: '/history',
-    path: '/history',
-    getParentRoute: () => AuthenticatedPaperRoute,
-  } as any)
-const AuthenticatedPaperOrdersRoute =
-  AuthenticatedPaperOrdersRouteImport.update({
-    id: '/orders',
-    path: '/orders',
-    getParentRoute: () => AuthenticatedPaperRoute,
-  } as any)
-const AuthenticatedPaperReconcileRoute =
-  AuthenticatedPaperReconcileRouteImport.update({
-    id: '/reconcile',
-    path: '/reconcile',
-    getParentRoute: () => AuthenticatedPaperRoute,
-  } as any)
 const ApiPublicHooksMonitorAlertsRoute =
   ApiPublicHooksMonitorAlertsRouteImport.update({
     id: '/api/public/hooks/monitor-alerts',
@@ -117,14 +90,10 @@ export interface FileRoutesByFullPath {
   '/leaders': typeof LeadersRoute
   '/sizing': typeof SizingRoute
   '/desk': typeof AuthenticatedDeskRoute
-  '/paper': typeof AuthenticatedPaperRouteWithChildren
+  '/paper': typeof AuthenticatedPaperRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/strategies': typeof AuthenticatedStrategiesRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/paper/history': typeof AuthenticatedPaperHistoryRoute
-  '/paper/orders': typeof AuthenticatedPaperOrdersRoute
-  '/paper/reconcile': typeof AuthenticatedPaperReconcileRoute
-  '/paper/': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRoutesByTo {
@@ -134,13 +103,10 @@ export interface FileRoutesByTo {
   '/leaders': typeof LeadersRoute
   '/sizing': typeof SizingRoute
   '/desk': typeof AuthenticatedDeskRoute
+  '/paper': typeof AuthenticatedPaperRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/strategies': typeof AuthenticatedStrategiesRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/paper/history': typeof AuthenticatedPaperHistoryRoute
-  '/paper/orders': typeof AuthenticatedPaperOrdersRoute
-  '/paper/reconcile': typeof AuthenticatedPaperReconcileRoute
-  '/paper': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRoutesById {
@@ -152,14 +118,10 @@ export interface FileRoutesById {
   '/leaders': typeof LeadersRoute
   '/sizing': typeof SizingRoute
   '/_authenticated/desk': typeof AuthenticatedDeskRoute
-  '/_authenticated/paper': typeof AuthenticatedPaperRouteWithChildren
+  '/_authenticated/paper': typeof AuthenticatedPaperRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/strategies': typeof AuthenticatedStrategiesRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/_authenticated/paper/history': typeof AuthenticatedPaperHistoryRoute
-  '/_authenticated/paper/orders': typeof AuthenticatedPaperOrdersRoute
-  '/_authenticated/paper/reconcile': typeof AuthenticatedPaperReconcileRoute
-  '/_authenticated/paper/': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
 export interface FileRouteTypes {
@@ -175,10 +137,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/strategies'
     | '/auth/callback'
-    | '/paper/history'
-    | '/paper/orders'
-    | '/paper/reconcile'
-    | '/paper/'
     | '/api/public/hooks/monitor-alerts'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -188,13 +146,10 @@ export interface FileRouteTypes {
     | '/leaders'
     | '/sizing'
     | '/desk'
+    | '/paper'
     | '/settings'
     | '/strategies'
     | '/auth/callback'
-    | '/paper/history'
-    | '/paper/orders'
-    | '/paper/reconcile'
-    | '/paper'
     | '/api/public/hooks/monitor-alerts'
   id:
     | '__root__'
@@ -209,10 +164,6 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/strategies'
     | '/auth/callback'
-    | '/_authenticated/paper/history'
-    | '/_authenticated/paper/orders'
-    | '/_authenticated/paper/reconcile'
-    | '/_authenticated/paper/'
     | '/api/public/hooks/monitor-alerts'
   fileRoutesById: FileRoutesById
 }
@@ -305,34 +256,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/_authenticated/paper/': {
-      id: '/_authenticated/paper/'
-      path: '/'
-      fullPath: '/paper/'
-      preLoaderRoute: typeof AuthenticatedPaperIndexRouteImport
-      parentRoute: typeof AuthenticatedPaperRoute
-    }
-    '/_authenticated/paper/history': {
-      id: '/_authenticated/paper/history'
-      path: '/history'
-      fullPath: '/paper/history'
-      preLoaderRoute: typeof AuthenticatedPaperHistoryRouteImport
-      parentRoute: typeof AuthenticatedPaperRoute
-    }
-    '/_authenticated/paper/orders': {
-      id: '/_authenticated/paper/orders'
-      path: '/orders'
-      fullPath: '/paper/orders'
-      preLoaderRoute: typeof AuthenticatedPaperOrdersRouteImport
-      parentRoute: typeof AuthenticatedPaperRoute
-    }
-    '/_authenticated/paper/reconcile': {
-      id: '/_authenticated/paper/reconcile'
-      path: '/reconcile'
-      fullPath: '/paper/reconcile'
-      preLoaderRoute: typeof AuthenticatedPaperReconcileRouteImport
-      parentRoute: typeof AuthenticatedPaperRoute
-    }
     '/api/public/hooks/monitor-alerts': {
       id: '/api/public/hooks/monitor-alerts'
       path: '/api/public/hooks/monitor-alerts'
@@ -343,33 +266,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AuthenticatedPaperRouteChildren {
-  AuthenticatedPaperHistoryRoute: typeof AuthenticatedPaperHistoryRoute
-  AuthenticatedPaperOrdersRoute: typeof AuthenticatedPaperOrdersRoute
-  AuthenticatedPaperReconcileRoute: typeof AuthenticatedPaperReconcileRoute
-  AuthenticatedPaperIndexRoute: typeof AuthenticatedPaperIndexRoute
-}
-
-const AuthenticatedPaperRouteChildren: AuthenticatedPaperRouteChildren = {
-  AuthenticatedPaperHistoryRoute: AuthenticatedPaperHistoryRoute,
-  AuthenticatedPaperOrdersRoute: AuthenticatedPaperOrdersRoute,
-  AuthenticatedPaperReconcileRoute: AuthenticatedPaperReconcileRoute,
-  AuthenticatedPaperIndexRoute: AuthenticatedPaperIndexRoute,
-}
-
-const AuthenticatedPaperRouteWithChildren =
-  AuthenticatedPaperRoute._addFileChildren(AuthenticatedPaperRouteChildren)
-
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDeskRoute: typeof AuthenticatedDeskRoute
-  AuthenticatedPaperRoute: typeof AuthenticatedPaperRouteWithChildren
+  AuthenticatedPaperRoute: typeof AuthenticatedPaperRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStrategiesRoute: typeof AuthenticatedStrategiesRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDeskRoute: AuthenticatedDeskRoute,
-  AuthenticatedPaperRoute: AuthenticatedPaperRouteWithChildren,
+  AuthenticatedPaperRoute: AuthenticatedPaperRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStrategiesRoute: AuthenticatedStrategiesRoute,
 }

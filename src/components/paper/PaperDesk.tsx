@@ -9,7 +9,6 @@ import {
   checkPaperGates,
   getPaperState,
   executePaperOrder,
-  getPaperMarketPrices,
   resetPaperAccount,
 } from "@/lib/paper.functions";
 
@@ -64,7 +63,6 @@ type PaperReceipt = {
 export function PaperDesk() {
   const fetchState = useServerFn(getPaperState);
   const fetchStatus = useServerFn(getBotStatus);
-  const fetchMarketPrices = useServerFn(getPaperMarketPrices);
   const runGates = useServerFn(checkPaperGates);
   const execute = useServerFn(executePaperOrder);
   const [lastReceipt, setLastReceipt] = useState<PaperReceipt | null>(null);
@@ -89,25 +87,16 @@ export function PaperDesk() {
         if (timer) clearTimeout(timer);
       }
     },
-    refetchInterval: 5_000,
-    refetchIntervalInBackground: true,
+    refetchInterval: 10_000,
   });
   const status = useQuery({
     queryKey: ["bot-status"],
     queryFn: () => fetchStatus(),
-    refetchInterval: 15_000,
-    staleTime: 10_000,
-  });
-  const marketPrices = useQuery({
-    queryKey: ["paper-market-prices"],
-    queryFn: () => fetchMarketPrices(),
     refetchInterval: 5_000,
-    staleTime: 4_000,
-    refetchIntervalInBackground: true,
   });
 
-  const markets = (marketPrices.data?.markets ?? []) as PaperMarket[];
-  const hasRealMarketData = marketPrices.data?.dataSource === "REAL";
+  const markets = (status.data?.markets ?? []) as PaperMarket[];
+  const hasRealMarketData = status.data?.market_data_source === "REAL";
   const [market, setMarket] = useState<string>("");
   const [side, setSide] = useState<"UP" | "DOWN">("UP");
   const [sizeUsd, setSizeUsd] = useState(100);
@@ -217,7 +206,6 @@ export function PaperDesk() {
 
   const account = state.data?.account;
   const positions = state.data?.positions ?? [];
-  const receipt = (lastReceipt ?? {}) as Record<string, any>;
 
   const unrealized = hasRealMarketData
     ? (positions as PaperPosition[]).reduce((sum: number, p: PaperPosition) => {
@@ -461,22 +449,22 @@ export function PaperDesk() {
           <div className="panel border-primary/40 bg-primary/5 px-3 py-3">
             <h2 className="label-caps mb-2 text-[11px]">last execution receipt</h2>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] sm:grid-cols-4">
-              <Receipt label="order id" value={receipt["orderId"] ?? "—"} />
-              <Receipt label="state" value={receipt["state"] ?? receipt["status"]} />
-              <Receipt label="requested" value={receipt["requestedShares"]?.toFixed?.(2) ?? "—"} />
-              <Receipt label="filled" value={receipt["filledShares"]?.toFixed?.(2) ?? "—"} />
-              <Receipt label="remaining" value={receipt["remainingShares"]?.toFixed?.(2) ?? "—"} />
-              <Receipt label="VWAP" value={receipt["avgFillPrice"]?.toFixed?.(4) ?? "—"} />
+              <Receipt label="order id" value={lastReceipt.orderId ?? "—"} />
+              <Receipt label="state" value={lastReceipt.state ?? lastReceipt.status} />
+              <Receipt label="requested" value={lastReceipt.requestedShares?.toFixed?.(2) ?? "—"} />
+              <Receipt label="filled" value={lastReceipt.filledShares?.toFixed?.(2) ?? "—"} />
+              <Receipt label="remaining" value={lastReceipt.remainingShares?.toFixed?.(2) ?? "—"} />
+              <Receipt label="VWAP" value={lastReceipt.avgFillPrice?.toFixed?.(4) ?? "—"} />
               <Receipt
                 label="fees"
-                value={receipt["fees"] == null ? "—" : money(receipt["fees"])}
+                value={lastReceipt.fees == null ? "—" : money(lastReceipt.fees)}
               />
-              <Receipt label="slippage" value={receipt["slippage"]?.toFixed?.(5) ?? "—"} />
+              <Receipt label="slippage" value={lastReceipt.slippage?.toFixed?.(5) ?? "—"} />
               <Receipt
                 label="realized P&L"
-                value={receipt["realizedPnl"] == null ? "—" : money(receipt["realizedPnl"])}
+                value={lastReceipt.realizedPnl == null ? "—" : money(lastReceipt.realizedPnl)}
               />
-              <Receipt label="reason" value={receipt["reason"] ?? "—"} />
+              <Receipt label="reason" value={lastReceipt.reason ?? "—"} />
             </div>
           </div>
         ) : null}
