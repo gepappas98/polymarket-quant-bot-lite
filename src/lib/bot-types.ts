@@ -111,7 +111,7 @@ export interface BotStatus {
   markets: MarketRow[];
   gates: GateRow[];
   ledger: LedgerRow[];
-  /** Present when worker runs v0.5+ swarm; demo feed synthesizes a snapshot. */
+  /** Present when worker runs v0.5+ swarm; explicit DEMO mode may synthesize a snapshot. */
   swarm?: SwarmSnapshot | null;
   executionAuthority?: "worker" | "demo";
   executionLedger?: {

@@ -97,7 +97,8 @@ export function PaperDesk() {
 
   const markets = (status.data?.markets ?? []) as PaperMarket[];
   const hasRealMarketData = status.data?.market_data_source === "REAL";
-  const workerAuthoritative = status.data?.source === "worker" && status.data.executionAuthority === "worker";
+  const workerAuthoritative =
+    status.data?.source === "worker" && status.data.executionAuthority === "worker";
   const [market, setMarket] = useState<string>("");
   const [side, setSide] = useState<"UP" | "DOWN">("UP");
   const [sizeUsd, setSizeUsd] = useState(100);
@@ -130,7 +131,9 @@ export function PaperDesk() {
   const buyMutation = useMutation({
     mutationFn: () => {
       if (workerAuthoritative)
-        throw new Error("Worker execution ledger is authoritative; browser PaperDesk execution is disabled");
+        throw new Error(
+          "Worker execution ledger is authoritative; browser PaperDesk execution is disabled",
+        );
       if (!hasRealMarketData)
         throw new Error("Paper orders require REAL Polymarket market data; DEMO data is blocked");
       return execute({
@@ -173,7 +176,9 @@ export function PaperDesk() {
       shares: number;
     }) => {
       if (workerAuthoritative)
-        throw new Error("Worker execution ledger is authoritative; browser PaperDesk execution is disabled");
+        throw new Error(
+          "Worker execution ledger is authoritative; browser PaperDesk execution is disabled",
+        );
       if (!hasRealMarketData)
         throw new Error("Paper closes require REAL Polymarket market data; DEMO data is blocked");
       return execute({
@@ -204,7 +209,9 @@ export function PaperDesk() {
   const resetMutation = useMutation({
     mutationFn: () => {
       if (workerAuthoritative)
-        throw new Error("Worker execution ledger is authoritative; browser PaperDesk reset is disabled");
+        throw new Error(
+          "Worker execution ledger is authoritative; browser PaperDesk reset is disabled",
+        );
       return reset({ data: { startingBankroll: 10_000 } });
     },
     onSuccess: () => {
@@ -216,18 +223,19 @@ export function PaperDesk() {
   const account = state.data?.account;
   const positions = state.data?.positions ?? [];
 
-  const unrealized = hasRealMarketData
+  const positionQuotes = (positions as PaperPosition[]).map((p) => quoteFor(p.market, p.side));
+  const hasCompleteValuation = hasRealMarketData && positionQuotes.every((quote) => quote != null);
+  const unrealized = hasCompleteValuation
     ? (positions as PaperPosition[]).reduce((sum: number, p: PaperPosition) => {
-        const bid = quoteFor(p.market, p.side);
-        if (bid == null) return sum;
+        const bid = quoteFor(p.market, p.side)!;
         return sum + (p.shares * bid - p.costUsd);
       }, 0)
-    : 0;
+    : null;
   const openCost = (positions as PaperPosition[]).reduce(
     (sum: number, p: PaperPosition) => sum + p.costUsd,
     0,
   );
-  const equity = (account?.cash ?? 0) + openCost + unrealized;
+  const equity = unrealized == null ? null : (account?.cash ?? 0) + openCost + unrealized;
   const dailyUsedPct = account
     ? Math.min(100, Math.max(0, (-Math.min(0, account.dailyPnl) / account.dailyLossLimit) * 100))
     : 0;
@@ -247,7 +255,10 @@ export function PaperDesk() {
       <div className="relative z-20 space-y-3">
         <div className="panel flex flex-wrap items-center gap-x-4 gap-y-2 border-warning/40 bg-warning/10 px-3 py-2">
           <span className="tape flex items-center gap-2 rounded border border-warning/60 px-2 py-1 text-[10px] uppercase text-warning">
-            <AlertTriangle className="size-3" /> {workerAuthoritative ? "worker ledger authoritative" : "paper engine — simulated money only"}
+            <AlertTriangle className="size-3" />{" "}
+            {workerAuthoritative
+              ? "worker ledger authoritative"
+              : "paper engine — simulated money only"}
           </span>
           <span className="tape text-[10px] uppercase text-muted-foreground">
             engine {state.isError ? state.error.message : state.data ? "active" : "connecting"} ·{" "}
@@ -260,7 +271,9 @@ export function PaperDesk() {
           </span>
           {workerAuthoritative && status.data?.executionLedger ? (
             <span className="tape text-[10px] uppercase text-muted-foreground">
-              worker ledger {status.data.executionLedger.stale ? "STALE" : "HEALTHY"} · {status.data.executionLedger.unresolvedOrders} unresolved · last event {status.data.executionLedger.lastEventType ?? "NONE"}
+              worker ledger {status.data.executionLedger.stale ? "STALE" : "HEALTHY"} ·{" "}
+              {status.data.executionLedger.unresolvedOrders} unresolved · last event{" "}
+              {status.data.executionLedger.lastEventType ?? "NONE"}
             </span>
           ) : null}
           <button
@@ -275,13 +288,13 @@ export function PaperDesk() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Stat
             label="bankroll (equity)"
-            value={money(equity)}
+            value={equity == null ? "NO DATA" : money(equity)}
             sub={`cash ${money(account?.cash ?? 0)}`}
           />
           <Stat
             label="unrealized p&l"
-            value={money(unrealized)}
-            valueClass={pnlClass(unrealized)}
+            value={unrealized == null ? "NO DATA" : money(unrealized)}
+            valueClass={unrealized == null ? "text-warning" : pnlClass(unrealized)}
             sub={`${positions.length} open position${positions.length === 1 ? "" : "s"}`}
           />
           <Stat
@@ -435,15 +448,16 @@ export function PaperDesk() {
                           <td className="text-right">
                             <button
                               disabled={!hasRealMarketData || bid == null || sellMutation.isPending}
-                              onClick={() =>
+                              onClick={() => {
+                                if (bid == null) return;
                                 sellMutation.mutate({
                                   positionId: p.id,
                                   market: p.market,
                                   side: p.side,
                                   shares: p.shares,
-                                  price: bid ?? 0.5,
-                                })
-                              }
+                                  price: bid,
+                                });
+                              }}
                               className="tape rounded border border-border px-2 py-0.5 text-[10px] uppercase hover:border-down/60 hover:text-down disabled:opacity-40"
                             >
                               close

@@ -65,10 +65,21 @@ export function ScalingConfigPanel({
           <tbody>
             {open.length ? (
               open.map((row) => {
-                const price = row.price ?? 0.5;
+                if (row.price == null) {
+                  return (
+                    <tr key={row.slug} className="border-b border-border/60 last:border-0">
+                      <td className="max-w-[220px] truncate px-4 py-2" title={row.slug}>
+                        {row.slug}
+                      </td>
+                      <td className="tape">{usd(row.volume_usd)}</td>
+                      <td className="tape text-warning">NO DATA</td>
+                      <td className="tape px-4 text-right text-warning">NO DATA</td>
+                    </tr>
+                  );
+                }
                 const suggestedRaw = kellySizeUsd({
                   winProb: Math.max(0.5, row.confidence),
-                  price,
+                  price: row.price,
                   bankrollUsd: balance,
                   fractionOfKelly: kValue,
                   maxOrderUsd: Number.POSITIVE_INFINITY,
@@ -83,9 +94,7 @@ export function ScalingConfigPanel({
                     </td>
                     <td className="tape">{usd(current)}</td>
                     <td className="tape">{usd(suggested)}</td>
-                    <td
-                      className={`tape px-4 text-right ${delta >= 0 ? "text-up" : "text-down"}`}
-                    >
+                    <td className={`tape px-4 text-right ${delta >= 0 ? "text-up" : "text-down"}`}>
                       {delta >= 0 ? "+" : "−"}
                       {usd(Math.abs(delta))}
                     </td>

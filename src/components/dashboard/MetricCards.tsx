@@ -58,10 +58,11 @@ export function SystemStatusBar({
   dataSource?: string | undefined;
 }) {
   const clock = useUtcClock();
-  const key = (dataSource === "DEMO"
-    ? "demo"
-    : summary?.system_status ??
-      (fallbackMode === "live" ? "active" : "paper")) as keyof typeof STATUS;
+  const key = (
+    dataSource === "DEMO"
+      ? "demo"
+      : (summary?.system_status ?? (fallbackMode === "live" ? "active" : "paper"))
+  ) as keyof typeof STATUS;
   const state = STATUS[key] ?? STATUS.paper;
   const { Icon } = state;
   return (
@@ -125,18 +126,28 @@ export function MetricCards({ summary }: { summary?: MetricsSummary | undefined 
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <Card
         label="Price / Stock"
-        value={hasData && summary?.current_price != null ? `$${summary.current_price.toFixed(3)}` : "NO DATA"}
-        sub={summary?.top_market ? `top volume · ${summary.top_market} · ${provenance}` : provenance}
+        value={
+          hasData && summary?.current_price != null
+            ? `$${summary.current_price.toFixed(3)}`
+            : "NO DATA"
+        }
+        sub={
+          summary?.top_market ? `top volume · ${summary.top_market} · ${provenance}` : provenance
+        }
       />
       <Card
         label="Trades / wk"
         value={hasData ? String(summary?.weekly_trades) : "NO DATA"}
-        sub={hasData ? `${usd(summary?.weekly_volume ?? 0)} USDC notional · ${provenance}` : provenance}
+        sub={
+          hasData ? `${usd(summary?.weekly_volume ?? 0)} USDC notional · ${provenance}` : provenance
+        }
       />
       <Card
         label="STL / day"
         value={hasData ? `${usd(lossUsed)} / ${usd(lossLimit)}` : "NO DATA"}
-        sub={hasData ? `${usedPct.toFixed(0)}% of daily stop-loss used · ${provenance}` : provenance}
+        sub={
+          hasData ? `${usedPct.toFixed(0)}% of daily stop-loss used · ${provenance}` : provenance
+        }
         tone={usedPct > 75 ? "down" : usedPct > 40 ? "warn" : "default"}
       >
         {hasData ? <Progress className="mt-3 h-1.5" value={usedPct} /> : null}
@@ -144,7 +155,11 @@ export function MetricCards({ summary }: { summary?: MetricsSummary | undefined 
       <Card
         label="Change in value"
         value={hasData ? `${change >= 0 ? "+" : ""}${usd(change)}` : "NO DATA"}
-        sub={hasData ? `${summary?.daily_pnl_percent.toFixed(2)}% today · ${summary?.closed_today} closed · ${provenance}` : provenance}
+        sub={
+          hasData
+            ? `${summary?.daily_pnl_percent.toFixed(2)}% today · ${summary?.closed_today} closed · ${provenance}`
+            : provenance
+        }
         tone={hasData && change < 0 ? "down" : "up"}
       >
         {hasData ? (
@@ -154,7 +169,9 @@ export function MetricCards({ summary }: { summary?: MetricsSummary | undefined 
             ) : (
               <ArrowDownRight className="size-3 text-down" aria-hidden />
             )}
-            <span className="text-muted-foreground">{summary?.open_positions ?? 0} open positions</span>
+            <span className="text-muted-foreground">
+              {summary?.open_positions ?? 0} open positions
+            </span>
           </div>
         ) : null}
       </Card>

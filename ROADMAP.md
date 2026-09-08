@@ -16,6 +16,7 @@
 - [x] Replace production backtest historical input with fail-closed REAL recorder replay; retain legacy fixture inputs only for unit-test mocks.
 - [x] Make ML retraining fail closed on anything except provenance-bearing REAL Polymarket observations joined to Polymarket resolution labels; use chronological market-grouped train/validation/test splits and persist dataset provenance in model artifacts.
 - [x] Calibrate REAL paper execution from chronological Polymarket L2 observations with conservative maker-fill ranges, observed snapshot latency, spread/depth/mid-move metrics, explicit assumptions, and out-of-sample reporting; exact queue position and unobserved fills remain unclaimed.
+- [x] Complete final P0 data-integrity audit: production has no automatic DEMO/synthetic fallback, hardcoded market-price substitution was removed from sizing, and REAL/PAPER/DEMO/MOCK/research sources are explicitly classified and labeled.
 
 ## 0.4.0 Architecture Clarification & Realism
 

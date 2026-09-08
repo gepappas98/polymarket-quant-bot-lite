@@ -34,7 +34,7 @@
 
 The worker now emits `data_source`, `execution_mode`, `market_data_source`, `is_simulated`, `market_data_provider`, and `auxiliary_data_sources` in `/status`. A paper worker reports REAL Polymarket market input plus `execution_mode=PAPER` and `is_simulated=true`.
 
-The dashboard demo generator reports `DEMO` for both data and execution. If `BOT_STATUS_URL` is configured, failed or malformed worker responses now raise an error instead of silently being merged with synthetic demo values. The dashboard renders an explicit unavailable state and never substitutes demo values for a failed worker.
+The dashboard demo generator reports `DEMO` for both data and execution and is reachable only with explicit `APP_MODE=DEMO`; production defaults to `APP_MODE=PRODUCTION`. Missing, failed, or malformed worker responses raise an error instead of silently being merged with synthetic demo values. The dashboard renders an explicit unavailable state and never substitutes demo values for a failed worker.
 
 The browser Paper Desk disables buys, closes, and unrealized marking unless the current status declares `market_data_source=REAL`. Its UI labels real input as **LIVE MARKET DATA** and execution as **PAPER / SIMULATED EXECUTION**. Demo input is labeled **DEMO DATA**.
 
@@ -57,7 +57,7 @@ The browser Paper Desk disables buys, closes, and unrealized marking unless the 
 
 ## Remaining simulated or demo sources
 
-1. `src/lib/bot-demo.ts` intentionally generates synthetic dashboard values when no worker URL is configured. It is explicit DEMO and read-only.
+1. `src/lib/bot-demo.ts` intentionally generates synthetic dashboard values only when `APP_MODE=DEMO`. It is explicit DEMO and read-only; production does not call it.
 2. `src/simulation/useMarketMaker.sim.ts` uses real Binance trades as a DEMO proxy for a browser simulation; it is not a Polymarket feed.
 3. Supabase `paper_*`, `mm_trades`, `copy_trades`, and `backtest_results` remain browser/paper persistence and do not constitute real fills.
 4. Worker paper execution models fills, fees, slippage, and P&L against observed books.
