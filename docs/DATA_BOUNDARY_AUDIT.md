@@ -70,3 +70,13 @@ The browser Paper Desk disables buys, closes, and unrealized marking unless the 
 - Auxiliary Binance spot data can influence worker fair-value logic, but it is not evidence of Polymarket liquidity or execution.
 - Live order placement remains a separate, explicitly gated path and was not enabled by this audit.
 - Historical datasets need operational provenance and freshness checks before being used for production decisions.
+
+## Final P0 repository audit
+
+- **REAL sources:** Polymarket Gamma metadata, CLOB REST/WebSocket books, REAL recorder SQLite snapshots, Data API trader activity, public leaderboard/closed-position enrichment, and confirmed live CLOB execution when independently enabled.
+- **PAPER sources:** Worker `PaperFillEngine`, browser PaperDesk paper account, browser Polymarket market-maker simulated fills, paper ledger/accounting, fees, slippage, and P&L. These are explicitly labeled and never counted as live fills.
+- **DEMO sources:** `src/lib/bot-demo.ts` and the Binance/generic browser research simulator. Both require/declare explicit DEMO or research-only boundaries and are disconnected from production Polymarket MM.
+- **MOCK sources:** Python tests, Vitest tests, fake HTTP clients/books/responses, fixtures, seeded test data, and monkeypatched network calls. No production module defines the audited fake client classes.
+- **Fixed during audit:** removed the dashboard Kelly-sizing `0.5` price fallback, removed the PaperDesk close-order `0.5` price fallback, changed incomplete paper valuation from zero P&L to `NO DATA`, and removed random sidebar skeleton widths.
+- **Remaining risks:** Binance/ccxt remains an auxiliary fair-value input in the worker; Supabase paper tables remain a compatibility/read-model path; browser and worker paper projections are not a single durable position projection in every legacy panel; exact maker queue position, observed fills, order cancellations, and exchange latency are not available in the recorder-only dataset.
+- **Live-trading blockers:** live execution remains behind `MODE=live` plus `LIVE_TRADING_CONFIRM=I_UNDERSTAND_THE_RISK`; worker ledger authority, confirmed CLOB status/VWAP, API authentication, and explicit production configuration remain required. No audit finding enables live trading.
