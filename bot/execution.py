@@ -143,7 +143,8 @@ class PaperFillEngine:
         self.slippage_bps = slippage_bps
 
     def execute(self, order: Order, book: OrderBook) -> ExecutionReport:
-        levels = book.asks if order.action.upper() == "BUY" else book.bids
+        is_buy = order.action.upper() == "BUY"
+        levels = book.asks if is_buy else book.bids
         remaining = order.requested_usd
         fills: list[Fill] = []
         for level in levels:
@@ -151,6 +152,10 @@ class PaperFillEngine:
                 break
             if level.price <= 0 or level.shares <= 0:
                 continue
+            # The book is price-time ordered. Once the next level is outside
+            # the limit, do not skip it to reach a worse level behind it.
+            if (is_buy and level.price > order.limit_price) or (not is_buy and level.price < order.limit_price):
+                break
             notional = min(remaining, level.price * level.shares)
             shares = notional / level.price
             fee = notional * self.fee_bps / 10_000
@@ -162,7 +167,13 @@ class PaperFillEngine:
             order.transition(OrderState.SUBMITTED)
             order.transition(OrderState.OPEN)
         vwap = order.vwap
-        slippage = sum(fill.shares * abs(fill.price - order.limit_price) for fill in fills)
+        # Signed adverse price versus the order limit: positive is worse,
+        # negative is price improvement. Paper must tell the same story as a
+        # live GTC limit order and must not charge for ineligible levels.
+        slippage = sum(
+            fill.shares * ((fill.price - order.limit_price) if is_buy else (order.limit_price - fill.price))
+            for fill in fills
+        )
         slippage += order.filled_usd * self.slippage_bps / 10_000
         return ExecutionReport(tuple(fills), order.requested_usd, order.filled_usd, order.remaining_usd, vwap, sum(x.fee_usd for x in fills), slippage)
 
