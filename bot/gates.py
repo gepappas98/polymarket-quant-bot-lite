@@ -48,7 +48,8 @@ class CooldownLock:
         self._until: Dict[str, float] = {}
         self._lock = threading.Lock()
 
-    def check_and_lock(self, key: str) -> GateResult:
+    def check_cooldown(self, key: str) -> GateResult:
+        """Inspect cooldown state without mutating it."""
         now = time.time()
         with self._lock:
             until = self._until.get(key, 0.0)
@@ -57,8 +58,24 @@ class CooldownLock:
                     allowed=False,
                     reason=f"cooldown active until {time.strftime('%H:%M:%S', time.localtime(until))}",
                 )
-            self._until[key] = now + self.minutes * 60
             return GateResult(allowed=True)
+
+    def commit_cooldown(self, key: str, minutes: Optional[float] = None) -> None:
+        """Commit a cooldown only after a confirmed fill exists."""
+        duration = self.minutes if minutes is None else minutes
+        with self._lock:
+            self._until[key] = time.time() + max(0.0, duration) * 60
+
+    def check_and_lock(self, key: str) -> GateResult:
+        """Backward-compatible explicit check-then-commit helper.
+
+        New execution paths must call ``check_cooldown`` before sending an
+        order and ``commit_cooldown`` only after a confirmed fill.
+        """
+        result = self.check_cooldown(key)
+        if result.allowed:
+            self.commit_cooldown(key)
+        return result
 
     def clear(self, key: str) -> None:
         with self._lock:
@@ -126,17 +143,9 @@ def gate_intent(market_slug: str, size_usd: float, is_arb: bool = False) -> Gate
         if not result.allowed:
             return result
 
-    # Cooldown (lighter for pure arb pairs)
-    cd_minutes = 1.0 if is_arb else cooldown.minutes
-    # Temporarily adjust for arb
-    original = cooldown.minutes
-    try:
-        if is_arb:
-            cooldown.minutes = min(1.0, original)
-        result = cooldown.check_and_lock(market_slug)
-        if not result.allowed:
-            return result
-    finally:
-        cooldown.minutes = original
+    # Cooldown is admission-only. Execution commits it after a confirmed fill.
+    result = cooldown.check_cooldown(market_slug)
+    if not result.allowed:
+        return result
 
     return GateResult(allowed=True)

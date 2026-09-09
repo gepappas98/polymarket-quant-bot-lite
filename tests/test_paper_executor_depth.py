@@ -18,15 +18,21 @@ def isolate_ledger(monkeypatch):
 
 
 def test_paper_executor_requires_observed_depth(monkeypatch):
+    from bot.gates import cooldown
+
     executor = PaperExecutor(Strategy())
     intent = Intent("market", "token", Side.UP, "BUY", 0.5, 20, "test")
+    cooldown.clear(intent.market_slug)
 
     fills = executor.execute([intent])
 
     assert fills == []
+    assert cooldown.get_until(intent.market_slug) is None
 
 
 def test_paper_executor_consumes_only_available_depth():
+    from bot.gates import cooldown
+
     executor = PaperExecutor(Strategy())
     state = type("State", (), {})()
     state.market = {"slug": "market"}
@@ -34,9 +40,11 @@ def test_paper_executor_consumes_only_available_depth():
     state.down_book = OrderBook([], [])
     executor._books["market"] = state
     intent = Intent("market", "token", Side.UP, "BUY", 0.5, 20, "test")
+    cooldown.clear(intent.market_slug)
 
     fills = executor.execute([intent])
 
     assert len(fills) == 1
     assert fills[0].cost == pytest.approx(5)
     assert fills[0].shares == pytest.approx(10)
+    assert cooldown.get_until(intent.market_slug) is not None

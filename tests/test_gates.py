@@ -55,32 +55,32 @@ class TestLiveTradingGate:
 class TestCooldownLock:
     def test_first_admission_is_allowed(self):
         cd = CooldownLock(minutes=5)
-        result = cd.check_and_lock("btc-updown-5m-123")
+        result = cd.check_cooldown("btc-updown-5m-123")
         assert result.allowed is True
 
     def test_second_admission_within_window_is_blocked(self):
         cd = CooldownLock(minutes=5)
-        cd.check_and_lock("btc-updown-5m-123")
-        result = cd.check_and_lock("btc-updown-5m-123")
+        cd.commit_cooldown("btc-updown-5m-123")
+        result = cd.check_cooldown("btc-updown-5m-123")
         assert result.allowed is False
         assert "cooldown" in result.reason.lower()
 
     def test_different_markets_do_not_share_a_lock(self):
         cd = CooldownLock(minutes=5)
-        cd.check_and_lock("btc-updown-5m-123")
-        result = cd.check_and_lock("eth-updown-5m-999")
+        cd.commit_cooldown("btc-updown-5m-123")
+        result = cd.check_cooldown("eth-updown-5m-999")
         assert result.allowed is True
 
     def test_clear_releases_the_lock_immediately(self):
         cd = CooldownLock(minutes=5)
-        cd.check_and_lock("btc-updown-5m-123")
+        cd.commit_cooldown("btc-updown-5m-123")
         cd.clear("btc-updown-5m-123")
-        result = cd.check_and_lock("btc-updown-5m-123")
+        result = cd.check_cooldown("btc-updown-5m-123")
         assert result.allowed is True
 
     def test_status_only_lists_active_locks(self):
         cd = CooldownLock(minutes=5)
-        cd.check_and_lock("btc-updown-5m-123")
+        cd.commit_cooldown("btc-updown-5m-123")
         assert "btc-updown-5m-123" in cd.status()
         cd.clear("btc-updown-5m-123")
         assert "btc-updown-5m-123" not in cd.status()
@@ -92,7 +92,7 @@ class TestCooldownLock:
     def test_get_until_returns_future_timestamp_when_locked(self):
         cd = CooldownLock(minutes=5)
         before = time.time()
-        cd.check_and_lock("btc-updown-5m-123")
+        cd.commit_cooldown("btc-updown-5m-123")
         until = cd.get_until("btc-updown-5m-123")
         assert until is not None
         assert until > before
@@ -116,14 +116,18 @@ class TestGateIntent:
         result = gate_intent("btc-updown-5m-3", size_usd=10)
         assert result.allowed is True
 
-    def test_second_call_same_market_hits_cooldown(self, monkeypatch):
+    def test_gate_admission_does_not_commit_cooldown(self, monkeypatch):
+        from bot.gates import cooldown
+
         monkeypatch.setattr(cfg, "mode", "paper")
         monkeypatch.setattr(cfg, "max_order_usd", 25.0)
         slug = "btc-updown-5m-4"
+        cooldown.clear(slug)
         first = gate_intent(slug, size_usd=10)
         second = gate_intent(slug, size_usd=10)
         assert first.allowed is True
-        assert second.allowed is False
+        assert second.allowed is True
+        assert cooldown.get_until(slug) is None
 
     def test_arb_leg_uses_shorter_cooldown_and_restores_original(self, monkeypatch):
         from bot.gates import cooldown

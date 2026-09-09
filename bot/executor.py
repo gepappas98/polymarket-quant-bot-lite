@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 from .config import cfg
 from .strategy import Intent, Strategy
-from .gates import gate_intent, is_live_trading_allowed
+from .gates import cooldown, gate_intent, is_live_trading_allowed
 from .ledger import ledger, LedgerEntry
 from .portfolio_gates import consecutive_loss_gate, max_drawdown_gate, pair_lock
 from .daily_limit import check as daily_limit_check
@@ -164,6 +164,10 @@ class PaperExecutor:
                 )
             ledger.record_fill(intent, shares, cost, fill.order_id, dry_run=True)
             metrics.record_fill(side=intent.side.value, size_usd=cost, dry_run=True)
+            cooldown.commit_cooldown(
+                intent.market_slug,
+                minutes=1.0 if intent.is_arb_leg else cooldown.minutes,
+            )
             log.info(
                 f"[PAPER FILL] {intent.side.value} {shares:.2f} shares @ {intent.price:.3f} "
                 f"(${cost:.2f}) | {intent.reason}"
@@ -461,6 +465,10 @@ class LiveExecutor:
                 )
                 ledger.record_fill(intent, shares, cost, order_id, dry_run=False)
                 metrics.record_fill(side=intent.side.value, size_usd=cost, dry_run=False)
+                cooldown.commit_cooldown(
+                    intent.market_slug,
+                    minutes=1.0 if intent.is_arb_leg else cooldown.minutes,
+                )
                 log.info(f"[LIVE FILL] {order_id} {intent.side.value} {shares:.2f} @ {avg_price:.3f}")
             except Exception as e:
                 log.error(f"Live order failed: {e}")
