@@ -12,8 +12,17 @@ import app.models  # noqa: F401
 
 app = FastAPI(title="polymarket-quant-bot-lite API", version="0.4.4")
 _price_feed_task = None
-origins = [x.strip() for x in os.getenv("API_CORS_ORIGINS", "*").split(",")]
-app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=origins != ["*"], allow_methods=["*"], allow_headers=["*"])
+# Default: no wildcard. Callers must explicitly set API_CORS_ORIGINS.
+# An empty string means "no CORS origins allowed" (same-origin only).
+_raw_origins = os.getenv("API_CORS_ORIGINS", "")
+origins = [x.strip() for x in _raw_origins.split(",") if x.strip()] if _raw_origins.strip() else []
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=bool(origins),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(api_router)
 
 

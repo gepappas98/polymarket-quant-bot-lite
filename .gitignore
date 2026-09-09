@@ -1,3 +1,9 @@
+# Environment files — secrets must never be committed.
+# Only .env.example and .env.risk.example belong in the repo.
+.env
+.env.local
+.env.*.local
+
 # Logs
 logs
 *.log
@@ -35,3 +41,4 @@ __pycache__/
 *.njsproj
 *.sln
 *.sw?
+src/polymarket_quant_bot_lite.egg-info/

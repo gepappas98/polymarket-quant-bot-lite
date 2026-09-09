@@ -195,7 +195,8 @@ def test_api_token_auth_and_live_missing_token(monkeypatch):
         with TestClient(app) as client:
             response = client.post("/api/risk/update", json={"k_value": .3})
         assert response.status_code == 503
-        assert response.json()["detail"] == "API_TOKEN required in live mode"
+        # Message covers all mandatory-token conditions (live, production, non-loopback).
+        assert "API_TOKEN" in response.json()["detail"]
     finally:
         monkeypatch.setattr(cfg, "mode", "paper")
 
