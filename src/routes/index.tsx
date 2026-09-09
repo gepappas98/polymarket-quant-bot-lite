@@ -141,6 +141,12 @@ function Dashboard() {
             These values are synthetic and read-only. They are not Polymarket observations or worker
             results.
           </p>
+          {status.status_error ? (
+            <p className="tape mt-1 text-[11px] text-muted-foreground">
+              Worker status unavailable: {status.status_error}. Read-only demo until the worker
+              responds.
+            </p>
+          ) : null}
         </div>
       ) : null}
 
