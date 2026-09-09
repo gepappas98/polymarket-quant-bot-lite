@@ -1,5 +1,5 @@
 """
-Copy-trading strategy — ιδέα από Ronesfe/Polymarket-Automated-Trading-Bot.
+Copy-trading strategy — real Polymarket Data API activity only.
 
 Παρακολουθεί συγκεκριμένα "target" wallets (π.χ. από το Polymarket
 leaderboard) μέσω του public Data API, και αναπαράγει τα trades τους σε
@@ -14,6 +14,9 @@ risk limits.
   best-effort πάνω στο σχήμα που είναι δημόσια γνωστό (activity feed με
   proxyWallet, side, size, price, asset/conditionId) — γράψε ένα μικρό
   unit test με πραγματικό response πριν το live.
+- Eligibility uses separately paginated real history; the last-20 activity
+  page is only a new-trade detector. History failure produces zero intents
+  and an explicit ``skip_reason``.
 - Πάντα μέσω του ΙΔΙΟΥ gate pipeline (gate_intent, max_drawdown_gate,
   pair_lock) — αυτό το module ΔΕΝ παρακάμπτει κανένα risk gate, απλά παράγει
   Intents όπως και οι υπόλοιπες στρατηγικές.
@@ -65,8 +68,10 @@ class CopyTradingStrategy:
         self._seen_trade_ids: Set[str] = set()
         # token_id -> [ {trade dict} ] φρέσκα (μη-αναπαραγμένα) trades ανά wallet
         self._pending_by_token: Dict[str, List[dict]] = {}
+        self.skip_reason: Optional[str] = None
 
     def _fetch_wallet_activity(self, wallet: str) -> List[dict]:
+        """Fetch only the newest page used for detecting new trades."""
         try:
             resp = requests.get(
                 f"{DATA_API_HOST}/activity",
@@ -80,20 +85,64 @@ class CopyTradingStrategy:
             log.debug(f"[COPY] activity fetch failed for {wallet}: {e}")
             return []
 
+    def _fetch_wallet_history(self, wallet: str) -> Optional[List[dict]]:
+        """Fetch paginated real history used only for eligibility.
+
+        A missing or malformed history response is a hard failure. The
+        strategy never infers a track record from the last-20 polling page.
+        """
+        history: List[dict] = []
+        offset = 0
+        page_size = max(self.cfg.min_target_trades, 100)
+        try:
+            while len(history) < self.cfg.min_target_trades or offset == 0:
+                resp = requests.get(
+                    f"{DATA_API_HOST}/trades",
+                    params={"user": wallet, "limit": page_size, "offset": offset},
+                    timeout=self.cfg.http_timeout,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                page = data if isinstance(data, list) else data.get("data") if isinstance(data, dict) else None
+                if not isinstance(page, list):
+                    raise ValueError("history response is not a list")
+                history.extend(item for item in page if isinstance(item, dict))
+                if len(page) < page_size:
+                    break
+                offset += len(page)
+                if offset > 100_000:
+                    raise ValueError("history pagination exceeded safety bound")
+            return history
+        except Exception as e:
+            log.warning("[COPY] history unavailable for %s; fail closed: %s", wallet, e)
+            return None
+
+    def _history_eligible(self, history: List[dict], now: float) -> bool:
+        if len(history) < self.cfg.min_target_trades:
+            self.skip_reason = f"insufficient_history_trades:{len(history)}<{self.cfg.min_target_trades}"
+            return False
+        timestamps = [float(item.get("timestamp") or 0) for item in history]
+        if not timestamps or now - min(timestamps) < self.cfg.min_history_days * 86400:
+            self.skip_reason = f"insufficient_history_days:<{self.cfg.min_history_days}"
+            return False
+        return True
+
     def _refresh(self) -> None:
         now = time.time()
         if now - self._last_poll_ts < self.cfg.poll_interval_sec:
             return
         self._last_poll_ts = now
         self._pending_by_token.clear()
+        self.skip_reason = None
 
         for wallet in self.cfg.target_wallets:
+            history = self._fetch_wallet_history(wallet)
+            if history is None:
+                self.skip_reason = f"history_fetch_failed:{wallet}"
+                continue
+            if not self._history_eligible(history, now):
+                continue
             activity = self._fetch_wallet_activity(wallet)
-            if len(activity) < self.cfg.min_target_trades:
-                continue
-            oldest = [float(t.get("timestamp") or 0) for t in activity if t.get("timestamp")]
-            if not oldest or now - min(oldest) < self.cfg.min_history_days * 86400:
-                continue
             for trade in activity:
                 trade_id = str(trade.get("id") or trade.get("transactionHash") or "")
                 if not trade_id or trade_id in self._seen_trade_ids:
@@ -105,7 +154,10 @@ class CopyTradingStrategy:
                 if usd_size < self.cfg.min_target_trade_usd:
                     continue
                 target_price = float(trade.get("price") or 0)
-                current_price = float(trade.get("currentPrice") or trade.get("current_price") or target_price)
+                current_raw = trade.get("currentPrice") or trade.get("current_price")
+                if current_raw is None:
+                    continue
+                current_price = float(current_raw)
                 if abs(current_price - target_price) > self.cfg.max_price_move_after_target:
                     continue
                 if str(trade.get("side", "")).upper() != "BUY":
@@ -126,6 +178,8 @@ class CopyTradingStrategy:
 
         self._refresh()
         if not self._pending_by_token:
+            if self.skip_reason is None:
+                self.skip_reason = "no_new_eligible_trades"
             return []
 
         slug = state.market["slug"]
