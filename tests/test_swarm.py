@@ -63,3 +63,14 @@ def test_filter_disabled():
     intents = ["x"]
     out = filter_intents(intents, _State(), cfg=SwarmConfig(enabled=False))
     assert out == intents
+
+
+def test_swarm_is_disabled_by_default(monkeypatch):
+    monkeypatch.delenv("SWARM_ENABLED", raising=False)
+    assert SwarmConfig().enabled is False
+
+
+def test_rune_is_context_only_not_a_risk_veto():
+    rune = next(score for score in score_market_state(_State(), risk_veto=True) if score.name == "RUNE")
+    assert rune.veto is False
+    assert "executor" in rune.reason

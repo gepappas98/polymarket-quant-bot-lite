@@ -1,16 +1,15 @@
 """
-Swarm consensus layer (GROKTOPUS-inspired architecture, non-LLM).
+Optional weighted score of existing local fields (non-LLM).
 
-Maps existing quant modules to named "agents". Each produces a score in [0, 1]
-and optional hard veto. A trade intent only proceeds when weighted consensus
->= threshold and no RUNE (risk) veto is active.
+Maps existing quant fields to named score components. It is an optional
+diagnostic/filter layer; executor gates remain the authoritative risk layer.
 
-Agents (pipeline roles, not separate LLM calls):
+Score components (not agents and never separate LLM calls):
   TIDAL  — market/window scan quality
   NORO   — fair-value / pricing edge
   ZEPHR  — liquidity / book depth
   OKAPI  — inventory / hedge alignment
-  RUNE   — risk gates (hard veto)
+  RUNE   — risk context (informational only; executor gates own vetoes)
   VESKA  — execution readiness
   MARIN  — settlement path available
   LUMEN  — optional soft sentiment (default neutral)
@@ -88,7 +87,7 @@ def _env_float(name: str, default: float) -> float:
 
 @dataclass
 class SwarmConfig:
-    enabled: bool = field(default_factory=lambda: _env_bool("SWARM_ENABLED", True))
+    enabled: bool = field(default_factory=lambda: _env_bool("SWARM_ENABLED", False))
     threshold: float = field(default_factory=lambda: _env_float("CONSENSUS_THRESHOLD", 0.70))
     weights: Dict[str, float] = field(default_factory=lambda: dict(DEFAULT_WEIGHTS))
 
@@ -207,9 +206,15 @@ def score_market_state(
             ok_reason += f" set_edge={edge:.3f}"
     scores.append(AgentScore("OKAPI", okapi, False, ok_reason))
 
-    # RUNE — risk hard veto only
+    # RUNE — risk context only. Executor gates remain authoritative and
+    # perform the actual risk veto; this score must not impersonate them.
     scores.append(
-        AgentScore("RUNE", 1.0 if not risk_veto else 0.0, risk_veto, risk_reason or "ok")
+        AgentScore(
+            "RUNE",
+            1.0 if not risk_veto else 0.0,
+            False,
+            ("executor gate blocked: " + risk_reason) if risk_veto else "executor gates authoritative",
+        )
     )
 
     # VESKA — execution readiness (paper always ready; live needs keys etc.)

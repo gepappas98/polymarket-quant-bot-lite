@@ -154,11 +154,11 @@ class Strategy:
         _stamp_live_settlement(intents)
         if not intents:
             return intents
-        if not getattr(cfg, "swarm_enabled", True):
+        if not getattr(cfg, "swarm_enabled", False):
             return intents
         if all(
             intent.is_arb_leg
-            or any(marker in intent.reason.upper() for marker in ("ARB", "SECOND_SIDE"))
+            or any(marker in intent.reason.upper() for marker in ("ARB", "SET_ACCUM", "SECOND_SIDE"))
             for intent in intents
         ):
             return intents
