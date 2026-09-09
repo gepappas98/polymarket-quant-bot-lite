@@ -1,5 +1,6 @@
 import type { BotStatus } from "./bot-types";
 import { buildDemoStatus } from "./bot-demo";
+import { adaptWorkerRiskStatus, isWorkerRiskStatus } from "./bot-adapter";
 
 export { buildDemoStatus };
 
@@ -10,21 +11,27 @@ async function fetchConfiguredWorkerStatus(): Promise<BotStatus> {
   const res = await fetch(url, {
     headers: {
       accept: "application/json",
-      ...(token ? { "X-API-Token": token } : {}),
+      ...(token ? { "X-API-Token": token, authorization: `Bearer ${token}` } : {}),
     },
   });
   if (!res.ok) throw new Error(`worker status unavailable (${res.status})`);
-  const data = (await res.json()) as Partial<BotStatus>;
+  const data = (await res.json()) as unknown;
+
+  // Sidecar risk status → translate into the dashboard shape.
+  if (isWorkerRiskStatus(data)) return adaptWorkerRiskStatus(data);
+
+  const full = data as Partial<BotStatus>;
   if (
-    data.source !== "worker" ||
-    data.data_source !== "REAL" ||
-    data.market_data_source !== "REAL" ||
-    typeof data.is_simulated !== "boolean"
+    full.source !== "worker" ||
+    full.data_source !== "REAL" ||
+    full.market_data_source !== "REAL" ||
+    typeof full.is_simulated !== "boolean"
   ) {
     throw new Error("worker status rejected: missing or invalid REAL/PAPER boundary metadata");
   }
-  return data as BotStatus;
+  return full as BotStatus;
 }
+
 
 /** Fetch status from a running worker; fall back to demo when missing or unreachable. */
 export async function fetchWorkerStatus(): Promise<BotStatus> {
