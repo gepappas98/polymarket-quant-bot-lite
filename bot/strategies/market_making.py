@@ -5,14 +5,12 @@ Two-sided quote γύρω από fair value (mid του book) με inventory skew
 ανισόρροπο είναι το inventory σου (πολύ UP έναντι DOWN ή αντίστροφα), τόσο πιο
 ασύμμετρο γίνεται το quote σου ώστε να ενθαρρύνεται η επιστροφή σε ισορροπία.
 
-ΣΗΜΑΝΤΙΚΟ — προσαρμογή στο υπάρχον execution model:
+ΣΗΜΑΝΤΙΚΟ — αυτό δεν είναι resting two-sided market making:
 Ο υπάρχων PaperExecutor/LiveExecutor εκτελεί Intents ΑΜΕΣΩΣ στην τιμή τους
-(δεν κάνει resting-order simulation ενός πραγματικού order book). Άρα αυτό
-το module δεν "τοποθετεί" ένα bid+ask ζευγάρι που περιμένει fill· παράγει σε
-κάθε κύκλο ΤΟ ΕΝΑ intent (BUY ή SELL) που έχει νόημα εκείνη τη στιγμή βάσει
-της απόστασης τιμής-από-fair-value, με τρόπο ισοδύναμο σε αποτέλεσμα. Αν
-αργότερα προστεθεί πραγματικό order-book resting (GTC orders + cancel/replace
-στο CLOB), αυτό το module είναι το σημείο να το συνδέσεις.
+(δεν κάνει resting-order simulation ενός πραγματικού order book και δεν έχει
+cancel/replace). Άρα αυτό το module δεν τοποθετεί bid+ask orders που περιμένουν
+fill· παράγει άμεσα ένα intent όταν η τιμή διασταυρώνει το ask. Αυτά τα intents
+είναι taker quotes, όχι resting maker orders.
 """
 
 from __future__ import annotations
@@ -116,7 +114,7 @@ class MarketMakingStrategy:
                 action="BUY",
                 price=min(our_bid_up, up_ask),
                 size_usd=size,
-                reason=f"MM quote fair_up={skewed_fair_up:.3f} skew={skew:.2f}",
+                reason=f"MM_TAKE taker quote, not resting maker fair_up={skewed_fair_up:.3f} skew={skew:.2f}",
             ))
         elif our_bid_down >= down_ask and (down_bid is None or our_bid_down >= down_bid):
             intents.append(Intent(
@@ -126,7 +124,7 @@ class MarketMakingStrategy:
                 action="BUY",
                 price=min(our_bid_down, down_ask),
                 size_usd=size,
-                reason=f"MM quote fair_down={1 - skewed_fair_up:.3f} skew={skew:.2f}",
+                reason=f"MM_TAKE taker quote, not resting maker fair_down={1 - skewed_fair_up:.3f} skew={skew:.2f}",
             ))
 
         if intents:

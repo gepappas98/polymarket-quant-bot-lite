@@ -66,7 +66,7 @@ Feature ownership is explicit: **[SIM]** browser/Supabase paper simulations; **[
 | **Market discovery** | Finds live Up/Down markets for configurable assets and windows via the Gamma API |
 | **Complete-set arbitrage** | Buys both sides when `UP_ask + DOWN_ask ≤ ARB_THRESHOLD` |
 | **Directional + inventory management** | Book-imbalance edge tilt; rebalances the underrepresented side |
-| **Market making** | Two-sided quoting around fair value with inventory skew (`bot/strategies/market_making.py`) |
+| **Market making** | Optional immediate taker quotes around fair value with inventory skew; not resting two-sided making (`bot/strategies/market_making.py`) |
 | **Copy trading** | Replicates tracked wallets' Polymarket buys with a size multiplier (`bot/strategies/copy_trading.py`) |
 | **Kelly sizing** | Fractional Kelly position sizing shared by the ML and directional paths (`bot/kelly.py`) |
 | **Plugin architecture** | Drop a file in `bot/strategies/` with a `build()` function and it's auto-loaded — no core edits (`bot/strategies/loader.py`) |
@@ -134,7 +134,7 @@ code edits:
 | Plugin | File | Enable with |
 |--------|------|--------------|
 | Arbitrage + directional (core) | `arbitrage.py` | always on |
-| Market making | `market_making.py` | `MM_ENABLED=true` |
+| Market making | `market_making.py` | `MM_ENABLED=true` (immediate taker quotes; no resting/cancel-replace workflow) |
 | Copy trading | `copy_trading.py` | `COPY_TRADING_ENABLED=true` |
 | ML directional (XGBoost + Kelly) | `ml_directional.py` | `ML_STRATEGY_ENABLED=true` (requires a trained model, see [Backtesting](#backtesting)) |
 | Cross-venue signal (Kalshi) | `cross_platform_arbitrage.py` | `KALSHI_ARB_ENABLED=true` (requires Kalshi API credentials) |
@@ -457,6 +457,9 @@ current implementation:
   executes the Polymarket leg; there is no Kalshi order-execution client yet,
   so enabling it takes on real directional risk informed by an external
   price, not risk-free arbitrage.
+- **Market making is not resting two-sided market making.** When enabled,
+  `bot/strategies/market_making.py` emits immediate `MM_TAKE` buys when its
+  quote crosses the ask; it has no resting orders or cancel/replace workflow.
 - **PostgreSQL ledger backend is untested against a real database** in this
   environment — the JSONL-backend fallback path (missing driver or
   `DATABASE_URL`) is verified to degrade gracefully.
