@@ -26,10 +26,16 @@ async function fetchConfiguredWorkerStatus(): Promise<BotStatus> {
   return data as BotStatus;
 }
 
-/** Fetch status from a running worker, preserving the legacy demo fallback. */
+/** Fetch status from a running worker; fall back to demo when missing or unreachable. */
 export async function fetchWorkerStatus(): Promise<BotStatus> {
   if (!process.env["BOT_STATUS_URL"]) return buildDemoStatus();
-  return fetchConfiguredWorkerStatus();
+  try {
+    return await fetchConfiguredWorkerStatus();
+  } catch (err) {
+    const demo = buildDemoStatus();
+    demo.status_error = err instanceof Error ? err.message : "worker status unavailable";
+    return demo;
+  }
 }
 
 /** Strict live status for production Paper Desk market prices; never returns demo data. */
