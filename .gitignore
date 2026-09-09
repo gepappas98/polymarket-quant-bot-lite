@@ -21,6 +21,9 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
+.env
+.env.local
+.env.*.local
 
 # Python bytecode and test caches
 __pycache__/

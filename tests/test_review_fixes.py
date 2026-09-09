@@ -238,3 +238,14 @@ def test_wildcard_cors_does_not_enable_credentials():
             },
         )
     assert response.headers.get("access-control-allow-credentials") != "true"
+
+
+def test_paper_mode_external_bind_requires_token_for_mutations(monkeypatch):
+    monkeypatch.setenv("MODE", "paper")
+    monkeypatch.setattr(cfg, "mode", "paper")
+    monkeypatch.setenv("API_HOST", "0.0.0.0")
+    monkeypatch.delenv("API_TOKEN", raising=False)
+    with TestClient(app) as client:
+        response = client.post("/api/risk/update", json={"k_value": 0.2})
+    assert response.status_code == 503
+    assert "API_TOKEN" in response.json()["detail"]

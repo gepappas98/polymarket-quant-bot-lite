@@ -38,6 +38,7 @@ from __future__ import annotations
 import json
 import logging
 import random
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -141,12 +142,117 @@ class BacktestFill:
 
 
 @dataclass
+class PairRecord:
+    """P0-8: net-after-execution outcome for one paired complete-set buy
+    attempt (ARB branch: both legs submitted together under one set_id).
+
+    SET_ACCUM / SECOND_SIDE legs build a set gradually over several
+    snapshots and are not "pairs" in this sense — they are not recorded
+    here, matching bot/executor.py's _record_pair_states convention.
+
+    gross_edge / net_edge are only ever populated for PAIR_COMPLETE: a
+    partial or failed pair is naked directional exposure until the other
+    leg fills, never a profitable arb.
+    """
+
+    set_id: str
+    market_slug: str
+    ts: float
+    legs: int
+    filled_legs: int
+    state: str  # "PAIR_COMPLETE" | "PAIR_PARTIAL" | "PAIR_FAILED"
+    exec_up: Optional[float] = None
+    exec_down: Optional[float] = None
+    fees_usd: float = 0.0
+    slippage_usd: float = 0.0
+    requested_usd: float = 0.0
+    filled_usd: float = 0.0
+    gross_edge: Optional[float] = None
+    net_edge: Optional[float] = None
+    data_source: str = "LEGACY_SNAPSHOT_INPUT"
+    execution_mode: str = "PAPER_SIMULATION"
+
+    @property
+    def fill_ratio(self) -> float:
+        return self.filled_usd / self.requested_usd if self.requested_usd else 0.0
+
+    @property
+    def residual_usd(self) -> float:
+        return max(0.0, self.requested_usd - self.filled_usd)
+
+
+def _build_pair_records(
+    intents: List[Intent],
+    intent_fills: Dict[int, Any],
+    *,
+    ts: float,
+    data_source: str,
+) -> List[PairRecord]:
+    """Group same-snapshot ARB legs by set_id (P0-8).
+
+    `intent_fills` maps id(intent) -> an object with .price/.size_usd/
+    .fee_usd/.slippage_usd for legs that actually filled (BacktestFill
+    satisfies this). A leg with no entry did not fill.
+    """
+    grouped: Dict[str, List[Intent]] = defaultdict(list)
+    for intent in intents:
+        if intent.is_arb_leg and intent.set_id:
+            grouped[intent.set_id].append(intent)
+
+    records: List[PairRecord] = []
+    for set_id, pair_intents in grouped.items():
+        leg_fills = [(intent, intent_fills.get(id(intent))) for intent in pair_intents]
+        filled_legs = sum(1 for _, f in leg_fills if f is not None)
+        if filled_legs == len(pair_intents):
+            state = "PAIR_COMPLETE"
+        elif filled_legs:
+            state = "PAIR_PARTIAL"
+        else:
+            state = "PAIR_FAILED"
+
+        exec_up = next((f.price for i, f in leg_fills if f is not None and i.side == Side.UP), None)
+        exec_down = next((f.price for i, f in leg_fills if f is not None and i.side == Side.DOWN), None)
+        fees_usd = sum(f.fee_usd for _, f in leg_fills if f is not None)
+        slippage_usd = sum(f.slippage_usd for _, f in leg_fills if f is not None)
+        requested_usd = sum(intent.size_usd for intent in pair_intents)
+        filled_usd = sum(f.size_usd for _, f in leg_fills if f is not None)
+
+        gross_edge: Optional[float] = None
+        net_edge: Optional[float] = None
+        if state == "PAIR_COMPLETE" and exec_up is not None and exec_down is not None:
+            gross_edge = 1.0 - exec_up - exec_down
+            # Normalize $ costs into the same price-space fraction as
+            # gross_edge (net after execution — roadmap P0-4/P0-8).
+            net_edge = gross_edge - ((fees_usd + slippage_usd) / filled_usd if filled_usd else 0.0)
+
+        records.append(PairRecord(
+            set_id=set_id,
+            market_slug=pair_intents[0].market_slug,
+            ts=ts,
+            legs=len(pair_intents),
+            filled_legs=filled_legs,
+            state=state,
+            exec_up=exec_up,
+            exec_down=exec_down,
+            fees_usd=round(fees_usd, 6),
+            slippage_usd=round(slippage_usd, 6),
+            requested_usd=round(requested_usd, 6),
+            filled_usd=round(filled_usd, 6),
+            gross_edge=gross_edge,
+            net_edge=net_edge,
+            data_source=data_source,
+        ))
+    return records
+
+
+@dataclass
 class BacktestResult:
     fills: List[BacktestFill]
     realized_pnl_usd: float
     outcomes: int
     wins: int
     gross_pnl_usd: float = 0.0
+    pairs: List[PairRecord] = field(default_factory=list)
     data_source: str = "LEGACY_SNAPSHOT_INPUT"
     execution_mode: str = "PAPER_SIMULATION"
     data_coverage: Dict[str, Any] = field(default_factory=dict)
@@ -172,9 +278,18 @@ class BacktestResult:
         return round(100.0 * self.wins / self.outcomes, 2) if self.outcomes else 0.0
 
     def summary(self) -> str:
+        pair_states = Counter(p.state for p in self.pairs)
+        pair_note = (
+            f" pairs={len(self.pairs)} "
+            f"(complete={pair_states.get('PAIR_COMPLETE', 0)} "
+            f"partial={pair_states.get('PAIR_PARTIAL', 0)} "
+            f"failed={pair_states.get('PAIR_FAILED', 0)})"
+            if self.pairs else ""
+        )
         return (
+            "SIMULATED — not live expectancy. "
             f"Historical market data is {'real' if self.data_source == REAL_HISTORICAL_SOURCE else 'legacy/mock'}; executions are simulated. | "
-            f"fills={len(self.fills)} outcomes={self.outcomes} "
+            f"fills={len(self.fills)}{pair_note} outcomes={self.outcomes} "
             f"win_rate={self.win_rate_pct}% gross_pnl=${self.gross_pnl_usd:+.2f} "
             f"fees=${self.fees_usd:.4f} slippage=${self.slippage_usd:.4f} "
             f"net_pnl=${self.net_pnl_usd:+.2f}"
@@ -221,7 +336,7 @@ def _simulate_taker(intent: Intent, snap: Snapshot, consumed: Dict[tuple, float]
     for level in levels:
         price = float(level.get("price", 0.0))
         available = float(level.get("size", 0.0))
-        key = (snap.ts, intent.side.value, price)
+        key = (snap.ts, intent.side.value, "ask", price)
         available = max(0.0, available - consumed.get(key, 0.0))
         if price <= 0 or available <= 0 or remaining_usd <= 0:
             continue
@@ -251,7 +366,17 @@ def _simulate_taker(intent: Intent, snap: Snapshot, consumed: Dict[tuple, float]
     )
 
 
-def _simulate_maker(intent: Intent, snap: Snapshot, rng: random.Random) -> Optional[BacktestFill]:
+def _simulate_maker(
+    intent: Intent,
+    snap: Snapshot,
+    rng: random.Random,
+    consumed: Optional[Dict[tuple, float]] = None,
+) -> Optional[BacktestFill]:
+    """P0-8: deplete the touched bid level via `consumed`, shared with
+    _simulate_taker, so two intents in the same snapshot cannot each claim
+    the full displayed queue at the same touch."""
+    if consumed is None:
+        consumed = {}
     probability = max(0.0, min(1.0, cfg.maker_fill_probability))
     if rng.random() > probability:
         return None
@@ -259,11 +384,15 @@ def _simulate_maker(intent: Intent, snap: Snapshot, rng: random.Random) -> Optio
     touch = next((level for level in levels if abs(float(level.get("price", 0.0)) - intent.price) < 1e-9), None)
     if touch is None:
         return None
-    available = max(0.0, float(touch.get("size", 0.0)) - cfg.maker_queue_ahead)
+    price = float(touch.get("price", 0.0))
+    key = (snap.ts, intent.side.value, "bid", price)
+    already_consumed = consumed.get(key, 0.0)
+    available = max(0.0, float(touch.get("size", 0.0)) - cfg.maker_queue_ahead - already_consumed)
     filled_usd = min(intent.size_usd, available * intent.price)
     if filled_usd <= 0:
         return None
     fee = filled_usd * max(0.0, cfg.paper_fee_bps) / 10_000
+    consumed[key] = already_consumed + (filled_usd / intent.price if intent.price else 0.0)
     return BacktestFill(
         ts=snap.ts + max(0.0, cfg.maker_latency_sec), market_slug=intent.market_slug,
         side=intent.side.value, price=intent.price, size_usd=filled_usd,
@@ -283,6 +412,7 @@ def run_backtest(snapshots: Iterable[Snapshot]) -> BacktestResult:
     registry = load_all(strategy)
 
     fills: List[BacktestFill] = []
+    pairs: List[PairRecord] = []
     realized_pnl = 0.0
     outcomes = 0
     wins = 0
@@ -311,10 +441,12 @@ def run_backtest(snapshots: Iterable[Snapshot]) -> BacktestResult:
                 strategy.inventories.pop(snap.market["slug"], None)
             continue
 
-        for intent in registry.evaluate_all(state):
+        snap_intents = registry.evaluate_all(state)
+        intent_fills: Dict[int, BacktestFill] = {}
+        for intent in snap_intents:
             if not _simple_exposure_gate(strategy, intent):
                 continue
-            fill = _simulate_maker(intent, snap, rng) if cfg.prefer_maker else _simulate_taker(intent, snap, consumed)
+            fill = _simulate_maker(intent, snap, rng, consumed) if cfg.prefer_maker else _simulate_taker(intent, snap, consumed)
             if fill is None and cfg.prefer_maker:
                 fill = _simulate_taker(intent, snap, consumed)
             if fill is None:
@@ -322,9 +454,14 @@ def run_backtest(snapshots: Iterable[Snapshot]) -> BacktestResult:
             shares = fill.size_usd / fill.price
             strategy.update_inventory(intent.market_slug, intent.side, shares, fill.size_usd)
             fills.append(fill)
+            intent_fills[id(intent)] = fill
+        pairs.extend(_build_pair_records(
+            snap_intents, intent_fills, ts=snap.ts, data_source="LEGACY_SNAPSHOT_INPUT",
+        ))
 
     return BacktestResult(
         fills=fills,
+        pairs=pairs,
         realized_pnl_usd=round(realized_pnl, 2),
         outcomes=outcomes,
         wins=wins,
@@ -357,6 +494,13 @@ def main() -> None:
     print(f"data_source={result.data_source} execution_mode={result.execution_mode} fill_ratio={result.fill_ratio:.4f} turnover=${result.turnover_usd:.2f} peak_exposure=${result.peak_exposure_usd:.2f}")
     if result.data_quality_warnings:
         print("data_quality_warnings=" + "; ".join(result.data_quality_warnings))
+    for p in result.pairs:
+        edge_str = f"net_edge={p.net_edge:+.4f}" if p.net_edge is not None else "net_edge=n/a"
+        print(
+            f"  [{p.state}] {p.market_slug} set={p.set_id} legs={p.filled_legs}/{p.legs} "
+            f"exec_up={p.exec_up} exec_down={p.exec_down} {edge_str} "
+            f"fill_ratio={p.fill_ratio:.2f} residual=${p.residual_usd:.2f}"
+        )
     for f in result.fills[:20]:
         print(f"  {f.side:5s} {f.market_slug:30s} @ {f.price:.3f}  ${f.size_usd:.1f}  {f.reason}")
     if len(result.fills) > 20:
@@ -390,15 +534,44 @@ def _real_snapshots(source: HistoricalMarketData, *, start_ms: int | None = None
     return snapshots
 
 
-def _real_paper_fill(intent: Intent, snap: Snapshot, engine: PaperFillEngine) -> list[BacktestFill]:
-    levels_bid = snap.up_bids if intent.side == Side.UP else snap.down_bids
-    levels_ask = snap.up_asks if intent.side == Side.UP else snap.down_asks
+def _real_paper_fill(
+    intent: Intent,
+    snap: Snapshot,
+    engine: PaperFillEngine,
+    consumed: Dict[tuple, float],
+) -> list[BacktestFill]:
+    """Fill against the observed book, depleting shared per-touch liquidity
+    (`consumed`, reset once per snapshot by the caller) so that multiple
+    intents evaluated against the same snapshot cannot each drain the same
+    displayed size — P0-4/P0-8: one fill per book level per snapshot."""
+    is_buy = intent.action.upper() == "BUY"
+    raw_bids = snap.up_bids if intent.side == Side.UP else snap.down_bids
+    raw_asks = snap.up_asks if intent.side == Side.UP else snap.down_asks
+    tag = "ask" if is_buy else "bid"
+
+    def _levels(levels) -> list[dict]:
+        return [{"price": float(level["price"]), "shares": float(level["size"])} for level in levels]
+
+    def _deplete(levels) -> list[dict]:
+        out: list[dict] = []
+        for level in levels:
+            price = float(level["price"])
+            size = float(level["size"])
+            key = (intent.side.value, tag, price)
+            avail = max(0.0, size - consumed.get(key, 0.0))
+            if avail > 0:
+                out.append({"price": price, "shares": avail})
+        return out
+
     book = PaperOrderBook.from_levels(
-        [{"price": float(level["price"]), "shares": float(level["size"])} for level in levels_bid],
-        [{"price": float(level["price"]), "shares": float(level["size"])} for level in levels_ask],
+        _deplete(raw_bids) if not is_buy else _levels(raw_bids),
+        _deplete(raw_asks) if is_buy else _levels(raw_asks),
     )
     order = PaperOrder(intent.market_slug, intent.side.value, intent.action, intent.size_usd, intent.price)
     report = engine.execute(order, book)
+    for fill in report.fills:
+        key = (intent.side.value, tag, fill.price)
+        consumed[key] = consumed.get(key, 0.0) + fill.shares
     return [BacktestFill(
         ts=fill.ts, market_slug=intent.market_slug, side=intent.side.value,
         price=fill.price, size_usd=fill.shares * fill.price, reason="SIMULATED_FILL",
@@ -427,25 +600,45 @@ def run_real_backtest(
     registry = load_all(strategy)
     engine = PaperFillEngine(cfg.paper_fee_bps, cfg.paper_slippage_bps)
     fills: list[BacktestFill] = []
+    pairs: list[PairRecord] = []
     requested_usd = 0.0
     turnover_usd = 0.0
     peak_exposure = 0.0
     for snap in snapshots:
         state = BacktestMarketState(snap)
-        for intent in registry.evaluate_all(state):
+        snap_intents = registry.evaluate_all(state)
+        intent_fills: Dict[int, BacktestFill] = {}
+        consumed: Dict[tuple, float] = {}
+        for intent in snap_intents:
             if not _simple_exposure_gate(strategy, intent):
                 continue
             requested_usd += intent.size_usd
-            new_fills = _real_paper_fill(intent, snap, engine)
+            new_fills = _real_paper_fill(intent, snap, engine, consumed)
             fills.extend(new_fills)
             turnover_usd += sum(fill.size_usd for fill in new_fills)
+            if new_fills:
+                total_shares = sum(f.size_usd / f.price for f in new_fills if f.price)
+                total_usd = sum(f.size_usd for f in new_fills)
+                # Per-intent VWAP representative for pair grouping only — not
+                # added to `fills`, so fees_usd/slippage_usd totals on the
+                # result are not double-counted.
+                intent_fills[id(intent)] = BacktestFill(
+                    ts=new_fills[-1].ts, market_slug=intent.market_slug, side=intent.side.value,
+                    price=(total_usd / total_shares) if total_shares else intent.price,
+                    size_usd=total_usd, reason="SIMULATED_FILL", requested_usd=intent.size_usd,
+                    fee_usd=sum(f.fee_usd for f in new_fills),
+                    slippage_usd=sum(f.slippage_usd for f in new_fills),
+                )
             for fill in new_fills:
                 strategy.update_inventory(intent.market_slug, intent.side, fill.size_usd / fill.price, fill.size_usd)
             inv = strategy.get_inv(intent.market_slug)
             peak_exposure = max(peak_exposure, inv.total_cost)
+        pairs.extend(_build_pair_records(
+            snap_intents, intent_fills, ts=snap.ts, data_source=REAL_HISTORICAL_SOURCE,
+        ))
     coverage = data_source.coverage(start_ms=start_ms, end_ms=end_ms, market_id=market_id, token_id=token_id)  # type: ignore[attr-defined]
     return BacktestResult(
-        fills=fills, realized_pnl_usd=0.0, outcomes=0, wins=0, gross_pnl_usd=0.0,
+        fills=fills, pairs=pairs, realized_pnl_usd=0.0, outcomes=0, wins=0, gross_pnl_usd=0.0,
         data_source=REAL_HISTORICAL_SOURCE, execution_mode="PAPER_SIMULATION",
         data_coverage=coverage, data_quality_warnings=coverage["quality_warnings"],
         peak_exposure_usd=peak_exposure, turnover_usd=turnover_usd, requested_usd=requested_usd,

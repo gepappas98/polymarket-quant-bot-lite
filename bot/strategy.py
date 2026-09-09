@@ -13,7 +13,7 @@ import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from .config import cfg
 from .feeds import MarketState
@@ -42,6 +42,29 @@ class Intent:
     reason: str
     is_arb_leg: bool = False
     set_id: Optional[str] = None
+    meta: Optional[Dict[str, Any]] = None
+
+
+# P0-7: reasons that describe paired complete-set activity. In live mode
+# these must carry meta.settlement — CTF merge/redeem is not implemented
+# (bot/ctf_ops.py), so a paired buy is directional inventory held to
+# resolution, not a closed risk-free arbitrage. See STRATEGY.md.
+_LIVE_SETTLEMENT_MARKERS = ("ARB", "SET_ACCUM", "SECOND_SIDE")
+_LIVE_SETTLEMENT_NOTE = "hold_to_resolution_no_merge"
+
+
+def _stamp_live_settlement(intents: List[Intent]) -> None:
+    """Attach meta.settlement to ARB/SET_ACCUM/SECOND_SIDE intents when
+    running live. No-op in paper/shadow — paper fills are already labeled
+    SIMULATED_FILL and never claim proven edge."""
+    if cfg.mode != "live":
+        return
+    for intent in intents:
+        reason = (intent.reason or "").upper()
+        if any(marker in reason for marker in _LIVE_SETTLEMENT_MARKERS):
+            meta = dict(intent.meta or {})
+            meta["settlement"] = _LIVE_SETTLEMENT_NOTE
+            intent.meta = meta
 
 
 # Backward-compatible alias used by market_making / older tests
@@ -128,6 +151,7 @@ class Strategy:
         inventory actions. They still pass the strategy's depth and exposure
         gates, but must not be vetoed by the soft consensus score.
         """
+        _stamp_live_settlement(intents)
         if not intents:
             return intents
         if not getattr(cfg, "swarm_enabled", True):

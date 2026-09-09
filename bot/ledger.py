@@ -81,6 +81,9 @@ class Ledger:
         if getattr(intent, "is_arb_leg", False):
             meta["is_arb_leg"] = True
             meta["set_id"] = getattr(intent, "set_id", None) or f"{intent.market_slug}:set"
+        extra_meta = getattr(intent, "meta", None)
+        if extra_meta:
+            meta.update(extra_meta)
         self.append(LedgerEntry(
             ts=time.time(),
             kind="intent",
@@ -110,6 +113,9 @@ class Ledger:
             meta["set_id"] = getattr(intent, "set_id", None) or f"{intent.market_slug}:set"
         # Prefer-maker path is approximate; explicit flag if present
         meta["prefer_maker"] = bool(getattr(intent, "prefer_maker", False))
+        extra_meta = getattr(intent, "meta", None)
+        if extra_meta:
+            meta.update(extra_meta)
         self.append(LedgerEntry(
             ts=time.time(),
             kind="fill",

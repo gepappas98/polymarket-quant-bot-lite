@@ -2,7 +2,8 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
-def test_api_shapes_and_updates():
+def test_api_shapes_and_updates(monkeypatch):
+    monkeypatch.setenv("API_HOST", "127.0.0.1")
     with TestClient(app) as client:
         assert client.get("/health").json() == {"ok": True}
         assert client.get("/api/status").status_code == 200
@@ -15,7 +16,8 @@ def test_api_shapes_and_updates():
         assert client.get("/api/leaders").status_code == 200
 
 
-def test_place_order_respects_strategy():
+def test_place_order_respects_strategy(monkeypatch):
+    monkeypatch.setenv("API_HOST", "127.0.0.1")
     with TestClient(app) as client:
         client.post("/api/strategies/update", json={"politics_only": True})
         ignored = client.post("/api/trades/place", json={"market_slug": "btc-up-or-down", "token_id": "t", "side": "UP", "price": .5, "confidence": .8, "balance": 100})

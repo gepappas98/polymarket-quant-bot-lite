@@ -279,3 +279,84 @@ class TestSwarmStrategyBoundary:
         strategy = Strategy()
         state = FakeState("partial-state", 0.50, 0.50, up_bid=0.48, down_bid=0.30)
         assert strategy.evaluate(state)
+
+
+class TestLiveSettlementStamp:
+    """P0-7: ARB/SET_ACCUM/SECOND_SIDE intents must carry
+    meta.settlement="hold_to_resolution_no_merge" in live mode, since CTF
+    merge/redeem is not implemented (bot/ctf_ops.py). Paper must never carry
+    this — paper fills are already labeled SIMULATED_FILL."""
+
+    def test_arb_intents_stamped_in_live_mode(self, monkeypatch):
+        monkeypatch.setattr(cfg, "mode", "live")
+        monkeypatch.setattr(cfg, "swarm_enabled", False)
+        monkeypatch.setattr(cfg, "arb_threshold", 0.985)
+        monkeypatch.setattr(cfg, "max_order_usd", 25.0)
+        strategy = Strategy()
+        intents = strategy.evaluate(FakeState("arb-live", 0.48, 0.49))
+        assert len(intents) == 2
+        for intent in intents:
+            assert intent.meta == {"settlement": "hold_to_resolution_no_merge"}
+
+    def test_second_side_intent_stamped_in_live_mode(self, monkeypatch):
+        monkeypatch.setattr(cfg, "mode", "live")
+        monkeypatch.setattr(cfg, "swarm_enabled", False)
+        monkeypatch.setattr(cfg, "second_side_lag_sec", 0.0)
+        monkeypatch.setattr(cfg, "max_naked_residual_usd", 1.0)
+        strategy = Strategy()
+        strategy.update_inventory("second-side-live", Side.UP, shares=10, cost=5)
+        intents = strategy.evaluate(FakeState("second-side-live", 0.48, 0.49))
+        assert len(intents) == 1
+        assert intents[0].meta == {"settlement": "hold_to_resolution_no_merge"}
+
+    def test_set_accum_intent_stamped_in_live_mode(self, monkeypatch):
+        monkeypatch.setattr(cfg, "mode", "live")
+        monkeypatch.setattr(cfg, "swarm_enabled", False)
+        monkeypatch.setattr(cfg, "target_set_cost", 0.99)
+        monkeypatch.setattr(cfg, "max_order_usd", 25.0)
+        strategy = Strategy()
+        # sum_asks=0.99 is above the fixed dynamic_arb_threshold (0.985) so
+        # the instant-pair ARB branch is skipped and SET_ACCUM triggers instead.
+        intents = strategy.evaluate(FakeState("set-accum-live", 0.49, 0.50))
+        assert len(intents) == 1
+        assert "SET_ACCUM" in intents[0].reason
+        assert intents[0].meta == {"settlement": "hold_to_resolution_no_merge"}
+
+    def test_arb_intents_not_stamped_in_paper_mode(self, monkeypatch):
+        monkeypatch.setattr(cfg, "mode", "paper")
+        monkeypatch.setattr(cfg, "swarm_enabled", False)
+        monkeypatch.setattr(cfg, "arb_threshold", 0.985)
+        monkeypatch.setattr(cfg, "max_order_usd", 25.0)
+        strategy = Strategy()
+        intents = strategy.evaluate(FakeState("arb-paper", 0.48, 0.49))
+        assert len(intents) == 2
+        assert all(intent.meta is None for intent in intents)
+
+    def test_directional_intent_never_stamped_even_in_live_mode(self, monkeypatch):
+        monkeypatch.setattr(cfg, "mode", "live")
+        monkeypatch.setattr(cfg, "swarm_enabled", False)
+        monkeypatch.setattr(cfg, "arb_threshold", 0.90)
+        monkeypatch.setattr(cfg, "min_directional_edge", 0.03)
+        monkeypatch.setattr(cfg, "prefer_maker", False)
+        strategy = Strategy()
+        state = FakeState("directional-live", 0.50, 0.50, up_bid=0.48, down_bid=0.30)
+        intents = strategy.evaluate(state)
+        assert intents
+        assert all(intent.meta is None for intent in intents)
+
+    def test_settlement_meta_reaches_ledger_fill(self, monkeypatch):
+        """The stamp must survive into the ledger (dashboard/reports), not
+        just live on the Intent object — see bot/ledger.py record_fill."""
+        from bot.strategy import Intent
+
+        monkeypatch.setattr(cfg, "mode", "live")
+        intent = Intent(
+            market_slug="m", token_id="tok", side=Side.UP, action="BUY",
+            price=0.48, size_usd=25.0, reason="ARB pair (sum=0.9700)",
+            is_arb_leg=True, set_id="m:set:1",
+            meta={"settlement": "hold_to_resolution_no_merge"},
+        )
+        ledger._entries.clear()
+        ledger.record_fill(intent, shares=52.08, cost=25.0, order_id="oid-1", dry_run=False)
+        entry = ledger._entries[-1]
+        assert entry.meta["settlement"] == "hold_to_resolution_no_merge"

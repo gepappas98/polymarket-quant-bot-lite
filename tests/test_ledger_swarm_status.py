@@ -50,6 +50,14 @@ def test_session_summary_attributes_arb_and_directional_fills(tmp_path):
     assert summary["directional_volume_usd"] == 10
 
 
+def test_build_status_exposes_ctf_live_flags_flatly():
+    """P0-7: ctf_live_available/ctf_live_detail must be top-level on the
+    status payload — not buried where a dashboard could miss them."""
+    status = status_server.build_status()
+    assert status["ctf_live_available"] is False
+    assert status["ctf_live_detail"] == "not implemented"
+
+
 def test_status_swarm_from_ledger(tmp_path, monkeypatch):
     led = Ledger(path=tmp_path / "t2.jsonl")
     intent = Intent(

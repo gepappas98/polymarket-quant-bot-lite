@@ -33,6 +33,7 @@ from .gates import cooldown, is_live_trading_allowed
 from .ledger import ledger
 from .portfolio_gates import max_drawdown_gate, pair_lock, session_pnl
 from .data_boundary import worker_boundary
+from .ctf_ops import ctf_live_status
 
 log = logging.getLogger(__name__)
 
@@ -165,6 +166,7 @@ def build_status() -> Dict[str, Any]:
     return {
         "source": "worker",
         **worker_boundary(execution_mode=cfg.mode),
+        **ctf_live_status(),
         "market_data_provider": "Polymarket CLOB REST/WebSocket",
         "auxiliary_data_sources": {"spot": "Binance via ccxt"},
         "generatedAt": int(time.time() * 1000),

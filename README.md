@@ -334,6 +334,14 @@ panels (market making, copy trading, backtesting, alerting — see
 `docs/FEATURES.md` for the full spec mapping) run against Supabase and are
 independent of the worker.
 
+### API security
+
+Mutating sidecar routes require `API_TOKEN` when running live, in production,
+or bound beyond loopback; the token must remain server-side and must never be
+placed in a `VITE_*` variable. CORS defaults to localhost origins and must be
+configured explicitly for deployment. A previously tracked `.env` was removed
+from the working tree; rotate any credentials that were ever stored in it.
+
 ---
 
 ## Project layout
@@ -452,6 +460,11 @@ current implementation:
 - **PostgreSQL ledger backend is untested against a real database** in this
   environment — the JSONL-backend fallback path (missing driver or
   `DATABASE_URL`) is verified to degrade gracefully.
+- **Live complete-set inventory is directional until merge/redeem exists.**
+  `bot/ctf_ops.py` fails closed on any live split/merge/redeem call (status
+  payload: `ctf_live_available=false`); a paired ARB/SET_ACCUM/SECOND_SIDE
+  buy in live mode is held to resolution, not a closed risk-free arbitrage —
+  see `meta.settlement` on those intents and `STRATEGY.md`.
 - **Backtests use a simplified, time-independent risk model.** Wall-clock
   gates (cooldown, drawdown kill switch) are not faithfully replayed.
 - **Two independent implementations of similar features exist** (Python

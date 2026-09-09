@@ -3,7 +3,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from bot.feeds import PriceFeed
-from bot.ctf_ops import split_complete_set, merge_complete_set, redeem_positions, maybe_merge_excess
+from bot.ctf_ops import split_complete_set, merge_complete_set, redeem_positions, maybe_merge_excess, ctf_live_status
 
 
 class _FakeFeed(PriceFeed):
@@ -39,3 +39,9 @@ def test_ctf_paper_ops():
     assert r.ok and r.dry_run
     r = maybe_merge_excess("0xabc", paired_shares=5, keep_shares=5)
     assert r.ok and "nothing" in r.detail
+
+
+def test_ctf_live_status_fails_closed():
+    """P0-7: the status payload must say live CTF is unavailable, plainly."""
+    status = ctf_live_status()
+    assert status == {"ctf_live_available": False, "ctf_live_detail": "not implemented"}

@@ -39,6 +39,19 @@ def _live_allowed() -> bool:
         return False
 
 
+def ctf_live_status() -> dict:
+    """Static live-CTF capability flags for status/dashboard payloads (P0-7).
+
+    split_complete_set / merge_complete_set / redeem_positions already fail
+    closed in live mode (no relayer client wired up, no unsigned txs sent).
+    This makes that fact visible on the status payload itself instead of
+    only in logs, so a paired ARB/SET_ACCUM/SECOND_SIDE buy is never mistaken
+    for a closed, risk-free position — see meta.settlement on those intents
+    in bot/strategy.py and the Known gaps section of README.md.
+    """
+    return {"ctf_live_available": False, "ctf_live_detail": "not implemented"}
+
+
 def split_complete_set(condition_id: str, amount_usd: float) -> CtfResult:
     """Split `amount_usd` pUSD into equal UP+DOWN tokens for condition_id."""
     if amount_usd <= 0:
