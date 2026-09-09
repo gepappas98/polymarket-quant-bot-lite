@@ -86,6 +86,32 @@ def test_shadow_observes_live_book_without_submitting_orders():
     assert all(entry.meta.get("shadow") for entry in ledger._entries if entry.kind == "fill")
 
 
+def test_live_executor_blocks_on_consecutive_losses_like_paper(monkeypatch):
+    ledger._entries.clear()
+    executor = LiveExecutor.__new__(LiveExecutor)
+
+    class NoSubmitClient:
+        def __getattr__(self, name):
+            raise AssertionError(f"live client called despite gate block: {name}")
+
+    executor.client = NoSubmitClient()
+    allowed = lambda: type("Gate", (), {"allowed": True, "reason": ""})()
+    monkeypatch.setattr("bot.executor.daily_limit_check", allowed)
+    monkeypatch.setattr(
+        "bot.executor.consecutive_loss_gate",
+        lambda: type("Gate", (), {"allowed": False, "reason": "consecutive losses: 3; 30 minute pause"})(),
+    )
+    monkeypatch.setattr("bot.executor.max_drawdown_gate", allowed)
+    monkeypatch.setattr("bot.executor.pair_lock.check", lambda slug: allowed())
+    monkeypatch.setattr("bot.executor.gate_intent", lambda *args, **kwargs: allowed())
+
+    intent = Intent("live-market", "token", Side.UP, "BUY", 0.49, 10.0, "LIVE_TEST")
+    assert executor.execute([intent]) == []
+    blocked = [entry for entry in ledger._entries if entry.kind == "intent"]
+    assert blocked[-1].status == "blocked"
+    assert blocked[-1].reason == "consecutive losses: 3; 30 minute pause"
+
+
 def test_reconcile_polls_partial_until_filled(monkeypatch):
     monkeypatch.setattr(cfg, "live_order_timeout_sec", 1.0)
     client = FakeClient([

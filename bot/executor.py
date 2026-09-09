@@ -48,6 +48,32 @@ def _execution_book(book: Any) -> ExecutionBook:
     return ExecutionBook.from_levels(levels("bids", "_bids"), levels("asks", "_asks"))
 
 
+def _pre_trade_gate(intent: Intent) -> Optional[Tuple[str, str]]:
+    """Run the identical admission pipeline for paper, live, and shadow.
+
+    The order is deliberately stable: persistent daily limit, consecutive-loss
+    pause, session drawdown, per-market pair lock, then intent sizing/gates.
+    Callers decide how to record the blocked result for their execution mode.
+    """
+    checks = (
+        ("daily_kill", daily_limit_check),
+        ("consecutive_losses", consecutive_loss_gate),
+        ("drawdown", max_drawdown_gate),
+        ("pair_lock", lambda: pair_lock.check(intent.market_slug)),
+        ("gate", lambda: gate_intent(intent.market_slug, intent.size_usd, is_arb=intent.is_arb_leg)),
+    )
+    for stage, check in checks:
+        result = check()
+        if not result.allowed:
+            return stage, result.reason or stage
+    return None
+
+
+def _record_blocked(intent: Intent, *, dry_run: bool, stage: str, reason: str) -> None:
+    ledger.record_intent(intent, dry_run=dry_run, blocked=True, block_reason=reason)
+    metrics.record_blocked(stage)
+
+
 class OrderState(str, Enum):
     NEW = "NEW"
     SUBMITTED = "SUBMITTED"
@@ -87,41 +113,12 @@ class PaperExecutor:
     def execute(self, intents: List[Intent]) -> List[Fill]:
         results: List[Fill] = []
 
-        daily = daily_limit_check()
-        if not daily.allowed:
-            for intent in intents:
-                log.warning(f"[DAILY KILL] {intent.market_slug}: {daily.reason}")
-                ledger.record_intent(intent, dry_run=True, blocked=True, block_reason=daily.reason or "")
-                metrics.record_blocked("daily_kill")
-            return results
-
-        loss_pause = consecutive_loss_gate()
-        if not loss_pause.allowed:
-            for intent in intents:
-                ledger.record_intent(intent, dry_run=True, blocked=True, block_reason=loss_pause.reason or "")
-                metrics.record_blocked("consecutive_losses")
-            return results
-        drawdown = max_drawdown_gate()
-        if not drawdown.allowed:
-            for intent in intents:
-                log.warning(f"[DRAWDOWN BLOCK] {intent.market_slug}: {drawdown.reason}")
-                ledger.record_intent(intent, dry_run=True, blocked=True, block_reason=drawdown.reason or "")
-                metrics.record_blocked("drawdown")
-            return results
-
         for intent in intents:
-            pair = pair_lock.check(intent.market_slug)
-            if not pair.allowed:
-                log.warning(f"[PAIR LOCK] {intent.market_slug}: {pair.reason}")
-                ledger.record_intent(intent, dry_run=True, blocked=True, block_reason=pair.reason or "")
-                metrics.record_blocked("pair_lock")
-                continue
-
-            gate = gate_intent(intent.market_slug, intent.size_usd, is_arb=intent.is_arb_leg)
-            if not gate.allowed:
-                log.warning(f"[GATE BLOCK] {intent.market_slug} {intent.side.value}: {gate.reason}")
-                ledger.record_intent(intent, dry_run=True, blocked=True, block_reason=gate.reason or "")
-                metrics.record_blocked("gate")
+            blocked = _pre_trade_gate(intent)
+            if blocked:
+                stage, reason = blocked
+                log.warning(f"[GATE BLOCK:{stage}] {intent.market_slug}: {reason}")
+                _record_blocked(intent, dry_run=True, stage=stage, reason=reason)
                 continue
 
             ledger.record_intent(intent, dry_run=True)
@@ -267,6 +264,16 @@ class ShadowExecutor:
     def observe(self, state, intents: List[Intent]) -> List[Fill]:
         self.observations += 1
         for intent in intents:
+            blocked = _pre_trade_gate(intent)
+            if blocked:
+                stage, reason = blocked
+                _record_blocked(intent, dry_run=True, stage=stage, reason=reason)
+                ledger.append(LedgerEntry(
+                    ts=time.time(), kind="shadow_block", market_slug=intent.market_slug,
+                    side=intent.side.value, reason=reason, status="blocked", dry_run=True,
+                    meta={"shadow": True, "blocked_by": stage},
+                ))
+                continue
             ledger.record_intent(intent, dry_run=True)
             estimate = self._estimate(intent, state)
             if estimate:
@@ -383,45 +390,22 @@ class LiveExecutor:
             time.sleep(max(cfg.live_order_poll_sec, 0.0))
 
     def execute(self, intents: List[Intent]) -> List[Fill]:
-        from py_clob_client_v2 import OrderArgs, OrderType, Side as ClobSide, PartialCreateOrderOptions
-
         results: List[Fill] = []
 
-        daily = daily_limit_check()
-        if not daily.allowed:
-            for intent in intents:
-                log.warning(f"[DAILY KILL LIVE] {intent.market_slug}: {daily.reason}")
-                ledger.record_intent(intent, dry_run=False, blocked=True, block_reason=daily.reason or "")
-                metrics.record_blocked("daily_kill")
-            return results
-
-        drawdown = max_drawdown_gate()
-        if not drawdown.allowed:
-            for intent in intents:
-                log.warning(f"[DRAWDOWN BLOCK LIVE] {intent.market_slug}: {drawdown.reason}")
-                ledger.record_intent(intent, dry_run=False, blocked=True, block_reason=drawdown.reason or "")
-                metrics.record_blocked("drawdown")
-            return results
-
         for intent in intents:
-            pair = pair_lock.check(intent.market_slug)
-            if not pair.allowed:
-                log.warning(f"[PAIR LOCK LIVE] {intent.market_slug}: {pair.reason}")
-                ledger.record_intent(intent, dry_run=False, blocked=True, block_reason=pair.reason or "")
-                metrics.record_blocked("pair_lock")
-                continue
-
-            gate = gate_intent(intent.market_slug, intent.size_usd, is_arb=intent.is_arb_leg)
-            if not gate.allowed:
-                log.warning(f"[GATE BLOCK LIVE] {intent.market_slug}: {gate.reason}")
-                ledger.record_intent(intent, dry_run=False, blocked=True, block_reason=gate.reason or "")
-                metrics.record_blocked("gate")
+            blocked = _pre_trade_gate(intent)
+            if blocked:
+                stage, reason = blocked
+                log.warning(f"[GATE BLOCK LIVE:{stage}] {intent.market_slug}: {reason}")
+                _record_blocked(intent, dry_run=False, stage=stage, reason=reason)
                 continue
 
             ledger.record_intent(intent, dry_run=False)
             metrics.record_intent(side=intent.side.value)
 
             try:
+                from py_clob_client_v2 import OrderArgs, OrderType, Side as ClobSide, PartialCreateOrderOptions
+
                 side = ClobSide.BUY if intent.action == "BUY" else ClobSide.SELL
                 size = intent.size_usd / intent.price
                 order_args = OrderArgs(
