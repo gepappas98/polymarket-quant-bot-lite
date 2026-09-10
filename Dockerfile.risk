@@ -10,12 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# app/ is the FastAPI risk engine; bot/ is required because app.api.deps imports bot.config
+# pyproject.toml + app/ + bot/ must be in place before `pip install -e .[core]`
+# (requirements.txt is just `-e .[core]`, an editable install of this project).
+COPY requirements.txt pyproject.toml .
 COPY app ./app
 COPY bot ./bot
+
+RUN pip install --no-cache-dir -r requirements.txt
 
 RUN mkdir -p /data
 
