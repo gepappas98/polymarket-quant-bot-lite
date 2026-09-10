@@ -4,8 +4,15 @@ import { adaptWorkerRiskStatus, isWorkerRiskStatus } from "./bot-adapter";
 
 export { buildDemoStatus };
 
+/** Public sidecar status endpoint; overridable with BOT_STATUS_URL. */
+const DEFAULT_STATUS_URL = "https://polymarket-quant-bot-lite-1.onrender.com/api/status";
+
+function statusUrl(): string | undefined {
+  return process.env["BOT_STATUS_URL"] ?? DEFAULT_STATUS_URL;
+}
+
 async function fetchConfiguredWorkerStatus(): Promise<BotStatus> {
-  const url = process.env["BOT_STATUS_URL"];
+  const url = statusUrl();
   if (!url) throw new Error("live worker status is not configured: BOT_STATUS_URL is missing");
   const token = process.env["BOT_STATUS_API_TOKEN"];
   const res = await fetch(url, {
