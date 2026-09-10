@@ -24,6 +24,7 @@ import { Route as AuthenticatedPaperIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedPaperHistoryRouteImport } from './routes/_authenticated/paper.history'
 import { Route as AuthenticatedPaperOrdersRouteImport } from './routes/_authenticated/paper.orders'
 import { Route as AuthenticatedPaperReconcileRouteImport } from './routes/_authenticated/paper.reconcile'
+import { Route as ApiPublicBotStatusRouteImport } from './routes/api/public/bot-status'
 import { Route as ApiPublicHooksMonitorAlertsRouteImport } from './routes/api/public/hooks/monitor-alerts'
 
 const IndexRoute = IndexRouteImport.update({
@@ -103,6 +104,11 @@ const AuthenticatedPaperReconcileRoute =
     path: '/reconcile',
     getParentRoute: () => AuthenticatedPaperRoute,
   } as any)
+const ApiPublicBotStatusRoute = ApiPublicBotStatusRouteImport.update({
+  id: '/api/public/bot-status',
+  path: '/api/public/bot-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksMonitorAlertsRoute =
   ApiPublicHooksMonitorAlertsRouteImport.update({
     id: '/api/public/hooks/monitor-alerts',
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/paper/history': typeof AuthenticatedPaperHistoryRoute
   '/paper/orders': typeof AuthenticatedPaperOrdersRoute
   '/paper/reconcile': typeof AuthenticatedPaperReconcileRoute
+  '/api/public/bot-status': typeof ApiPublicBotStatusRoute
   '/paper/': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/paper/history': typeof AuthenticatedPaperHistoryRoute
   '/paper/orders': typeof AuthenticatedPaperOrdersRoute
   '/paper/reconcile': typeof AuthenticatedPaperReconcileRoute
+  '/api/public/bot-status': typeof ApiPublicBotStatusRoute
   '/paper': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
@@ -159,6 +167,7 @@ export interface FileRoutesById {
   '/_authenticated/paper/history': typeof AuthenticatedPaperHistoryRoute
   '/_authenticated/paper/orders': typeof AuthenticatedPaperOrdersRoute
   '/_authenticated/paper/reconcile': typeof AuthenticatedPaperReconcileRoute
+  '/api/public/bot-status': typeof ApiPublicBotStatusRoute
   '/_authenticated/paper/': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/paper/history'
     | '/paper/orders'
     | '/paper/reconcile'
+    | '/api/public/bot-status'
     | '/paper/'
     | '/api/public/hooks/monitor-alerts'
   fileRoutesByTo: FileRoutesByTo
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/paper/history'
     | '/paper/orders'
     | '/paper/reconcile'
+    | '/api/public/bot-status'
     | '/paper'
     | '/api/public/hooks/monitor-alerts'
   id:
@@ -212,6 +223,7 @@ export interface FileRouteTypes {
     | '/_authenticated/paper/history'
     | '/_authenticated/paper/orders'
     | '/_authenticated/paper/reconcile'
+    | '/api/public/bot-status'
     | '/_authenticated/paper/'
     | '/api/public/hooks/monitor-alerts'
   fileRoutesById: FileRoutesById
@@ -223,6 +235,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   LeadersRoute: typeof LeadersRoute
   SizingRoute: typeof SizingRoute
+  ApiPublicBotStatusRoute: typeof ApiPublicBotStatusRoute
   ApiPublicHooksMonitorAlertsRoute: typeof ApiPublicHooksMonitorAlertsRoute
 }
 
@@ -333,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPaperReconcileRouteImport
       parentRoute: typeof AuthenticatedPaperRoute
     }
+    '/api/public/bot-status': {
+      id: '/api/public/bot-status'
+      path: '/api/public/bot-status'
+      fullPath: '/api/public/bot-status'
+      preLoaderRoute: typeof ApiPublicBotStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/monitor-alerts': {
       id: '/api/public/hooks/monitor-alerts'
       path: '/api/public/hooks/monitor-alerts'
@@ -394,6 +414,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRouteWithChildren,
   LeadersRoute: LeadersRoute,
   SizingRoute: SizingRoute,
+  ApiPublicBotStatusRoute: ApiPublicBotStatusRoute,
   ApiPublicHooksMonitorAlertsRoute: ApiPublicHooksMonitorAlertsRoute,
 }
 export const routeTree = rootRouteImport

@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
-import { getBotStatus } from "@/lib/bot.functions";
+import { buildDemoStatus } from "@/lib/bot-demo";
+import type { BotStatus } from "@/lib/bot-types";
 import { NavLinks } from "@/components/dashboard/NavLinks";
+
 import { SimulateTradeWidget } from "@/components/dashboard/SimulateTradeWidget";
 import { SwarmAgentsPanel } from "@/components/dashboard/SwarmAgentsPanel";
 import { getMarketsSnapshot, getRiskGates, riskQueryKeys, analyticsQueryKeys } from "@/lib/riskApi";
@@ -47,11 +48,33 @@ function uptime(seconds: number) {
   return `${h}h ${m}m`;
 }
 
+/**
+ * Never rejects. Reads the stable server route (see routes/api/public/bot-status.ts)
+ * and degrades to client-side demo data if the transport itself fails, so a
+ * deployment-level RPC/route failure can no longer blank the Control Room.
+ */
+async function loadStatus(): Promise<BotStatus> {
+  try {
+    const res = await fetch("/api/public/bot-status", {
+      headers: { accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`status endpoint returned ${res.status}`);
+    const data = (await res.json()) as BotStatus;
+    if (!data || typeof data !== "object" || !data.config) {
+      throw new Error("status endpoint returned an unexpected payload");
+    }
+    return data;
+  } catch (err) {
+    const demo = buildDemoStatus();
+    demo.status_error = err instanceof Error ? err.message : "worker status unavailable";
+    return demo;
+  }
+}
+
 function Dashboard() {
-  const fetchStatus = useServerFn(getBotStatus);
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["bot-status"],
-    queryFn: () => fetchStatus(),
+    queryFn: loadStatus,
     refetchInterval: 10_000,
     retry: 1,
   });
@@ -68,7 +91,7 @@ function Dashboard() {
     refetchInterval: 10_000,
   });
 
-  if (isLoading && !data && !isError) {
+  if (isLoading && !data) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <p className="label-caps">Connecting to worker…</p>
@@ -76,27 +99,9 @@ function Dashboard() {
     );
   }
 
-  if (!data) {
-    return (
-      <main className="mx-auto max-w-3xl px-4 py-16">
-        <div className="panel border-down/50 bg-down/10 px-4 py-5">
-          <h1 className="text-lg font-semibold text-down">REAL worker data unavailable</h1>
-          <p className="tape mt-2 text-[11px] text-muted-foreground">
-            No synthetic values are rendered. Configure BOT_STATUS_URL and restore the worker
-            connection.
-          </p>
-          <p className="tape mt-2 text-[11px] text-muted-foreground">
-            {isError
-              ? "Worker status request failed."
-              : "Waiting for an explicit worker status response."}
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  const status = data;
+  const status = data ?? buildDemoStatus();
   const { config } = status;
+
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-10">
