@@ -42,7 +42,7 @@ async function fetchConfiguredWorkerStatus(): Promise<BotStatus> {
 
 /** Fetch status from a running worker; fall back to demo when missing or unreachable. */
 export async function fetchWorkerStatus(): Promise<BotStatus> {
-  if (!process.env["BOT_STATUS_URL"]) return buildDemoStatus();
+  if (!statusUrl()) return buildDemoStatus();
   try {
     return await fetchConfiguredWorkerStatus();
   } catch (err) {
