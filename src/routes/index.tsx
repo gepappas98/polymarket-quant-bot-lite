@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
-import { getBotStatus } from "@/lib/bot.functions";
+import { buildDemoStatus } from "@/lib/bot-demo";
+import type { BotStatus } from "@/lib/bot-types";
 import { NavLinks } from "@/components/dashboard/NavLinks";
+
 import { SimulateTradeWidget } from "@/components/dashboard/SimulateTradeWidget";
 import { SwarmAgentsPanel } from "@/components/dashboard/SwarmAgentsPanel";
 import { getMarketsSnapshot, getRiskGates, riskQueryKeys, analyticsQueryKeys } from "@/lib/riskApi";
