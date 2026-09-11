@@ -270,6 +270,12 @@ reproduced in a fast-forwarded backtest — see the module docstring).
 
 To train the ML model:
 
+> **Not production-safe:** `build_training_set()` currently selects the last
+> pre-resolution snapshot, which is look-ahead contaminated as a tradable
+> signal. Keep `ML_STRATEGY_ENABLED=false` until features are cut off at T-60s
+> or earlier and evaluation reports time-split Brier score and logloss. No
+> accuracy-only result is sufficient.
+
 ```python
 from bot.backtest import load_snapshots
 from bot.ml_model import build_training_set, ProbabilityModel

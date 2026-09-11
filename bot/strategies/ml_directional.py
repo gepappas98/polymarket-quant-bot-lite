@@ -9,6 +9,11 @@ OFF by default (ML_STRATEGY_ENABLED=false). Αν δεν υπάρχει trained m
 έτρεχε ήδη παράλληλα ως ξεχωριστό plugin μέσω arbitrage.py, οπότε δεν
 χρειάζεται duplicate λογική εδώ).
 
+WARNING: the current offline training-set builder uses the last snapshot before
+resolution. That is look-ahead contaminated for a tradable signal. Keep this
+strategy disabled until training uses a T-60s-or-earlier cutoff and reports
+time-split probabilistic metrics such as Brier score and logloss.
+
 Ρητά ΔΕΝ αντικαθιστά bot/strategy.py::Strategy — τρέχει ΠΑΡΑΛΛΗΛΑ σε αυτό
 (shared inventory) ως ένα επιπλέον, προαιρετικό, high-confidence-only sizing
 path. Αν θες να δεις "τι θα έκανε ΜΟΝΟ το ML μοντέλο", απενεργοποίησε τα
