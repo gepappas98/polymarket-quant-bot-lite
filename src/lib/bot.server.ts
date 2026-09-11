@@ -23,8 +23,6 @@ async function fetchConfiguredWorkerStatus(): Promise<BotStatus> {
   });
   if (!res.ok) throw new Error(`worker status unavailable (${res.status})`);
   const data = (await res.json()) as unknown;
-
-  // Sidecar risk status → translate into the dashboard shape.
   if (isWorkerRiskStatus(data)) return adaptWorkerRiskStatus(data);
 
   const full = data as Partial<BotStatus>;
@@ -39,17 +37,9 @@ async function fetchConfiguredWorkerStatus(): Promise<BotStatus> {
   return full as BotStatus;
 }
 
-
-/** Fetch status from a running worker; fall back to demo when missing or unreachable. */
+/** Fetch status from the real worker; dashboard status never falls back to demo data. */
 export async function fetchWorkerStatus(): Promise<BotStatus> {
-  if (!statusUrl()) return buildDemoStatus();
-  try {
-    return await fetchConfiguredWorkerStatus();
-  } catch (err) {
-    const demo = buildDemoStatus();
-    demo.status_error = err instanceof Error ? err.message : "worker status unavailable";
-    return demo;
-  }
+  return fetchConfiguredWorkerStatus();
 }
 
 /** Strict live status for production Paper Desk market prices; never returns demo data. */

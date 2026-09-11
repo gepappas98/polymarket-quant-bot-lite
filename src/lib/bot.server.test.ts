@@ -36,6 +36,7 @@ describe("REAL/PAPER/DEMO boundary", () => {
   });
 
   it("strict live status never falls back to demo when BOT_STATUS_URL is missing", async () => {
+    await expect(fetchWorkerStatus()).rejects.toThrow("BOT_STATUS_URL is missing");
     await expect(fetchLiveWorkerStatus()).rejects.toThrow("BOT_STATUS_URL is missing");
   });
 
