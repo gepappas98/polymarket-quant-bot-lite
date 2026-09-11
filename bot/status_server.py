@@ -41,6 +41,15 @@ _start_time = time.time()
 _lock = threading.Lock()
 _state: Dict[str, Any] = {
     "markets": [],  # list of MarketRow-shaped dicts, set each cycle by update_markets()
+    "cycle": {
+        "scanned": 0,
+        "arb_intents": 0,
+        "gated": 0,
+        "would_fill": 0,
+        "skipped_no_depth": 0,
+        "book_age_ms": None,
+        "cycle_ms": None,
+    },
 }
 
 
@@ -48,6 +57,12 @@ def update_markets(rows: List[Dict[str, Any]]) -> None:
     """Called from the main loop each cycle with current market snapshots."""
     with _lock:
         _state["markets"] = rows
+
+
+def update_cycle_summary(summary: Dict[str, Any]) -> None:
+    """Publish observed cycle counters; values are never synthetic PnL claims."""
+    with _lock:
+        _state["cycle"] = dict(summary)
 
 
 def _config_dict() -> Dict[str, Any]:
@@ -65,7 +80,7 @@ def _config_dict() -> Dict[str, Any]:
         "minTrackRecordWinPct": cfg.min_track_record_win_pct,
         "minTrackRecordSamples": cfg.min_track_record_samples,
         "preferMaker": cfg.prefer_maker,
-        "swarmEnabled": getattr(cfg, "swarm_enabled", True),
+        "swarmEnabled": getattr(cfg, "swarm_enabled", False),
         "consensusThreshold": getattr(cfg, "consensus_threshold", 0.70),
     }
 
@@ -147,6 +162,7 @@ def _ledger_rows(limit: int = 50) -> List[Dict[str, Any]]:
 def build_status() -> Dict[str, Any]:
     with _lock:
         markets = list(_state["markets"])
+        cycle = dict(_state["cycle"])
 
     summary = ledger.session_summary()
     wr = ledger.win_rate(min_samples=cfg.min_track_record_samples)
@@ -188,6 +204,7 @@ def build_status() -> Dict[str, Any]:
         },
         "pnlSeries": pnl_series,
         "markets": markets,
+        "cycle": cycle,
         "gates": _gates_list(),
         "swarm": _swarm_from_ledger(),
         "ledger": _ledger_rows(),

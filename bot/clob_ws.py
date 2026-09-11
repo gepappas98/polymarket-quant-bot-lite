@@ -78,6 +78,14 @@ class ClobWebSocketFeed:
                 asks=[dict(level) for level in book["asks"]],
             )
 
+    def book_age_ms(self, asset_id: str) -> Optional[float]:
+        """Return local age of the latest WS update, or None when unavailable."""
+        with self._lock:
+            updated = self._last_update.get(str(asset_id))
+        if not updated:
+            return None
+        return max(0.0, (time.time() - updated) * 1000.0)
+
     def apply_message(self, raw: str | bytes | dict) -> None:
         message = json.loads(raw) if isinstance(raw, (str, bytes)) else raw
         event_type = message.get("event_type") or message.get("type")

@@ -8,7 +8,7 @@ and alerting.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-green.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-82%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-243%20passing-brightgreen.svg)](tests/)
 
 > **Educational software. Not financial advice.** Trading prediction markets carries
 > substantial risk of loss. Past performance does not guarantee future results.
@@ -72,7 +72,7 @@ Feature ownership is explicit: **[SIM]** browser/Supabase paper simulations; **[
 | **Plugin architecture** | Drop a file in `bot/strategies/` with a `build()` function and it's auto-loaded — no core edits (`bot/strategies/loader.py`) |
 | **Backtesting** | Replays historical order-book snapshots through the live strategy stack (`bot/backtest.py`) |
 | **ML ensemble** | XGBoost win-probability model trained from settled outcomes, feeding Kelly sizing (`bot/ml_model.py`) |
-| **Cross-venue signal** | Polymarket vs. Kalshi price-gap detection — directional, not hedged (`bot/strategies/cross_platform_arbitrage.py`) — see [Known gaps](#known-gaps) |
+| **Directional Kalshi signal** | Kalshi reference price informs the Polymarket leg only; no Kalshi execution or hedge (`bot/strategies/cross_platform_arbitrage.py`) — see [Known gaps](#known-gaps) |
 | **PostgreSQL ledger** | Optional drop-in swap for the JSONL ledger (`bot/ledger_pg.py`, `LEDGER_BACKEND=postgres`) |
 | **Prometheus metrics** | `/metrics` HTTP exporter + Grafana dashboard under `deploy/` (`bot/metrics.py`) |
 | **Paper mode (default)** | Deterministic, optimistic-fill simulation — no funds at risk |
@@ -137,7 +137,7 @@ code edits:
 | Market making | `market_making.py` | `MM_ENABLED=true` (immediate taker quotes; no resting/cancel-replace workflow) |
 | Copy trading | `copy_trading.py` | `COPY_TRADING_ENABLED=true` |
 | ML directional (XGBoost + Kelly) | `ml_directional.py` | `ML_STRATEGY_ENABLED=true` (requires a trained model, see [Backtesting](#backtesting)) |
-| Cross-venue signal (Kalshi) | `cross_platform_arbitrage.py` | `KALSHI_ARB_ENABLED=true` (requires Kalshi API credentials) |
+| Directional Kalshi signal (Polymarket leg only) | `cross_platform_arbitrage.py` | `KALSHI_ARB_ENABLED=true` (requires Kalshi API credentials) |
 
 To add a new strategy: create `bot/strategies/my_strategy.py` exposing
 `build(shared_strategy)` (and, optionally, `STRATEGY_ENABLED_ENV`). To remove
@@ -459,8 +459,8 @@ current implementation:
   the ones your enabled plugins need, per the table in `requirements.txt`.
   This is deliberate: `pip install -r requirements.txt` stays fast and
   dependency-light for anyone only using the core arb/directional strategy.
-- **Cross-venue (Kalshi) signal is directional, not hedged.** It only
-  executes the Polymarket leg; there is no Kalshi order-execution client yet,
+- **Directional Kalshi signal — Polymarket leg only.** It only executes the
+  Polymarket leg; there is no Kalshi order-execution client yet,
   so enabling it takes on real directional risk informed by an external
   price, not risk-free arbitrage.
 - **Market making is not resting two-sided market making.** When enabled,

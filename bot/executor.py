@@ -244,6 +244,20 @@ class ShadowExecutor:
         self.strategy = strategy
         self.would_be_fills: List[Fill] = []
         self.observations = 0
+        self.last_cycle_summary = {
+            "arb_intents": 0,
+            "gated": 0,
+            "would_fill": 0,
+            "skipped_no_depth": 0,
+        }
+
+    def begin_cycle(self, *, arb_intents: int = 0) -> None:
+        self.last_cycle_summary = {
+            "arb_intents": int(arb_intents),
+            "gated": 0,
+            "would_fill": 0,
+            "skipped_no_depth": 0,
+        }
 
     @staticmethod
     def _estimate(intent: Intent, state) -> Optional[Fill]:
@@ -267,9 +281,11 @@ class ShadowExecutor:
 
     def observe(self, state, intents: List[Intent]) -> List[Fill]:
         self.observations += 1
+        cycle = self.last_cycle_summary
         for intent in intents:
             blocked = _pre_trade_gate(intent)
             if blocked:
+                cycle["gated"] += 1
                 stage, reason = blocked
                 _record_blocked(intent, dry_run=True, stage=stage, reason=reason)
                 ledger.append(LedgerEntry(
@@ -281,6 +297,7 @@ class ShadowExecutor:
             ledger.record_intent(intent, dry_run=True)
             estimate = self._estimate(intent, state)
             if estimate:
+                cycle["would_fill"] += 1
                 self.would_be_fills.append(estimate)
                 ledger.append(LedgerEntry(
                     ts=time.time(), kind="fill", market_slug=intent.market_slug,
@@ -290,12 +307,14 @@ class ShadowExecutor:
                     meta={"shadow": True, "shares": estimate.shares,
                           "signal_reason": intent.reason},
                 ))
+            else:
+                cycle["skipped_no_depth"] += 1
         ledger.append(LedgerEntry(
             ts=time.time(), kind="shadow_observation", market_slug=state.market.get("slug", "?"),
             status="observed", dry_run=True,
             meta={"up_ask": state.up_ask, "down_ask": state.down_ask,
                   "sum_asks": state.sum_asks, "arb_available": state.arb_available,
-                  "external_price": state.external_price, "intent_count": len(intents)},
+                          "external_price": state.external_price, "intent_count": len(intents)},
         ))
         return [fill for fill in self.would_be_fills if fill.intent in intents]
 

@@ -30,7 +30,7 @@ from .gates import cooldown, is_live_trading_allowed
 from . import gates
 from .ledger import ledger
 from .resolver import Resolver
-from .status_server import start_status_server, update_markets
+from .status_server import start_status_server, update_markets, update_cycle_summary
 from .strategies.loader import load_all
 from . import metrics
 
@@ -167,6 +167,7 @@ def main():
     cycle = 0
     while running:
         cycle += 1
+        cycle_started = time.perf_counter()
         try:
             markets = find_all_active()
             if not markets:
@@ -195,6 +196,10 @@ def main():
                 intents_by_slug[st.market.get("slug", "")] = intents
                 all_intents.extend(intents)
 
+            if hasattr(executor, "begin_cycle"):
+                executor.begin_cycle(
+                    arb_intents=sum(1 for intent in all_intents if intent.is_arb_leg)
+                )
             if hasattr(executor, "observe"):
                 for st in states:
                     executor.observe(st, intents_by_slug.get(st.market.get("slug", ""), []))
@@ -207,6 +212,23 @@ def main():
             console.print(table)
             rows = market_rows(states, strategy)
             update_markets(rows)
+            book_ages = []
+            if ws_feed:
+                for state in states:
+                    for token_id in (state.market.get("up_token_id"), state.market.get("down_token_id")):
+                        age = ws_feed.book_age_ms(token_id) if token_id else None
+                        if age is not None:
+                            book_ages.append(age)
+            cycle_summary = getattr(executor, "last_cycle_summary", {})
+            update_cycle_summary({
+                "scanned": len(states),
+                "arb_intents": int(cycle_summary.get("arb_intents", 0)),
+                "gated": int(cycle_summary.get("gated", 0)),
+                "would_fill": int(cycle_summary.get("would_fill", 0)),
+                "skipped_no_depth": int(cycle_summary.get("skipped_no_depth", 0)),
+                "book_age_ms": round(max(book_ages), 1) if book_ages else None,
+                "cycle_ms": round((time.perf_counter() - cycle_started) * 1000.0, 1),
+            })
 
             # Outcome resolution: once a window's countdown hits zero, track it
             # until Gamma reports the settlement price, then record real PnL.

@@ -58,6 +58,28 @@ def test_build_status_exposes_ctf_live_flags_flatly():
     assert status["ctf_live_detail"] == "not implemented"
 
 
+def test_build_status_exposes_cycle_summary(monkeypatch):
+    status_server.update_cycle_summary({
+        "scanned": 3,
+        "arb_intents": 1,
+        "gated": 2,
+        "would_fill": 1,
+        "skipped_no_depth": 4,
+        "book_age_ms": 125.5,
+        "cycle_ms": 18.2,
+    })
+    status = status_server.build_status()
+    assert status["cycle"] == {
+        "scanned": 3,
+        "arb_intents": 1,
+        "gated": 2,
+        "would_fill": 1,
+        "skipped_no_depth": 4,
+        "book_age_ms": 125.5,
+        "cycle_ms": 18.2,
+    }
+
+
 def test_status_swarm_from_ledger(tmp_path, monkeypatch):
     led = Ledger(path=tmp_path / "t2.jsonl")
     intent = Intent(

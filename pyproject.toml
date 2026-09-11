@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "polymarket-quant-bot-lite"
-version = "0.4.0"
+version = "0.5.0"
 description = "Polymarket quant trading worker and simulation dashboard"
 requires-python = ">=3.10"
 dependencies = ["requests>=2.31.0", "python-dotenv>=1.0.0", "rich>=13.0.0", "fastapi>=0.110", "uvicorn[standard]>=0.29", "sqlalchemy>=2.0", "pydantic>=2.6", "httpx>=0.27", "websockets>=12.0"]
