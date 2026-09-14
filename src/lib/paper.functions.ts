@@ -17,6 +17,35 @@ const DEFAULT_BANKROLL = 10_000;
 
 type Ctx = { supabase: any; userId: string };
 
+/**
+ * Mirror a filled paper trade into the Render worker's ledger so Control Room
+ * stats include desk activity. Entries only — closes are realized locally.
+ */
+async function mirrorPaperFill(input: {
+  action: "BUY" | "SELL";
+  market: string;
+  side: "UP" | "DOWN";
+  price: number;
+  sizeUsd: number;
+  balance: number;
+}): Promise<{ mirrored: boolean; reason?: string; workerStatus?: string; workerTradeId?: number | null }> {
+  if (input.action !== "BUY") {
+    return { mirrored: false, reason: "worker mirrors position entries only" };
+  }
+  try {
+    const { mirrorTradeToWorker } = await import("@/lib/worker.server");
+    return await mirrorTradeToWorker({
+      marketSlug: input.market,
+      side: input.side,
+      price: input.price,
+      sizeUsd: input.sizeUsd,
+      balance: Math.max(input.balance, input.sizeUsd),
+    });
+  } catch {
+    return { mirrored: false, reason: "worker bridge unavailable" };
+  }
+}
+
 /** Dedicated non-blocking market-price payload for the Paper Desk. */
 export const getPaperMarketPrices = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -215,7 +244,8 @@ export const executePaperOrder = createServerFn({ method: "POST" })
     if (accountWrite.error) throw new Error(accountWrite.error.message);
     const tradeWrite = await ctx.supabase.from("paper_trades").insert({ user_id: ctx.userId, market: data.market, side: data.side, action: data.action, price: avgFillPrice, shares: filledShares, size_usd: notional, realized_pnl: realized, cash_after: cashAfter, reason: data.reason, gates, client_order_id: data.clientOrderId, execution_mode: "paper" });
     if (tradeWrite.error) throw new Error(tradeWrite.error.message);
-    return { status: executed.status === "FILLED" ? "filled" as const : "partial" as const, orderId: orderInsert.data.id, state: executed.status, requestedShares, filledShares, remainingShares: requestedShares - filledShares, avgFillPrice, fees, slippage: avgFillPrice - data.price, timestamp: orderInsert.data.updated_at, position: data.market, realizedPnl: realized, unrealizedPnl: 0, reason: data.reason, cashAfter };
+    const worker = await mirrorPaperFill({ action: data.action, market: data.market, side: data.side, price: avgFillPrice, sizeUsd: notional, balance: cashAfter });
+    return { status: executed.status === "FILLED" ? "filled" as const : "partial" as const, orderId: orderInsert.data.id, state: executed.status, requestedShares, filledShares, remainingShares: requestedShares - filledShares, avgFillPrice, fees, slippage: avgFillPrice - data.price, timestamp: orderInsert.data.updated_at, position: data.market, realizedPnl: realized, unrealizedPnl: 0, reason: data.reason, cashAfter, worker };
   });
 
 /** Paper BUY — compatibility wrapper. Canonical UI execution uses executePaperOrder. */
