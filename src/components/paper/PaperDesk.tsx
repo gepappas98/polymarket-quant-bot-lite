@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, RotateCcw, ShieldCheck } from "lucide-react";
 
 import { getBotStatus } from "@/lib/bot.functions";
+import { invalidateControlRoom } from "@/lib/controlRoom";
 import {
   checkPaperGates,
   getPaperState,
@@ -145,6 +146,8 @@ export function PaperDesk() {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["paper-state"] });
     qc.invalidateQueries({ queryKey: ["paper-gates"] });
+    // Worker-backed Control Room stats change as soon as a fill is mirrored.
+    invalidateControlRoom(qc);
   };
 
   const buyMutation = useMutation({
@@ -176,6 +179,12 @@ export function PaperDesk() {
         toast.success(
           `Paper ${result.state} ${result.filledShares.toFixed(2)} shares @ ${(result.avgFillPrice ?? 0).toFixed(3)}`,
         );
+        const worker = "worker" in result ? result.worker : undefined;
+        if (worker && !worker.mirrored) {
+          toast.message("Control Room not updated", {
+            description: worker.reason ?? "worker did not accept the trade",
+          });
+        }
       }
       invalidate();
     },
