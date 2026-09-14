@@ -89,7 +89,26 @@ export const logTrade = createServerFn({ method: "POST" })
         .select("id")
         .single();
       if (error) throw new Error(error.message);
-      return { id: row.id };
+      // Mirror desk entries into the worker ledger so Control Room stats move.
+      let worker: { mirrored: boolean; reason?: string; workerStatus?: string } = {
+        mirrored: false,
+        reason: "worker mirrors position entries only",
+      };
+      if (side === "BUY" && (data.price ?? 0) > 0) {
+        try {
+          const { mirrorTradeToWorker } = await import("@/lib/worker.server");
+          worker = await mirrorTradeToWorker({
+            marketSlug: data.market,
+            side: "UP",
+            price: data.price ?? 0,
+            sizeUsd: data.size * (data.price ?? 0),
+            balance: Math.max(data.size * (data.price ?? 0), 1),
+          });
+        } catch {
+          worker = { mirrored: false, reason: "worker bridge unavailable" };
+        }
+      }
+      return { id: row.id, worker };
     }
 
     const { data: row, error } = await supabase
