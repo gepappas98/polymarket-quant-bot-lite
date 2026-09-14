@@ -1,7 +1,9 @@
 /** Real Polymarket CLOB L2 market data with PAPER execution only. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useQueryClient } from "@tanstack/react-query";
 import { getCooldown, logTrade } from "@/lib/trading.functions";
+import { invalidateControlRoom } from "@/lib/controlRoom";
 import type { PolymarketBookLevel } from "@/lib/polymarket.types";
 
 export const MARKET_DATA_SOURCE = "REAL_POLYMARKET_CLOB_WS" as const;
