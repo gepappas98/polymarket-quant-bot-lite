@@ -340,7 +340,8 @@ export const paperBuy = createServerFn({ method: "POST" })
       execution_mode: "paper",
     });
 
-    return { status: "filled" as const, gates, shares, cashAfter };
+    const worker = await mirrorPaperFill({ action: "BUY", market: data.market, side: data.side, price: data.price, sizeUsd: data.sizeUsd, balance: cashAfter });
+    return { status: "filled" as const, gates, shares, cashAfter, worker };
   });
 
 /** Paper SELL / close — realizes P&L on part or all of a position. */
