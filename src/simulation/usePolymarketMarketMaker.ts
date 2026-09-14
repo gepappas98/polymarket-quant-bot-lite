@@ -180,9 +180,12 @@ export function usePolymarketMarketMaker(opts: MmOptions) {
     if (side === "BUY") { const total = inventory + qty; avgCostRef.current = total ? (avgCostRef.current * inventory + price * qty) / total : price; setInventory(total); } else setInventory((value) => value - qty);
     setRealizedPnl((value) => value + pnl);
     setFills((previous) => [{ ts: Date.now(), side, price, size: qty, pnl, executionMode: EXECUTION_MODE, status: FILL_STATUS }, ...previous].slice(0, 50));
-    void log({ data: { table: "mm_trades", market: `${marketId}:${tokenId}`, side, price, size: qty, pnl, strategy: "market_making_paper_simulated" } }).catch(() => undefined);
+    void log({ data: { table: "mm_trades", market: `${marketId}:${tokenId}`, side, price, size: qty, pnl, strategy: "market_making_paper_simulated" } })
+      // A logged entry is mirrored to the worker server-side, so refresh Control Room.
+      .then(() => invalidateControlRoom(qc))
+      .catch(() => undefined);
     void cooldown({ data: { market: `${marketId}:${tokenId}`, arm: true, cooldownSeconds } }).catch(() => undefined);
-  }, [cooldown, cooldownSeconds, inventory, log, marketId, sizeUsd, spreadBps, state]);
+  }, [cooldown, cooldownSeconds, inventory, log, marketId, qc, sizeUsd, spreadBps, state]);
 
   return { ...state, price: state.mid, bid: state.bestBid, ask: state.bestAsk, fills, inventory, realizedPnl, unrealizedPnl: state.mid !== null ? (state.mid - avgCostRef.current) * inventory : 0, avgCost: avgCostRef.current, executionMode: EXECUTION_MODE, fillStatus: FILL_STATUS, marketDataSource: MARKET_DATA_SOURCE };
 }

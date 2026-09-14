@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, RotateCcw, ShieldCheck } from "lucide-react";
 
 import { getBotStatus } from "@/lib/bot.functions";
+import { invalidateControlRoom } from "@/lib/controlRoom";
 import {
   checkPaperGates,
   getPaperState,
