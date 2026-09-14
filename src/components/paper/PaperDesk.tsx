@@ -179,6 +179,12 @@ export function PaperDesk() {
         toast.success(
           `Paper ${result.state} ${result.filledShares.toFixed(2)} shares @ ${(result.avgFillPrice ?? 0).toFixed(3)}`,
         );
+        const worker = "worker" in result ? result.worker : undefined;
+        if (worker && !worker.mirrored) {
+          toast.message("Control Room not updated", {
+            description: worker.reason ?? "worker did not accept the trade",
+          });
+        }
       }
       invalidate();
     },
