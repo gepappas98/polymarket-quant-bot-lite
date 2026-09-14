@@ -145,6 +145,8 @@ export function PaperDesk() {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["paper-state"] });
     qc.invalidateQueries({ queryKey: ["paper-gates"] });
+    // Worker-backed Control Room stats change as soon as a fill is mirrored.
+    invalidateControlRoom(qc);
   };
 
   const buyMutation = useMutation({
