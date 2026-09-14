@@ -134,6 +134,7 @@ export function usePolymarketMarketMaker(opts: MmOptions) {
   const { marketId, tokenId, spreadBps, sizeUsd, running, cooldownSeconds } = opts;
   const log = useServerFn(logTrade);
   const cooldown = useServerFn(getCooldown);
+  const qc = useQueryClient();
   const [state, setState] = useState<RealMmState>({ marketId, tokenId, connected: false, stale: true, lastError: null, book: null, ...bookMetrics(null) });
   const [fills, setFills] = useState<MmFill[]>([]);
   const [inventory, setInventory] = useState(0);
