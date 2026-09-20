@@ -67,6 +67,8 @@ export const logTrade = createServerFn({ method: "POST" })
         wallet: z.string().optional(),
         strategy: z.string().optional(),
         status: z.enum(["pending", "mirrored", "skipped", "closed"]).optional(),
+        conviction: z.number().gt(0).lte(1).optional(),
+
       })
       .parse(input),
   )
@@ -90,7 +92,13 @@ export const logTrade = createServerFn({ method: "POST" })
         .single();
       if (error) throw new Error(error.message);
       // Mirror desk entries into the worker ledger so Control Room stats move.
-      let worker: { mirrored: boolean; reason?: string; workerStatus?: string } = {
+      let worker: {
+        mirrored: boolean;
+        reason?: string;
+        workerStatus?: string;
+        conviction?: number;
+        noEdge?: boolean;
+      } = {
         mirrored: false,
         reason: "worker mirrors position entries only",
       };
@@ -103,6 +111,7 @@ export const logTrade = createServerFn({ method: "POST" })
             price: data.price ?? 0,
             sizeUsd: data.size * (data.price ?? 0),
             balance: Math.max(data.size * (data.price ?? 0), 1),
+            ...(data.conviction !== undefined ? { conviction: data.conviction } : {}),
           });
         } catch {
           worker = { mirrored: false, reason: "worker bridge unavailable" };

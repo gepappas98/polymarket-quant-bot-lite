@@ -25,6 +25,7 @@ import { Route as AuthenticatedPaperHistoryRouteImport } from './routes/_authent
 import { Route as AuthenticatedPaperOrdersRouteImport } from './routes/_authenticated/paper.orders'
 import { Route as AuthenticatedPaperReconcileRouteImport } from './routes/_authenticated/paper.reconcile'
 import { Route as ApiPublicBotStatusRouteImport } from './routes/api/public/bot-status'
+import { Route as ApiPublicWorkerMetricsRouteImport } from './routes/api/public/worker-metrics'
 import { Route as ApiPublicHooksMonitorAlertsRouteImport } from './routes/api/public/hooks/monitor-alerts'
 
 const IndexRoute = IndexRouteImport.update({
@@ -109,6 +110,11 @@ const ApiPublicBotStatusRoute = ApiPublicBotStatusRouteImport.update({
   path: '/api/public/bot-status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWorkerMetricsRoute = ApiPublicWorkerMetricsRouteImport.update({
+  id: '/api/public/worker-metrics',
+  path: '/api/public/worker-metrics',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksMonitorAlertsRoute =
   ApiPublicHooksMonitorAlertsRouteImport.update({
     id: '/api/public/hooks/monitor-alerts',
@@ -131,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/paper/orders': typeof AuthenticatedPaperOrdersRoute
   '/paper/reconcile': typeof AuthenticatedPaperReconcileRoute
   '/api/public/bot-status': typeof ApiPublicBotStatusRoute
+  '/api/public/worker-metrics': typeof ApiPublicWorkerMetricsRoute
   '/paper/': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/paper/orders': typeof AuthenticatedPaperOrdersRoute
   '/paper/reconcile': typeof AuthenticatedPaperReconcileRoute
   '/api/public/bot-status': typeof ApiPublicBotStatusRoute
+  '/api/public/worker-metrics': typeof ApiPublicWorkerMetricsRoute
   '/paper': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/_authenticated/paper/orders': typeof AuthenticatedPaperOrdersRoute
   '/_authenticated/paper/reconcile': typeof AuthenticatedPaperReconcileRoute
   '/api/public/bot-status': typeof ApiPublicBotStatusRoute
+  '/api/public/worker-metrics': typeof ApiPublicWorkerMetricsRoute
   '/_authenticated/paper/': typeof AuthenticatedPaperIndexRoute
   '/api/public/hooks/monitor-alerts': typeof ApiPublicHooksMonitorAlertsRoute
 }
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/paper/orders'
     | '/paper/reconcile'
     | '/api/public/bot-status'
+    | '/api/public/worker-metrics'
     | '/paper/'
     | '/api/public/hooks/monitor-alerts'
   fileRoutesByTo: FileRoutesByTo
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/paper/orders'
     | '/paper/reconcile'
     | '/api/public/bot-status'
+    | '/api/public/worker-metrics'
     | '/paper'
     | '/api/public/hooks/monitor-alerts'
   id:
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/_authenticated/paper/orders'
     | '/_authenticated/paper/reconcile'
     | '/api/public/bot-status'
+    | '/api/public/worker-metrics'
     | '/_authenticated/paper/'
     | '/api/public/hooks/monitor-alerts'
   fileRoutesById: FileRoutesById
@@ -236,6 +248,7 @@ export interface RootRouteChildren {
   LeadersRoute: typeof LeadersRoute
   SizingRoute: typeof SizingRoute
   ApiPublicBotStatusRoute: typeof ApiPublicBotStatusRoute
+  ApiPublicWorkerMetricsRoute: typeof ApiPublicWorkerMetricsRoute
   ApiPublicHooksMonitorAlertsRoute: typeof ApiPublicHooksMonitorAlertsRoute
 }
 
@@ -353,6 +366,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBotStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/worker-metrics': {
+      id: '/api/public/worker-metrics'
+      path: '/api/public/worker-metrics'
+      fullPath: '/api/public/worker-metrics'
+      preLoaderRoute: typeof ApiPublicWorkerMetricsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/monitor-alerts': {
       id: '/api/public/hooks/monitor-alerts'
       path: '/api/public/hooks/monitor-alerts'
@@ -415,6 +435,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeadersRoute: LeadersRoute,
   SizingRoute: SizingRoute,
   ApiPublicBotStatusRoute: ApiPublicBotStatusRoute,
+  ApiPublicWorkerMetricsRoute: ApiPublicWorkerMetricsRoute,
   ApiPublicHooksMonitorAlertsRoute: ApiPublicHooksMonitorAlertsRoute,
 }
 export const routeTree = rootRouteImport
