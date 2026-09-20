@@ -370,6 +370,8 @@ export const paperBuy = createServerFn({ method: "POST" })
       .eq("user_id", ctx.userId);
     if (accountError) throw new Error(accountError.message);
 
+    const worker = await mirrorPaperFill({ action: "BUY", market: data.market, side: data.side, price: data.price, sizeUsd: data.sizeUsd, balance: cashAfter, ...(data.conviction !== undefined ? { conviction: data.conviction } : {}) });
+
     await ctx.supabase.from("paper_trades").insert({
       user_id: ctx.userId,
       market: data.market,
@@ -384,9 +386,11 @@ export const paperBuy = createServerFn({ method: "POST" })
       gates,
       client_order_id: data.clientOrderId ?? null,
       execution_mode: "paper",
+      conviction: worker.conviction ?? data.conviction ?? null,
+      worker_mirrored: worker.mirrored,
+      worker_reason: worker.reason ?? null,
     });
 
-    const worker = await mirrorPaperFill({ action: "BUY", market: data.market, side: data.side, price: data.price, sizeUsd: data.sizeUsd, balance: cashAfter });
     return { status: "filled" as const, gates, shares, cashAfter, worker };
   });
 
