@@ -229,6 +229,8 @@ export const executePaperOrder = createServerFn({ method: "POST" })
     price: z.number().gt(0).lte(1),
     sizeUsd: z.number().positive().max(1_000_000),
     positionId: z.string().uuid().optional(),
+    conviction: z.number().gt(0).lte(1).optional(),
+
     clientOrderId: z.string().min(1).max(128),
     reason: z.string().max(200).default("manual paper order"),
   }).parse(input))
@@ -284,9 +286,9 @@ export const executePaperOrder = createServerFn({ method: "POST" })
     const cashAfter = Number(account.cash) + (data.action === "BUY" ? -proceedsOrCost : proceedsOrCost);
     const accountWrite = await ctx.supabase.from("paper_account").update({ cash: cashAfter, realized_pnl: Number(account.realized_pnl) + realized, updated_at: new Date().toISOString() }).eq("user_id", ctx.userId);
     if (accountWrite.error) throw new Error(accountWrite.error.message);
-    const tradeWrite = await ctx.supabase.from("paper_trades").insert({ user_id: ctx.userId, market: data.market, side: data.side, action: data.action, price: avgFillPrice, shares: filledShares, size_usd: notional, realized_pnl: realized, cash_after: cashAfter, reason: data.reason, gates, client_order_id: data.clientOrderId, execution_mode: "paper" });
+    const worker = await mirrorPaperFill({ action: data.action, market: data.market, side: data.side, price: avgFillPrice, sizeUsd: notional, balance: cashAfter, ...(data.conviction !== undefined ? { conviction: data.conviction } : {}) });
+    const tradeWrite = await ctx.supabase.from("paper_trades").insert({ user_id: ctx.userId, market: data.market, side: data.side, action: data.action, price: avgFillPrice, shares: filledShares, size_usd: notional, realized_pnl: realized, cash_after: cashAfter, reason: data.reason, gates, client_order_id: data.clientOrderId, execution_mode: "paper", conviction: worker.conviction ?? data.conviction ?? null, worker_mirrored: worker.mirrored, worker_reason: worker.reason ?? null });
     if (tradeWrite.error) throw new Error(tradeWrite.error.message);
-    const worker = await mirrorPaperFill({ action: data.action, market: data.market, side: data.side, price: avgFillPrice, sizeUsd: notional, balance: cashAfter });
     return { status: executed.status === "FILLED" ? "filled" as const : "partial" as const, orderId: orderInsert.data.id, state: executed.status, requestedShares, filledShares, remainingShares: requestedShares - filledShares, avgFillPrice, fees, slippage: avgFillPrice - data.price, timestamp: orderInsert.data.updated_at, position: data.market, realizedPnl: realized, unrealizedPnl: 0, reason: data.reason, cashAfter, worker };
   });
 
@@ -301,6 +303,8 @@ export const paperBuy = createServerFn({ method: "POST" })
         price: z.number().gt(0).lte(1),
         sizeUsd: z.number().positive().max(1_000_000),
         clientOrderId: z.string().min(1).max(128).optional(),
+        conviction: z.number().gt(0).lte(1).optional(),
+
         reason: z.string().max(200).default("manual paper buy"),
       })
       .parse(input),
