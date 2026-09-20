@@ -67,6 +67,8 @@ export const logTrade = createServerFn({ method: "POST" })
         wallet: z.string().optional(),
         strategy: z.string().optional(),
         status: z.enum(["pending", "mirrored", "skipped", "closed"]).optional(),
+        conviction: z.number().gt(0).lte(1).optional(),
+
       })
       .parse(input),
   )
