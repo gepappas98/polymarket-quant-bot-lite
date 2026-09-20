@@ -646,6 +646,7 @@ export type Database = {
           action: string
           cash_after: number
           client_order_id: string | null
+          conviction: number | null
           created_at: string
           execution_mode: string
           gates: Json | null
@@ -658,11 +659,14 @@ export type Database = {
           side: string
           size_usd: number
           user_id: string
+          worker_mirrored: boolean | null
+          worker_reason: string | null
         }
         Insert: {
           action: string
           cash_after?: number
           client_order_id?: string | null
+          conviction?: number | null
           created_at?: string
           execution_mode?: string
           gates?: Json | null
@@ -675,11 +679,14 @@ export type Database = {
           side: string
           size_usd: number
           user_id: string
+          worker_mirrored?: boolean | null
+          worker_reason?: string | null
         }
         Update: {
           action?: string
           cash_after?: number
           client_order_id?: string | null
+          conviction?: number | null
           created_at?: string
           execution_mode?: string
           gates?: Json | null
@@ -692,6 +699,8 @@ export type Database = {
           side?: string
           size_usd?: number
           user_id?: string
+          worker_mirrored?: boolean | null
+          worker_reason?: string | null
         }
         Relationships: []
       }
