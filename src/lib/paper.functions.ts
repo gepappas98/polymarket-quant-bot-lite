@@ -28,7 +28,15 @@ async function mirrorPaperFill(input: {
   price: number;
   sizeUsd: number;
   balance: number;
-}): Promise<{ mirrored: boolean; reason?: string; workerStatus?: string; workerTradeId?: number | null }> {
+  conviction?: number;
+}): Promise<{
+  mirrored: boolean;
+  reason?: string;
+  workerStatus?: string;
+  workerTradeId?: number | null;
+  conviction?: number;
+  noEdge?: boolean;
+}> {
   if (input.action !== "BUY") {
     return { mirrored: false, reason: "worker mirrors position entries only" };
   }
@@ -40,11 +48,45 @@ async function mirrorPaperFill(input: {
       price: input.price,
       sizeUsd: input.sizeUsd,
       balance: Math.max(input.balance, input.sizeUsd),
+      ...(input.conviction !== undefined ? { conviction: input.conviction } : {}),
     });
   } catch {
     return { mirrored: false, reason: "worker bridge unavailable" };
   }
 }
+
+/** Desk conviction stats for Control Room: what edge the desk traded on. */
+export const getDeskConviction = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const ctx = context as unknown as Ctx;
+    const { data, error } = await ctx.supabase
+      .from("paper_trades")
+      .select("conviction, worker_mirrored, worker_reason, created_at")
+      .eq("user_id", ctx.userId)
+      .eq("action", "BUY")
+      .not("conviction", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as {
+      conviction: number | null;
+      worker_mirrored: boolean | null;
+      worker_reason: string | null;
+      created_at: string;
+    }[];
+    const values = rows.map((row) => Number(row.conviction)).filter((n) => Number.isFinite(n));
+    const mirrored = rows.filter((row) => row.worker_mirrored === true).length;
+    return {
+      samples: rows.length,
+      avgConviction: values.length ? values.reduce((a, b) => a + b, 0) / values.length : null,
+      lastConviction: values[0] ?? null,
+      lastReason: rows[0]?.worker_reason ?? null,
+      mirrored,
+      rejected: rows.length - mirrored,
+    };
+  });
+
 
 /** Dedicated non-blocking market-price payload for the Paper Desk. */
 export const getPaperMarketPrices = createServerFn({ method: "GET" })
